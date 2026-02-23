@@ -66,6 +66,7 @@ export function getTotalWaitTime(phase: "processing" | "downloading"): number {
   return phase === "processing" ? 45 : 60;
 }
 
+// 3 questions total: Q1 shown in STEP2, Q2+Q3 shown in STEP4
 export const SURVEY_QUESTIONS: SurveyQuestion[] = [
   {
     id: "q1",
@@ -82,9 +83,9 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
     question: "お友達にもおすすめしたいですか？",
     options: ["ぜったいおすすめ！", "おすすめする", "わからない", "おすすめしない"],
   },
-  {
-    id: "q4",
-    question: "写真サービスについてどう思いますか？",
-    options: ["とても便利！", "便利", "ふつう", "使いにくい"],
-  },
 ];
+
+// STEP2 gets Q1 only
+export const SURVEY_QUESTIONS_STEP2 = SURVEY_QUESTIONS.slice(0, 1);
+// STEP4 gets Q2 + Q3
+export const SURVEY_QUESTIONS_STEP4 = SURVEY_QUESTIONS.slice(1, 3);

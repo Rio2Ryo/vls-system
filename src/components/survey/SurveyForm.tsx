@@ -8,27 +8,24 @@ import RainbowButton from "@/components/ui/RainbowButton";
 interface SurveyFormProps {
   questions: SurveyQuestion[];
   onComplete: (answers: SurveyAnswer[]) => void;
-  startIndex?: number;
 }
 
-const OPTION_COLORS = [
-  "from-pink-400 to-red-400",
-  "from-yellow-400 to-orange-400",
-  "from-green-400 to-emerald-400",
-  "from-blue-400 to-indigo-400",
+const OPTION_GRADIENTS = [
+  "linear-gradient(135deg, #FF69B4, #FF1493)",
+  "linear-gradient(135deg, #FFD700, #FFA500)",
+  "linear-gradient(135deg, #00CED1, #00BFFF)",
+  "linear-gradient(135deg, #B088F9, #9B59B6)",
 ];
 
 export default function SurveyForm({
   questions,
   onComplete,
-  startIndex = 0,
 }: SurveyFormProps) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<SurveyAnswer[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
 
-  const actualQuestions = questions.slice(startIndex);
-  const currentQuestion = actualQuestions[currentIdx];
+  const currentQuestion = questions[currentIdx];
 
   if (!currentQuestion) {
     return null;
@@ -45,7 +42,7 @@ export default function SurveyForm({
     setAnswers(newAnswers);
     setSelected(null);
 
-    if (currentIdx < actualQuestions.length - 1) {
+    if (currentIdx < questions.length - 1) {
       setCurrentIdx(currentIdx + 1);
     } else {
       onComplete(newAnswers);
@@ -63,11 +60,18 @@ export default function SurveyForm({
           className="space-y-4"
         >
           <div className="text-center mb-6">
-            <span className="text-xs bg-purple-100 text-purple-600 px-3 py-1 rounded-full font-bold">
-              質問 {currentIdx + 1} / {actualQuestions.length}
+            <span
+              className="text-xs px-3 py-1 rounded-full font-bold"
+              style={{
+                background: "rgba(255, 215, 0, 0.15)",
+                color: "#FFD700",
+                border: "1px solid rgba(255, 215, 0, 0.3)",
+              }}
+            >
+              質問 {currentIdx + 1} / {questions.length}
             </span>
           </div>
-          <h3 className="text-xl font-bold text-center text-gray-800 mb-6">
+          <h3 className="text-xl font-bold text-center mb-6" style={{ color: "#F0E6FF" }}>
             {currentQuestion.question}
           </h3>
           <div className="space-y-3">
@@ -77,14 +81,20 @@ export default function SurveyForm({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleSelect(option)}
-                className={`
-                  w-full p-4 rounded-xl text-left font-medium transition-all
-                  ${
-                    selected === option
-                      ? `bg-gradient-to-r ${OPTION_COLORS[i % OPTION_COLORS.length]} text-white shadow-lg`
-                      : "bg-white border-2 border-gray-200 text-gray-700 hover:border-purple-300"
-                  }
-                `}
+                className="w-full p-4 rounded-xl text-left font-medium transition-all"
+                style={
+                  selected === option
+                    ? {
+                        background: OPTION_GRADIENTS[i % OPTION_GRADIENTS.length],
+                        color: "white",
+                        boxShadow: "0 0 15px rgba(255, 215, 0, 0.3)",
+                      }
+                    : {
+                        background: "rgba(255, 255, 255, 0.05)",
+                        color: "#F0E6FF",
+                        border: "2px solid rgba(255, 215, 0, 0.2)",
+                      }
+                }
               >
                 {option}
               </motion.button>
@@ -92,7 +102,7 @@ export default function SurveyForm({
           </div>
           <div className="text-center mt-6">
             <RainbowButton onClick={handleNext} disabled={!selected} size="md">
-              {currentIdx < actualQuestions.length - 1 ? "つぎへ →" : "かんりょう！"}
+              {currentIdx < questions.length - 1 ? "つぎへ →" : "かんりょう！"}
             </RainbowButton>
           </div>
         </motion.div>

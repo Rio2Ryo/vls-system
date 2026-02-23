@@ -39,16 +39,23 @@ export default function UploadPage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 pt-12">
+    <main className="min-h-screen flex flex-col items-center p-6 pt-12 relative z-10">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-8"
       >
-        <h1 className="text-3xl font-extrabold text-purple-600 mb-2">
+        <h1
+          className="text-3xl font-extrabold mb-2"
+          style={{
+            background: "linear-gradient(135deg, #FFD700, #FF69B4)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
           写真をアップロード
         </h1>
-        <p className="text-gray-500">イベントの写真を選んでね</p>
+        <p style={{ color: "rgba(255, 215, 0, 0.6)" }}>イベントの写真を選んでね</p>
       </motion.div>
 
       {/* Drop zone */}
@@ -63,18 +70,25 @@ export default function UploadPage() {
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`
-          w-full max-w-lg border-4 border-dashed rounded-3xl p-8 text-center cursor-pointer
-          transition-colors
-          ${isDragging ? "border-purple-500 bg-purple-50" : "border-purple-200 bg-white/60"}
-        `}
+        className="w-full max-w-lg rounded-3xl p-8 text-center cursor-pointer transition-colors"
+        style={{
+          border: isDragging
+            ? "4px dashed #FFD700"
+            : "4px dashed rgba(255, 215, 0, 0.3)",
+          background: isDragging
+            ? "rgba(255, 215, 0, 0.05)"
+            : "rgba(26, 0, 80, 0.4)",
+          boxShadow: isDragging
+            ? "0 0 30px rgba(255, 215, 0, 0.2)"
+            : "none",
+        }}
         data-testid="drop-zone"
       >
         <div className="text-6xl mb-4">📸</div>
-        <p className="text-lg font-bold text-gray-600">
+        <p className="text-lg font-bold" style={{ color: "#FFD700" }}>
           タップして写真を選ぶ
         </p>
-        <p className="text-sm text-gray-400 mt-1">
+        <p className="text-sm mt-1" style={{ color: "rgba(255, 215, 0, 0.4)" }}>
           またはここにドラッグ＆ドロップ
         </p>
         <input
@@ -96,7 +110,7 @@ export default function UploadPage() {
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-lg mt-6"
           >
-            <p className="text-sm font-bold text-gray-600 mb-3" data-testid="photo-count">
+            <p className="text-sm font-bold mb-3" style={{ color: "#FFD700" }} data-testid="photo-count">
               選んだ写真: {previews.length}枚
             </p>
             <div className="grid grid-cols-3 gap-3">
@@ -106,7 +120,11 @@ export default function UploadPage() {
                   initial={{ opacity: 0, scale: 0 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0 }}
-                  className="relative aspect-square rounded-xl overflow-hidden shadow-md"
+                  className="relative aspect-square rounded-xl overflow-hidden"
+                  style={{
+                    border: "2px solid rgba(255, 215, 0, 0.3)",
+                    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.3)",
+                  }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -119,7 +137,8 @@ export default function UploadPage() {
                       e.stopPropagation();
                       removePhoto(i);
                     }}
-                    className="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold shadow"
+                    className="absolute top-1 right-1 text-white w-6 h-6 rounded-full text-xs font-bold shadow"
+                    style={{ backgroundColor: "#FF69B4" }}
                     data-testid={`remove-photo-${i}`}
                   >
                     ✕

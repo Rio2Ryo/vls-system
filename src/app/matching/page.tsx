@@ -21,17 +21,24 @@ export default function MatchingPage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 pt-12">
+    <main className="min-h-screen flex flex-col items-center p-6 pt-12 relative z-10">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-6"
       >
-        <h1 className="text-3xl font-extrabold text-purple-600 mb-2">
+        <h1
+          className="text-3xl font-extrabold mb-2"
+          style={{
+            background: "linear-gradient(135deg, #FFD700, #00CED1)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
           みつかったよ！
         </h1>
-        <p className="text-gray-500">
-          あなたの写真が <span className="font-bold text-purple-500">{results.length}枚</span> みつかりました
+        <p style={{ color: "rgba(255, 215, 0, 0.7)" }}>
+          あなたの写真が <span className="font-bold" style={{ color: "#FF69B4" }}>{results.length}枚</span> みつかりました
         </p>
       </motion.div>
 
@@ -42,8 +49,8 @@ export default function MatchingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h2 className="text-lg font-bold text-green-600 mb-3 flex items-center gap-2">
-              <span className="w-3 h-3 bg-green-500 rounded-full" />
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2" style={{ color: "#00CED1" }}>
+              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#00CED1", boxShadow: "0 0 8px #00CED1" }} />
               確実マッチ ({grouped.certain.length}枚)
             </h2>
             <MatchResultComponent
@@ -61,8 +68,8 @@ export default function MatchingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <h2 className="text-lg font-bold text-blue-600 mb-3 flex items-center gap-2">
-              <span className="w-3 h-3 bg-blue-500 rounded-full" />
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2" style={{ color: "#FFD700" }}>
+              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#FFD700", boxShadow: "0 0 8px #FFD700" }} />
               高確率マッチ ({grouped.high.length}枚)
             </h2>
             <MatchResultComponent
@@ -80,8 +87,8 @@ export default function MatchingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            <h2 className="text-lg font-bold text-yellow-600 mb-3 flex items-center gap-2">
-              <span className="w-3 h-3 bg-yellow-500 rounded-full" />
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2" style={{ color: "#FF69B4" }}>
+              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#FF69B4", boxShadow: "0 0 8px #FF69B4" }} />
               要確認 ({grouped.review.length}枚)
             </h2>
             <MatchResultComponent

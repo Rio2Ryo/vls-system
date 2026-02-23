@@ -29,26 +29,34 @@ export default function TopPage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6">
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 relative z-10">
       <motion.div
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-8"
       >
+        <motion.div
+          className="text-4xl mb-4"
+          animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        >
+          ✨🧙‍♂️✨
+        </motion.div>
         <motion.h1
           className="text-5xl md:text-7xl font-extrabold mb-4"
           style={{
-            background: "linear-gradient(135deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #9b59b6)",
+            background: "linear-gradient(135deg, #FFD700, #FF69B4, #00CED1, #FFD700)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
+            filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.3))",
           }}
         >
           VLS
         </motion.h1>
-        <p className="text-xl text-gray-600 font-medium">
+        <p className="text-xl font-medium" style={{ color: "#FFD700" }}>
           Video Launch System
         </p>
-        <p className="text-sm text-gray-400 mt-1">
+        <p className="text-sm mt-1" style={{ color: "rgba(255, 215, 0, 0.5)" }}>
           イベント写真マッチングシステム
         </p>
       </motion.div>
@@ -58,12 +66,18 @@ export default function TopPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
         onSubmit={handleSubmit}
-        className="w-full max-w-md bg-white/80 backdrop-blur rounded-3xl shadow-xl p-8 space-y-6"
+        className="w-full max-w-md rounded-3xl shadow-xl p-8 space-y-6 glow-card"
+        style={{
+          background: "rgba(26, 0, 80, 0.6)",
+          backdropFilter: "blur(10px)",
+          border: "1px solid rgba(255, 215, 0, 0.2)",
+        }}
       >
         <div>
           <label
             htmlFor="eventCode"
-            className="block text-lg font-bold text-gray-700 mb-2"
+            className="block text-lg font-bold mb-2"
+            style={{ color: "#FFD700" }}
           >
             イベントコード
           </label>
@@ -73,14 +87,20 @@ export default function TopPage() {
             value={eventCode}
             onChange={(e) => setEventCode(e.target.value)}
             placeholder="例: SUMMER2026"
-            className="w-full px-4 py-3 rounded-xl border-2 border-purple-200 focus:border-purple-500 focus:outline-none text-lg text-center font-mono tracking-wider"
+            className="w-full px-4 py-3 rounded-xl text-lg text-center font-mono tracking-wider focus:outline-none"
+            style={{
+              background: "rgba(255, 255, 255, 0.05)",
+              border: "2px solid rgba(255, 215, 0, 0.3)",
+              color: "#F0E6FF",
+            }}
             data-testid="event-code-input"
           />
           {error && (
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-red-500 text-sm mt-2 text-center"
+              className="text-sm mt-2 text-center"
+              style={{ color: "#FF69B4" }}
               data-testid="error-message"
             >
               {error}

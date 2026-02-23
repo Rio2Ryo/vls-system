@@ -14,7 +14,7 @@ export default function CompletePage() {
   }, []);
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6">
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 relative z-10">
       {showConfetti && <Confetti />}
 
       <motion.div
@@ -27,6 +27,7 @@ export default function CompletePage() {
           className="text-8xl mb-6"
           animate={{ rotate: [0, 10, -10, 10, 0] }}
           transition={{ duration: 1, delay: 0.5 }}
+          style={{ filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.5))" }}
         >
           🎉
         </motion.div>
@@ -34,18 +35,19 @@ export default function CompletePage() {
         <h1
           className="text-4xl md:text-6xl font-extrabold mb-4"
           style={{
-            background: "linear-gradient(135deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #9b59b6)",
+            background: "linear-gradient(135deg, #FFD700, #FF69B4, #00CED1, #FFD700)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
+            filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.3))",
           }}
         >
           かんりょう！
         </h1>
 
-        <p className="text-xl text-gray-600 mb-2">
+        <p className="text-xl mb-2" style={{ color: "#FFD700" }}>
           写真のダウンロードができたよ！
         </p>
-        <p className="text-gray-400 mb-8">
+        <p className="mb-8" style={{ color: "rgba(255, 215, 0, 0.5)" }}>
           たのしいおもいでをありがとう！
         </p>
       </motion.div>
@@ -70,7 +72,8 @@ export default function CompletePage() {
             href="https://example.com/lp"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-purple-500 underline font-medium hover:text-purple-700 transition-colors"
+            className="font-medium underline transition-colors hover:opacity-80"
+            style={{ color: "#00CED1" }}
             data-testid="lp-link"
           >
             サービスについてもっとくわしく →

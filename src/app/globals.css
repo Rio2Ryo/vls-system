@@ -3,8 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --background: #fefce8;
-  --foreground: #1e1b4b;
+  --deep-purple: #1A0050;
+  --magic-gold: #FFD700;
+  --hot-pink: #FF69B4;
+  --cyan: #00CED1;
+  --background: #0D0028;
+  --foreground: #F0E6FF;
 }
 
 body {
@@ -14,36 +18,60 @@ body {
   min-height: 100vh;
 }
 
-/* Rainbow gradient background */
-.bg-rainbow {
-  background: linear-gradient(
-    135deg,
-    #fff1f2 0%,
-    #fef3c7 20%,
-    #ecfccb 40%,
-    #cffafe 60%,
-    #e0e7ff 80%,
-    #fce7f3 100%
-  );
+/* Magical night sky background */
+.bg-magical {
+  background: radial-gradient(ellipse at 50% 0%, #1A0050 0%, #0D0028 50%, #050014 100%);
+  position: relative;
+}
+
+.bg-magical::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 20% 10%, #FFD700 0%, transparent 100%),
+    radial-gradient(2px 2px at 40% 20%, #FF69B4 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 15%, #00CED1 0%, transparent 100%),
+    radial-gradient(2px 2px at 80% 25%, #FFD700 0%, transparent 100%),
+    radial-gradient(1px 1px at 10% 30%, #FF69B4 0%, transparent 100%),
+    radial-gradient(2px 2px at 30% 5%, #00CED1 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 35%, #FFD700 0%, transparent 100%),
+    radial-gradient(2px 2px at 70% 8%, #FF69B4 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 40%, #00CED1 0%, transparent 100%),
+    radial-gradient(2px 2px at 15% 45%, #FFD700 0%, transparent 100%),
+    radial-gradient(1px 1px at 35% 50%, #FF69B4 0%, transparent 100%),
+    radial-gradient(2px 2px at 55% 42%, #00CED1 0%, transparent 100%),
+    radial-gradient(1px 1px at 75% 48%, #FFD700 0%, transparent 100%),
+    radial-gradient(2px 2px at 95% 12%, #FF69B4 0%, transparent 100%),
+    radial-gradient(1px 1px at 5% 55%, #00CED1 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
 }
 
 /* Shimmer animation for loading */
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    #f0f0f0 25%,
-    #e0e0e0 50%,
-    #f0f0f0 75%
-  );
+  background: linear-gradient(90deg, #1A0050 25%, #2D1070 50%, #1A0050 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+/* Glow effect */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.3), 0 0 40px rgba(255, 105, 180, 0.1); }
+  50% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.5), 0 0 60px rgba(255, 105, 180, 0.2); }
+}
+
+.glow-card {
+  animation: glow-pulse 3s ease-in-out infinite;
 }

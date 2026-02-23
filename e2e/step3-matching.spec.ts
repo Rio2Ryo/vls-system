@@ -26,4 +26,18 @@ test.describe("STEP 3: 写真マッチング結果", () => {
     await page.getByRole("button", { name: /ダウンロード/ }).click();
     await expect(page).toHaveURL("/downloading");
   });
+
+  test("写真タグが表示される", async ({ page }) => {
+    // At least one tag should be visible on match cards
+    const tags = page.locator("[data-testid^='tag-']");
+    await expect(tags.first()).toBeVisible();
+  });
+
+  test("高確率マッチセクションが表示される", async ({ page }) => {
+    await expect(page.getByRole("heading", { name: /高確率マッチ/ })).toBeVisible();
+  });
+
+  test("要確認セクションが表示される", async ({ page }) => {
+    await expect(page.getByRole("heading", { name: /要確認/ })).toBeVisible();
+  });
 });

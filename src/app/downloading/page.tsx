@@ -7,7 +7,7 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import LoadingAnimation from "@/components/ui/LoadingAnimation";
 import CMSegmentManager from "@/components/cm/CMSegmentManager";
 import SurveyForm from "@/components/survey/SurveyForm";
-import { assignSegment, getCMConfig, getTotalWaitTime, SURVEY_QUESTIONS } from "@/lib/segments";
+import { assignSegment, getCMConfig, getTotalWaitTime, SURVEY_QUESTIONS_STEP4 } from "@/lib/segments";
 import { SurveyAnswer } from "@/lib/types";
 
 export default function DownloadingPage() {
@@ -65,16 +65,23 @@ export default function DownloadingPage() {
   }, [progress, phase, cmDone, router]);
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 pt-12">
+    <main className="min-h-screen flex flex-col items-center p-6 pt-12 relative z-10">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-6"
       >
-        <h1 className="text-3xl font-extrabold text-purple-600 mb-2">
+        <h1
+          className="text-3xl font-extrabold mb-2"
+          style={{
+            background: "linear-gradient(135deg, #FFD700, #00CED1)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
           ダウンロードちゅう...
         </h1>
-        <p className="text-gray-500">写真をじゅんびしているよ！</p>
+        <p style={{ color: "rgba(255, 215, 0, 0.6)" }}>写真をじゅんびしているよ！</p>
       </motion.div>
 
       <div className="w-full max-w-lg mb-8">
@@ -106,13 +113,15 @@ export default function DownloadingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h2 className="text-xl font-bold text-center text-purple-500 mb-4">
+            <h2
+              className="text-xl font-bold text-center mb-4"
+              style={{ color: "#FF69B4" }}
+            >
               もうすこしだけアンケート！
             </h2>
             <SurveyForm
-              questions={SURVEY_QUESTIONS}
+              questions={SURVEY_QUESTIONS_STEP4}
               onComplete={handleSurveyComplete}
-              startIndex={2}
             />
           </motion.div>
         )}
@@ -124,7 +133,7 @@ export default function DownloadingPage() {
             className="text-center py-8"
           >
             <div className="text-6xl mb-4">📦</div>
-            <p className="text-xl font-bold text-green-500">じゅんびかんりょう！</p>
+            <p className="text-xl font-bold" style={{ color: "#00CED1" }}>じゅんびかんりょう！</p>
           </motion.div>
         )}
       </div>

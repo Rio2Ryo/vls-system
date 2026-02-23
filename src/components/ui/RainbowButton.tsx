@@ -41,9 +41,12 @@ export default function RainbowButton({
       `}
       style={{
         background: disabled
-          ? "#9ca3af"
-          : "linear-gradient(135deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #9b59b6)",
+          ? "#4a3860"
+          : "linear-gradient(135deg, #FFD700, #FF69B4, #00CED1, #FFD700)",
         backgroundSize: "300% 300%",
+        boxShadow: disabled
+          ? "none"
+          : "0 0 20px rgba(255, 215, 0, 0.4), 0 0 40px rgba(255, 105, 180, 0.2)",
       }}
       animate={
         disabled

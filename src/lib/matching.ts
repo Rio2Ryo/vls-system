@@ -1,4 +1,4 @@
-import { MatchResult, MatchLevel } from "./types";
+import { MatchResult, MatchLevel, PhotoTag } from "./types";
 
 function getMatchLevel(score: number): MatchLevel {
   if (score >= 90) return "certain";
@@ -19,6 +19,17 @@ const DUMMY_PHOTOS = [
   "https://picsum.photos/seed/vls8/400/300",
 ];
 
+const DUMMY_TAGS: PhotoTag[][] = [
+  ["face_detected", "individual", "outdoor"],
+  ["face_detected", "group", "outdoor"],
+  ["face_detected", "individual", "indoor"],
+  ["face_detected", "group", "indoor"],
+  ["face_detected", "group", "outdoor"],
+  ["no_face", "group", "outdoor"],
+  ["no_face", "individual", "indoor"],
+  ["no_face", "group", "indoor"],
+];
+
 export function generateDummyResults(): MatchResult[] {
   const results: MatchResult[] = [];
   const scores = [95, 92, 88, 85, 75, 62, 55, 40];
@@ -35,6 +46,7 @@ export function generateDummyResults(): MatchResult[] {
       level,
       eventName: "サマーフェスティバル 2026",
       date: "2026-02-23",
+      tags: DUMMY_TAGS[i],
     });
   }
 

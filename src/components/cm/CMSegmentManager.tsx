@@ -34,7 +34,7 @@ export default function CMSegmentManager({ config, onAllComplete }: CMSegmentMan
   return (
     <div data-testid="cm-segment-manager">
       <div className="text-center mb-4">
-        <span className="text-sm text-gray-500">
+        <span className="text-sm" style={{ color: "rgba(255, 215, 0, 0.6)" }}>
           セグメント {config.segment} - CM {currentIndex + 1}/{config.videoIds.length}
         </span>
       </div>

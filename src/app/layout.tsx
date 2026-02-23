@@ -13,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="bg-rainbow min-h-screen">{children}</body>
+      <body className="bg-magical min-h-screen relative z-10">{children}</body>
     </html>
   );
 }

@@ -22,6 +22,14 @@ export interface SurveyAnswer {
 // Matching types
 export type MatchLevel = "certain" | "high" | "review" | "none";
 
+export type PhotoTag =
+  | "face_detected"
+  | "no_face"
+  | "group"
+  | "individual"
+  | "indoor"
+  | "outdoor";
+
 export interface MatchResult {
   id: string;
   thumbnailUrl: string;
@@ -29,6 +37,7 @@ export interface MatchResult {
   level: MatchLevel;
   eventName: string;
   date: string;
+  tags: PhotoTag[];
 }
 
 export interface UploadedPhoto {

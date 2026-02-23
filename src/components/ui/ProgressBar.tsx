@@ -13,18 +13,21 @@ export default function ProgressBar({ progress, label }: ProgressBarProps) {
   return (
     <div className="w-full" data-testid="progress-bar">
       {label && (
-        <div className="flex justify-between mb-2 text-sm font-medium">
+        <div className="flex justify-between mb-2 text-sm font-medium text-[#FFD700]">
           <span>{label}</span>
           <span>{Math.round(clampedProgress)}%</span>
         </div>
       )}
-      <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+      <div className="w-full h-6 rounded-full overflow-hidden shadow-inner"
+        style={{ backgroundColor: "rgba(255, 215, 0, 0.1)", border: "1px solid rgba(255, 215, 0, 0.3)" }}
+      >
         <motion.div
           className="h-full rounded-full"
           style={{
             background:
-              "linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #9b59b6, #ff6b6b)",
+              "linear-gradient(90deg, #FFD700, #FF69B4, #00CED1, #FFD700)",
             backgroundSize: "200% 100%",
+            boxShadow: "0 0 15px rgba(255, 215, 0, 0.5)",
           }}
           initial={{ width: 0 }}
           animate={{
