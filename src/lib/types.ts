@@ -1,56 +1,67 @@
-// CM Segment types
-export type SegmentType = "A" | "B" | "C" | "D";
+// Company tier
+export type CompanyTier = "platinum" | "gold" | "silver" | "bronze";
 
-export interface CMConfig {
-  segment: SegmentType;
-  showCM: boolean;
-  videoIds: string[];
-  durations: number[]; // seconds per video
+// Interest tags (used for survey + company matching)
+export type InterestTag =
+  | "education" | "sports" | "food" | "travel"
+  | "technology" | "art" | "nature" | "other"
+  | "cram_school" | "lessons" | "food_product" | "travel_service"
+  | "smartphone" | "camera" | "insurance"
+  | "age_0_3" | "age_4_6" | "age_7_9" | "age_10_12" | "age_13_plus";
+
+export interface Company {
+  id: string;
+  name: string;
+  logoUrl: string;
+  tier: CompanyTier;
+  tags: InterestTag[];
+  videos: {
+    cm15: string;   // 15s CM URL or YouTube ID
+    cm30: string;   // 30s preview CM
+    cm60: string;   // 60s full CM
+  };
+  offerText: string;
+  offerUrl: string;
+  couponCode?: string;
+}
+
+export interface EventData {
+  id: string;
+  name: string;
+  date: string;
+  description: string;
+  password: string;
+  photos: PhotoData[];
+}
+
+export interface PhotoData {
+  id: string;
+  originalUrl: string;    // high quality
+  thumbnailUrl: string;   // low quality for grid
+  watermarked: boolean;
 }
 
 export interface SurveyQuestion {
   id: string;
   question: string;
-  options: string[];
+  options: { label: string; tag: InterestTag }[];
+  maxSelections: number;
 }
 
 export interface SurveyAnswer {
   questionId: string;
-  answer: string;
+  selectedTags: InterestTag[];
 }
 
-// Matching types
-export type MatchLevel = "certain" | "high" | "review" | "none";
-
-export type PhotoTag =
-  | "face_detected"
-  | "no_face"
-  | "group"
-  | "individual"
-  | "indoor"
-  | "outdoor";
-
-export interface MatchResult {
-  id: string;
-  thumbnailUrl: string;
-  score: number;
-  level: MatchLevel;
-  eventName: string;
-  date: string;
-  tags: PhotoTag[];
+// CM matching result
+export interface CMMatch {
+  platinumCM: Company | null;  // 15s fixed
+  matchedCM: Company | null;   // 30s preview + 60s full
 }
 
-export interface UploadedPhoto {
-  id: string;
-  file: File | null;
-  previewUrl: string;
-  name: string;
-}
-
-// Event
-export interface EventInfo {
-  code: string;
-  name: string;
-  date: string;
-  location: string;
+// Admin stats
+export interface DashboardStats {
+  totalAccesses: number;
+  cmViews: Record<string, number>;
+  downloads: number;
 }

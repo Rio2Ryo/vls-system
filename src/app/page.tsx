@@ -3,117 +3,110 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import RainbowButton from "@/components/ui/RainbowButton";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import { getEventByPassword } from "@/lib/data";
 
 export default function TopPage() {
   const router = useRouter();
-  const [eventCode, setEventCode] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!eventCode.trim()) {
-      setError("イベントコードを入力してください");
+    const trimmed = password.trim();
+    if (!trimmed) {
+      setError("パスワードを入力してください");
       return;
     }
 
-    if (eventCode.trim().length < 4) {
-      setError("イベントコードは4文字以上です");
+    const event = getEventByPassword(trimmed);
+    if (!event) {
+      setError("パスワードが違います");
       return;
     }
 
-    sessionStorage.setItem("eventCode", eventCode.trim());
-    router.push("/upload");
+    sessionStorage.setItem("eventId", event.id);
+    sessionStorage.setItem("eventName", event.name);
+    router.push("/survey");
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 relative z-10">
+    <main className="min-h-screen flex flex-col items-center justify-center p-6">
+      {/* Logo + Title */}
       <motion.div
-        initial={{ opacity: 0, y: -30 }}
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-8"
       >
         <motion.div
-          className="text-4xl mb-4"
-          animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }}
+          className="text-5xl mb-3"
+          animate={{ y: [0, -6, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
-          ✨🧙‍♂️✨
+          📸
         </motion.div>
-        <motion.h1
-          className="text-5xl md:text-7xl font-extrabold mb-4"
-          style={{
-            background: "linear-gradient(135deg, #FFD700, #FF69B4, #00CED1, #FFD700)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.3))",
-          }}
-        >
-          VLS
-        </motion.h1>
-        <p className="text-xl font-medium" style={{ color: "#FFD700" }}>
-          Video Launch System
-        </p>
-        <p className="text-sm mt-1" style={{ color: "rgba(255, 215, 0, 0.5)" }}>
-          イベント写真マッチングシステム
+        <h1 className="text-3xl md:text-4xl font-black text-gray-800">
+          イベント写真サービス
+        </h1>
+        <p className="text-gray-400 mt-1 text-sm">
+          パスワードを入力して写真にアクセス
         </p>
       </motion.div>
 
-      <motion.form
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-3xl shadow-xl p-8 space-y-6 glow-card"
-        style={{
-          background: "rgba(26, 0, 80, 0.6)",
-          backdropFilter: "blur(10px)",
-          border: "1px solid rgba(255, 215, 0, 0.2)",
-        }}
-      >
-        <div>
-          <label
-            htmlFor="eventCode"
-            className="block text-lg font-bold mb-2"
-            style={{ color: "#FFD700" }}
-          >
-            イベントコード
-          </label>
-          <input
-            id="eventCode"
-            type="text"
-            value={eventCode}
-            onChange={(e) => setEventCode(e.target.value)}
-            placeholder="例: SUMMER2026"
-            className="w-full px-4 py-3 rounded-xl text-lg text-center font-mono tracking-wider focus:outline-none"
-            style={{
-              background: "rgba(255, 255, 255, 0.05)",
-              border: "2px solid rgba(255, 215, 0, 0.3)",
-              color: "#F0E6FF",
-            }}
-            data-testid="event-code-input"
-          />
-          {error && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-sm mt-2 text-center"
-              style={{ color: "#FF69B4" }}
-              data-testid="error-message"
+      {/* Password Form */}
+      <Card className="w-full max-w-md">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-bold text-gray-600 mb-2"
             >
-              {error}
-            </motion.p>
-          )}
-        </div>
+              アクセスパスワード
+            </label>
+            <input
+              id="password"
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="例: SUMMER2026"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200
+                         focus:border-[#6EC6FF] focus:ring-2 focus:ring-blue-100
+                         focus:outline-none text-center text-lg font-mono
+                         tracking-wider bg-gray-50/50"
+              data-testid="password-input"
+            />
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-red-400 text-sm mt-2 text-center"
+                data-testid="error-message"
+              >
+                {error}
+              </motion.p>
+            )}
+          </div>
 
-        <div className="text-center">
-          <RainbowButton type="submit" size="lg">
-            はじめる →
-          </RainbowButton>
-        </div>
-      </motion.form>
+          <div className="text-center">
+            <Button type="submit" size="lg">
+              写真を見る →
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      {/* Subtle hint */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+        className="text-xs text-gray-300 mt-6"
+      >
+        イベント主催者からお知らせされたパスワードを入力してください
+      </motion.p>
     </main>
   );
 }

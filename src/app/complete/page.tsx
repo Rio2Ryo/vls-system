@@ -1,85 +1,155 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import RainbowButton from "@/components/ui/RainbowButton";
-import Confetti from "@/components/ui/Confetti";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import { Company } from "@/lib/types";
 
 export default function CompletePage() {
-  const [showConfetti, setShowConfetti] = useState(true);
+  const [downloaded, setDownloaded] = useState(false);
+  const [eventName, setEventName] = useState("");
 
-  useEffect(() => {
-    const timer = setTimeout(() => setShowConfetti(false), 5000);
-    return () => clearTimeout(timer);
+  const platinumCompany = useMemo((): Company | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      return JSON.parse(sessionStorage.getItem("platinumCompany") || "null");
+    } catch {
+      return null;
+    }
   }, []);
 
-  return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 relative z-10">
-      {showConfetti && <Confetti />}
+  const matchedCompany = useMemo((): Company | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      return JSON.parse(sessionStorage.getItem("matchedCompany") || "null");
+    } catch {
+      return null;
+    }
+  }, []);
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: "spring", duration: 0.8 }}
-        className="text-center"
-      >
+  useEffect(() => {
+    setEventName(sessionStorage.getItem("eventName") || "イベント");
+  }, []);
+
+  const handleDownload = () => {
+    // In production, this would download actual photos
+    setDownloaded(true);
+  };
+
+  return (
+    <main className="min-h-screen p-6 pt-10">
+      <div className="max-w-lg mx-auto space-y-6">
+        {/* Header */}
         <motion.div
-          className="text-8xl mb-6"
-          animate={{ rotate: [0, 10, -10, 10, 0] }}
-          transition={{ duration: 1, delay: 0.5 }}
-          style={{ filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.5))" }}
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
         >
-          🎉
+          <motion.div
+            className="text-5xl mb-3"
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            🎉
+          </motion.div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            写真の準備ができました！
+          </h1>
         </motion.div>
 
-        <h1
-          className="text-4xl md:text-6xl font-extrabold mb-4"
-          style={{
-            background: "linear-gradient(135deg, #FFD700, #FF69B4, #00CED1, #FFD700)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.3))",
-          }}
-        >
-          かんりょう！
-        </h1>
+        {/* Platinum sponsor frame */}
+        {platinumCompany && (
+          <Card className="text-center">
+            <div className="border-2 border-dashed border-blue-200 rounded-2xl p-4 mb-3">
+              <p className="text-xs text-gray-400 mb-2">
+                📷 {platinumCompany.name} 提供 記念フレーム
+              </p>
+              <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-8 text-center">
+                <p className="text-lg font-bold text-gray-600">{eventName}</p>
+                <p className="text-xs text-gray-400 mt-1">Special Photo Frame</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={platinumCompany.logoUrl}
+                  alt={platinumCompany.name}
+                  className="w-10 h-10 rounded-full mx-auto mt-3"
+                />
+              </div>
+            </div>
+            <Button onClick={handleDownload} size="md" variant={downloaded ? "secondary" : "primary"}>
+              {downloaded ? "✓ 保存済み" : "記念フレームを保存"}
+            </Button>
+          </Card>
+        )}
 
-        <p className="text-xl mb-2" style={{ color: "#FFD700" }}>
-          写真のダウンロードができたよ！
-        </p>
-        <p className="mb-8" style={{ color: "rgba(255, 215, 0, 0.5)" }}>
-          たのしいおもいでをありがとう！
-        </p>
-      </motion.div>
+        {/* Download all photos */}
+        {!platinumCompany && (
+          <Card className="text-center">
+            <Button onClick={handleDownload} size="lg" variant={downloaded ? "secondary" : "primary"}>
+              {downloaded ? "✓ ダウンロード済み" : "写真をダウンロード"}
+            </Button>
+          </Card>
+        )}
 
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="space-y-4 text-center"
-      >
-        <RainbowButton
-          onClick={() => {
-            window.location.href = "/";
-          }}
-          size="lg"
-        >
-          もういちどつかう
-        </RainbowButton>
-
-        <div className="mt-4">
-          <a
-            href="https://example.com/lp"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium underline transition-colors hover:opacity-80"
-            style={{ color: "#00CED1" }}
-            data-testid="lp-link"
+        {/* Offer cards */}
+        {matchedCompany && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
           >
-            サービスについてもっとくわしく →
-          </a>
-        </div>
-      </motion.div>
+            <Card>
+              <div className="flex items-center gap-3 mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={matchedCompany.logoUrl}
+                  alt={matchedCompany.name}
+                  className="w-12 h-12 rounded-full"
+                />
+                <div>
+                  <p className="font-bold text-gray-700 text-sm">{matchedCompany.name}</p>
+                  <p className="text-xs text-gray-400">限定オファー</p>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-yellow-50 to-pink-50 rounded-xl p-4 mb-3 border border-yellow-100">
+                <p className="font-bold text-gray-700">{matchedCompany.offerText}</p>
+                {matchedCompany.couponCode && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    クーポンコード: <code className="bg-white px-2 py-0.5 rounded font-mono">{matchedCompany.couponCode}</code>
+                  </p>
+                )}
+              </div>
+
+              <a
+                href={matchedCompany.offerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="offer-link"
+              >
+                <Button variant="secondary" size="sm" className="w-full">
+                  詳しく見る →
+                </Button>
+              </a>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Back to top */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="text-center pb-8"
+        >
+          <button
+            onClick={() => (window.location.href = "/")}
+            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            トップに戻る
+          </button>
+        </motion.div>
+      </div>
     </main>
   );
 }

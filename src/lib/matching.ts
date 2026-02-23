@@ -1,63 +1,83 @@
-import { MatchResult, MatchLevel, PhotoTag } from "./types";
+import { Company, CMMatch, InterestTag } from "./types";
+import { COMPANIES } from "./data";
 
-function getMatchLevel(score: number): MatchLevel {
-  if (score >= 90) return "certain";
-  if (score >= 70) return "high";
-  if (score >= 50) return "review";
-  return "none";
+/**
+ * Select platinum company for 15s fixed CM
+ * Random from platinum-tier companies
+ */
+function selectPlatinumCM(): Company | null {
+  const platinums = COMPANIES.filter((c) => c.tier === "platinum");
+  if (platinums.length === 0) return null;
+  return platinums[Math.floor(Math.random() * platinums.length)];
 }
 
-// Dummy photo URLs for demo
-const DUMMY_PHOTOS = [
-  "https://picsum.photos/seed/vls1/400/300",
-  "https://picsum.photos/seed/vls2/400/300",
-  "https://picsum.photos/seed/vls3/400/300",
-  "https://picsum.photos/seed/vls4/400/300",
-  "https://picsum.photos/seed/vls5/400/300",
-  "https://picsum.photos/seed/vls6/400/300",
-  "https://picsum.photos/seed/vls7/400/300",
-  "https://picsum.photos/seed/vls8/400/300",
-];
-
-const DUMMY_TAGS: PhotoTag[][] = [
-  ["face_detected", "individual", "outdoor"],
-  ["face_detected", "group", "outdoor"],
-  ["face_detected", "individual", "indoor"],
-  ["face_detected", "group", "indoor"],
-  ["face_detected", "group", "outdoor"],
-  ["no_face", "group", "outdoor"],
-  ["no_face", "individual", "indoor"],
-  ["no_face", "group", "indoor"],
-];
-
-export function generateDummyResults(): MatchResult[] {
-  const results: MatchResult[] = [];
-  const scores = [95, 92, 88, 85, 75, 62, 55, 40];
-
-  for (let i = 0; i < scores.length; i++) {
-    const score = scores[i];
-    const level = getMatchLevel(score);
-    if (level === "none") continue;
-
-    results.push({
-      id: `match-${i + 1}`,
-      thumbnailUrl: DUMMY_PHOTOS[i],
-      score,
-      level,
-      eventName: "サマーフェスティバル 2026",
-      date: "2026-02-23",
-      tags: DUMMY_TAGS[i],
-    });
+/**
+ * Match a company for 30s+60s CM based on user tags
+ *
+ * Algorithm per spec:
+ * Case A (Pt + Gold + General overlap): Pt=40%, Gd=40%, OP=20%
+ * Case B (Pt + Gold only): Pt=50%, Gd=50%
+ * Case C (Gold + General only): Gd=80%, OP=20%
+ * Case D (Pt + General only): Pt=80%, OP=20%
+ * Single match: 100%
+ */
+function selectMatchedCM(userTags: InterestTag[]): Company | null {
+  if (userTags.length === 0) {
+    // No tags - random from all
+    return COMPANIES[Math.floor(Math.random() * COMPANIES.length)] || null;
   }
 
-  return results;
+  const hasOverlap = (company: Company) =>
+    company.tags.some((t) => userTags.includes(t));
+
+  const matched = {
+    platinum: COMPANIES.filter((c) => c.tier === "platinum" && hasOverlap(c)),
+    gold: COMPANIES.filter((c) => c.tier === "gold" && hasOverlap(c)),
+    general: COMPANIES.filter(
+      (c) => (c.tier === "silver" || c.tier === "bronze") && hasOverlap(c)
+    ),
+  };
+
+  const hasPt = matched.platinum.length > 0;
+  const hasGd = matched.gold.length > 0;
+  const hasOp = matched.general.length > 0;
+
+  const rand = Math.random();
+
+  // Case A: all three
+  if (hasPt && hasGd && hasOp) {
+    if (rand < 0.4) return pick(matched.platinum);
+    if (rand < 0.8) return pick(matched.gold);
+    return pick(matched.general);
+  }
+  // Case B: Pt + Gold
+  if (hasPt && hasGd) {
+    return rand < 0.5 ? pick(matched.platinum) : pick(matched.gold);
+  }
+  // Case C: Gold + General
+  if (hasGd && hasOp) {
+    return rand < 0.8 ? pick(matched.gold) : pick(matched.general);
+  }
+  // Case D: Pt + General
+  if (hasPt && hasOp) {
+    return rand < 0.8 ? pick(matched.platinum) : pick(matched.general);
+  }
+  // Single matches
+  if (hasPt) return pick(matched.platinum);
+  if (hasGd) return pick(matched.gold);
+  if (hasOp) return pick(matched.general);
+
+  // No match at all - fallback to random
+  return COMPANIES[Math.floor(Math.random() * COMPANIES.length)] || null;
 }
 
-export function getResultsByLevel(results: MatchResult[]): Record<MatchLevel, MatchResult[]> {
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+export function getCMMatch(userTags: InterestTag[]): CMMatch {
   return {
-    certain: results.filter((r) => r.level === "certain"),
-    high: results.filter((r) => r.level === "high"),
-    review: results.filter((r) => r.level === "review"),
-    none: results.filter((r) => r.level === "none"),
+    platinumCM: selectPlatinumCM(),
+    matchedCM: selectMatchedCM(userTags),
   };
 }

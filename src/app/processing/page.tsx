@@ -5,91 +5,118 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import ProgressBar from "@/components/ui/ProgressBar";
 import LoadingAnimation from "@/components/ui/LoadingAnimation";
-import CMSegmentManager from "@/components/cm/CMSegmentManager";
-import SurveyForm from "@/components/survey/SurveyForm";
-import { assignSegment, getCMConfig, getTotalWaitTime, SURVEY_QUESTIONS_STEP2 } from "@/lib/segments";
-import { SurveyAnswer } from "@/lib/types";
+import VideoPlayer from "@/components/cm/VideoPlayer";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import { getCMMatch } from "@/lib/matching";
+import { InterestTag } from "@/lib/types";
+
+const TOTAL_SECONDS = 45;
 
 export default function ProcessingPage() {
   const router = useRouter();
-  const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<"loading" | "cm" | "survey" | "done">("loading");
-  const [cmDone, setCmDone] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [phase, setPhase] = useState<"platinum" | "matched" | "waiting">("platinum");
 
-  const segment = useMemo(() => assignSegment(), []);
-  const cmConfig = useMemo(() => getCMConfig(segment, "processing"), [segment]);
-  const totalTime = getTotalWaitTime("processing");
+  // Load user tags from session
+  const cmMatch = useMemo(() => {
+    if (typeof window === "undefined") return getCMMatch([]);
+    try {
+      const tags: InterestTag[] = JSON.parse(
+        sessionStorage.getItem("userTags") || "[]"
+      );
+      return getCMMatch(tags);
+    } catch {
+      return getCMMatch([]);
+    }
+  }, []);
 
-  // Progress timer
+  // Save matched company for STEP 4
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        const next = prev + 100 / totalTime;
-        if (next >= 100) {
-          clearInterval(interval);
-          return 100;
+    if (cmMatch.matchedCM) {
+      sessionStorage.setItem("matchedCompany", JSON.stringify(cmMatch.matchedCM));
+    }
+    if (cmMatch.platinumCM) {
+      sessionStorage.setItem("platinumCompany", JSON.stringify(cmMatch.platinumCM));
+    }
+  }, [cmMatch]);
+
+  // 45-second timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsed((prev) => {
+        if (prev >= TOTAL_SECONDS) {
+          clearInterval(timer);
+          return TOTAL_SECONDS;
         }
-        return next;
+        return prev + 1;
       });
     }, 1000);
-
-    return () => clearInterval(interval);
-  }, [totalTime]);
-
-  // Transition to CM after a short loading display
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPhase("cm");
-    }, 3000);
-    return () => clearTimeout(timer);
+    return () => clearInterval(timer);
   }, []);
 
-  const handleCMComplete = useCallback(() => {
-    setCmDone(true);
-    setPhase("survey");
+  const progress = (elapsed / TOTAL_SECONDS) * 100;
+  const canProceed = elapsed >= TOTAL_SECONDS;
+
+  const handlePlatinumDone = useCallback(() => {
+    setPhase("matched");
   }, []);
 
-  const handleSurveyComplete = useCallback((answers: SurveyAnswer[]) => {
-    sessionStorage.setItem("surveyAnswers1", JSON.stringify(answers));
-    setPhase("done");
+  const handleMatchedDone = useCallback(() => {
+    setPhase("waiting");
   }, []);
 
-  // Navigate when progress is 100% and phase is done or survey is complete
-  useEffect(() => {
-    if (progress >= 100 && (phase === "done" || cmDone)) {
-      const timer = setTimeout(() => {
-        router.push("/matching");
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [progress, phase, cmDone, router]);
+  const handleNext = () => {
+    router.push("/photos");
+  };
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 pt-12 relative z-10">
+    <main className="min-h-screen flex flex-col items-center p-6 pt-10">
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-6"
       >
-        <h1
-          className="text-3xl font-extrabold mb-2"
-          style={{
-            background: "linear-gradient(135deg, #FFD700, #FF69B4)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          写真をしらべているよ...
+        <h1 className="text-2xl font-bold text-gray-800">
+          イベントの全写真データを読み込んでいます...
         </h1>
-        <p style={{ color: "rgba(255, 215, 0, 0.6)" }}>もうすこしまってね！</p>
+        <p className="text-gray-400 text-sm mt-1">しばらくお待ちください</p>
       </motion.div>
 
-      <div className="w-full max-w-lg mb-8">
-        <ProgressBar progress={progress} label="ライブラリ読み込み中" />
+      <div className="w-full max-w-lg mb-6">
+        <ProgressBar progress={progress} label="読み込み中" />
       </div>
 
-      <div className="w-full max-w-lg">
-        {phase === "loading" && (
+      <div className="w-full max-w-lg space-y-4">
+        {/* Platinum CM - 15s */}
+        {phase === "platinum" && cmMatch.platinumCM && (
+          <Card>
+            <p className="text-xs text-center text-gray-400 mb-2">
+              今日の写真は <span className="font-bold text-[#6EC6FF]">{cmMatch.platinumCM.name}</span> からのプレゼントです！
+            </p>
+            <VideoPlayer
+              videoId={cmMatch.platinumCM.videos.cm15}
+              duration={15}
+              label="提供CM"
+              onComplete={handlePlatinumDone}
+            />
+          </Card>
+        )}
+
+        {/* Matched CM - 30s */}
+        {phase === "matched" && cmMatch.matchedCM && (
+          <Card>
+            <VideoPlayer
+              videoId={cmMatch.matchedCM.videos.cm30}
+              duration={30}
+              label={`${cmMatch.matchedCM.name} のおすすめ`}
+              onComplete={handleMatchedDone}
+            />
+          </Card>
+        )}
+
+        {/* Waiting / Loading animation */}
+        {(phase === "waiting" || (!cmMatch.platinumCM && !cmMatch.matchedCM)) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -98,45 +125,18 @@ export default function ProcessingPage() {
             <LoadingAnimation />
           </motion.div>
         )}
-
-        {phase === "cm" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <CMSegmentManager config={cmConfig} onAllComplete={handleCMComplete} />
-          </motion.div>
-        )}
-
-        {phase === "survey" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <h2
-              className="text-xl font-bold text-center mb-4"
-              style={{ color: "#FF69B4" }}
-            >
-              まっているあいだにアンケート！
-            </h2>
-            <SurveyForm
-              questions={SURVEY_QUESTIONS_STEP2}
-              onComplete={handleSurveyComplete}
-            />
-          </motion.div>
-        )}
-
-        {phase === "done" && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-8"
-          >
-            <div className="text-6xl mb-4">✨</div>
-            <p className="text-xl font-bold" style={{ color: "#00CED1" }}>かんりょう！</p>
-          </motion.div>
-        )}
       </div>
+
+      {/* Proceed button */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: canProceed ? 1 : 0.3 }}
+        className="mt-8"
+      >
+        <Button onClick={handleNext} disabled={!canProceed} size="lg">
+          写真を見る →
+        </Button>
+      </motion.div>
     </main>
   );
 }

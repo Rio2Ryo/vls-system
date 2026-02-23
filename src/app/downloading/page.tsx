@@ -5,91 +5,80 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import ProgressBar from "@/components/ui/ProgressBar";
 import LoadingAnimation from "@/components/ui/LoadingAnimation";
-import CMSegmentManager from "@/components/cm/CMSegmentManager";
-import SurveyForm from "@/components/survey/SurveyForm";
-import { assignSegment, getCMConfig, getTotalWaitTime, SURVEY_QUESTIONS_STEP4 } from "@/lib/segments";
-import { SurveyAnswer } from "@/lib/types";
+import VideoPlayer from "@/components/cm/VideoPlayer";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import { Company } from "@/lib/types";
+
+const TOTAL_SECONDS = 60;
 
 export default function DownloadingPage() {
   const router = useRouter();
-  const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<"loading" | "cm" | "survey" | "done">("loading");
-  const [cmDone, setCmDone] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [videoDone, setVideoDone] = useState(false);
 
-  const segment = useMemo(() => assignSegment(), []);
-  const cmConfig = useMemo(() => getCMConfig(segment, "downloading"), [segment]);
-  const totalTime = getTotalWaitTime("downloading");
+  const matchedCompany = useMemo((): Company | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      return JSON.parse(sessionStorage.getItem("matchedCompany") || "null");
+    } catch {
+      return null;
+    }
+  }, []);
 
-  // Progress timer
+  // 60-second timer
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        const next = prev + 100 / totalTime;
-        if (next >= 100) {
-          clearInterval(interval);
-          return 100;
+    const timer = setInterval(() => {
+      setElapsed((prev) => {
+        if (prev >= TOTAL_SECONDS) {
+          clearInterval(timer);
+          return TOTAL_SECONDS;
         }
-        return next;
+        return prev + 1;
       });
     }, 1000);
-
-    return () => clearInterval(interval);
-  }, [totalTime]);
-
-  // Transition to CM after short loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPhase("cm");
-    }, 3000);
-    return () => clearTimeout(timer);
+    return () => clearInterval(timer);
   }, []);
 
-  const handleCMComplete = useCallback(() => {
-    setCmDone(true);
-    setPhase("survey");
+  const progress = (elapsed / TOTAL_SECONDS) * 100;
+  const canProceed = elapsed >= TOTAL_SECONDS && videoDone;
+
+  const handleVideoDone = useCallback(() => {
+    setVideoDone(true);
   }, []);
 
-  const handleSurveyComplete = useCallback((answers: SurveyAnswer[]) => {
-    sessionStorage.setItem("surveyAnswers2", JSON.stringify(answers));
-    setPhase("done");
-  }, []);
-
-  // Navigate when done
-  useEffect(() => {
-    if (progress >= 100 && (phase === "done" || cmDone)) {
-      const timer = setTimeout(() => {
-        router.push("/complete");
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [progress, phase, cmDone, router]);
+  const handleNext = () => {
+    router.push("/complete");
+  };
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 pt-12 relative z-10">
+    <main className="min-h-screen flex flex-col items-center p-6 pt-10">
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-6"
       >
-        <h1
-          className="text-3xl font-extrabold mb-2"
-          style={{
-            background: "linear-gradient(135deg, #FFD700, #00CED1)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          ダウンロードちゅう...
+        <h1 className="text-2xl font-bold text-gray-800">
+          高画質データを生成中...
         </h1>
-        <p style={{ color: "rgba(255, 215, 0, 0.6)" }}>写真をじゅんびしているよ！</p>
+        <p className="text-gray-400 text-sm mt-1">もうすぐ完了します</p>
       </motion.div>
 
-      <div className="w-full max-w-lg mb-8">
-        <ProgressBar progress={progress} label="ダウンロード処理中" />
+      <div className="w-full max-w-lg mb-6">
+        <ProgressBar progress={progress} label="データ生成中" />
       </div>
 
       <div className="w-full max-w-lg">
-        {phase === "loading" && (
+        {matchedCompany ? (
+          <Card>
+            <VideoPlayer
+              videoId={matchedCompany.videos.cm60}
+              duration={60}
+              label={`${matchedCompany.name} からのメッセージ`}
+              onComplete={handleVideoDone}
+            />
+          </Card>
+        ) : (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -98,45 +87,17 @@ export default function DownloadingPage() {
             <LoadingAnimation />
           </motion.div>
         )}
-
-        {phase === "cm" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <CMSegmentManager config={cmConfig} onAllComplete={handleCMComplete} />
-          </motion.div>
-        )}
-
-        {phase === "survey" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <h2
-              className="text-xl font-bold text-center mb-4"
-              style={{ color: "#FF69B4" }}
-            >
-              もうすこしだけアンケート！
-            </h2>
-            <SurveyForm
-              questions={SURVEY_QUESTIONS_STEP4}
-              onComplete={handleSurveyComplete}
-            />
-          </motion.div>
-        )}
-
-        {phase === "done" && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-8"
-          >
-            <div className="text-6xl mb-4">📦</div>
-            <p className="text-xl font-bold" style={{ color: "#00CED1" }}>じゅんびかんりょう！</p>
-          </motion.div>
-        )}
       </div>
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: canProceed ? 1 : 0.3 }}
+        className="mt-8"
+      >
+        <Button onClick={handleNext} disabled={!canProceed} size="lg">
+          ダウンロードへ →
+        </Button>
+      </motion.div>
     </main>
   );
 }

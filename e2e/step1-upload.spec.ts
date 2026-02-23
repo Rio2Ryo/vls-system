@@ -1,62 +1,53 @@
 import { test, expect } from "@playwright/test";
-import path from "path";
-import fs from "fs";
 
-// Create a tiny test image
-function createTestImage(dir: string, name: string): string {
-  const filePath = path.join(dir, name);
-  // 1x1 pixel PNG
-  const png = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-    "base64"
-  );
-  fs.writeFileSync(filePath, png);
-  return filePath;
-}
-
-test.describe("STEP 1: 写真アップロード", () => {
+test.describe("STEP 1 – Survey (Tag Selection)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/upload");
+    // Login first
+    await page.goto("/");
+    await page.getByTestId("password-input").fill("SUMMER2026");
+    await page.getByRole("button", { name: /写真を見る/ }).click();
+    await expect(page).toHaveURL(/\/survey/);
   });
 
-  test("アップロードページのタイトルが表示される", async ({ page }) => {
-    await expect(page.locator("h1")).toContainText("写真をアップロード");
+  test("shows first question (Q1/3)", async ({ page }) => {
+    await expect(page.getByText("Q1 / 3")).toBeVisible();
+    await expect(page.getByText("親子で興味があるテーマは？")).toBeVisible();
   });
 
-  test("ドロップゾーンが表示される", async ({ page }) => {
-    await expect(page.getByTestId("drop-zone")).toBeVisible();
+  test("shows tag options for Q1", async ({ page }) => {
+    await expect(page.getByText("教育")).toBeVisible();
+    await expect(page.getByText("スポーツ")).toBeVisible();
   });
 
-  test("ファイルを選択するとプレビューが表示される", async ({ page }) => {
-    const tmpDir = path.join(__dirname, ".tmp");
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
-    const imgPath = createTestImage(tmpDir, "test.png");
-
-    const fileInput = page.getByTestId("file-input");
-    await fileInput.setInputFiles(imgPath);
-
-    await expect(page.getByTestId("photo-count")).toContainText("1枚");
-
-    // Cleanup
-    fs.unlinkSync(imgPath);
-    fs.rmdirSync(tmpDir);
+  test("next button is disabled with no selection", async ({ page }) => {
+    const nextBtn = page.getByRole("button", { name: /つぎへ/ });
+    await expect(nextBtn).toBeDisabled();
   });
 
-  test("写真なしではアップロードボタンが無効", async ({ page }) => {
-    const button = page.getByRole("button", { name: /アップロードする/ });
-    await expect(button).toBeDisabled();
+  test("can select tags and proceed to Q2", async ({ page }) => {
+    await page.getByText("教育").click();
+    const nextBtn = page.getByRole("button", { name: /つぎへ/ });
+    await expect(nextBtn).toBeEnabled();
+    await nextBtn.click();
+    await expect(page.getByText("Q2 / 3")).toBeVisible();
+    await expect(page.getByText("気になるサービスは？")).toBeVisible();
   });
 
-  test("写真選択後にアップロードボタンが有効になりprocessingへ遷移", async ({ page }) => {
-    const tmpDir = path.join(__dirname, ".tmp");
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
-    const imgPath = createTestImage(tmpDir, "test2.png");
+  test("completes all 3 questions and navigates to /processing", async ({ page }) => {
+    // Q1
+    await page.getByText("教育").click();
+    await page.getByRole("button", { name: /つぎへ/ }).click();
 
-    await page.getByTestId("file-input").setInputFiles(imgPath);
-    await page.getByRole("button", { name: /アップロードする/ }).click();
-    await expect(page).toHaveURL("/processing");
+    // Q2
+    await expect(page.getByText("Q2 / 3")).toBeVisible();
+    await page.getByText("学習塾").click();
+    await page.getByRole("button", { name: /つぎへ/ }).click();
 
-    fs.unlinkSync(imgPath);
-    fs.rmdirSync(tmpDir);
+    // Q3
+    await expect(page.getByText("Q3 / 3")).toBeVisible();
+    await page.getByText("4〜6歳").click();
+    await page.getByRole("button", { name: /スタート/ }).click();
+
+    await expect(page).toHaveURL(/\/processing/);
   });
 });

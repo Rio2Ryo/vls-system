@@ -1,43 +1,34 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("STEP 3: 写真マッチング結果", () => {
+test.describe("STEP 3 – Photos (Watermarked Gallery)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/matching");
+    await page.goto("/");
+    await page.evaluate(() => {
+      sessionStorage.setItem("eventId", "evt-summer");
+      sessionStorage.setItem("eventName", "夏祭り 2026");
+    });
+    await page.goto("/photos");
   });
 
-  test("結果タイトルが表示される", async ({ page }) => {
-    await expect(page.locator("h1")).toContainText("みつかったよ");
+  test("shows event name and photo count", async ({ page }) => {
+    await expect(page.getByText("夏祭り 2026 の写真")).toBeVisible();
+    await expect(page.getByText(/枚の写真が見つかりました/)).toBeVisible();
   });
 
-  test("マッチ結果グリッドが表示される", async ({ page }) => {
-    await expect(page.getByTestId("match-results").first()).toBeVisible();
+  test("renders photo grid with canvas watermarks", async ({ page }) => {
+    // Photos are rendered as canvas elements (watermarked)
+    const canvases = page.locator("canvas");
+    await expect(canvases.first()).toBeVisible({ timeout: 10000 });
+    const count = await canvases.count();
+    expect(count).toBeGreaterThan(0);
   });
 
-  test("確実マッチセクションが表示される", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /確実マッチ/ })).toBeVisible();
+  test("shows download CTA", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /高画質でダウンロード/ })).toBeVisible();
   });
 
-  test("ダウンロードボタンが表示される", async ({ page }) => {
-    const button = page.getByRole("button", { name: /ダウンロード/ });
-    await expect(button).toBeVisible();
-  });
-
-  test("ダウンロードボタンをクリックすると downloading に遷移", async ({ page }) => {
-    await page.getByRole("button", { name: /ダウンロード/ }).click();
-    await expect(page).toHaveURL("/downloading");
-  });
-
-  test("写真タグが表示される", async ({ page }) => {
-    // At least one tag should be visible on match cards
-    const tags = page.locator("[data-testid^='tag-']");
-    await expect(tags.first()).toBeVisible();
-  });
-
-  test("高確率マッチセクションが表示される", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /高確率マッチ/ })).toBeVisible();
-  });
-
-  test("要確認セクションが表示される", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /要確認/ })).toBeVisible();
+  test("clicking download CTA navigates to /downloading", async ({ page }) => {
+    await page.getByRole("button", { name: /高画質でダウンロード/ }).click();
+    await expect(page).toHaveURL(/\/downloading/);
   });
 });

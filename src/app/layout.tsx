@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "VLS - Video Launch System",
-  description: "イベント写真マッチングシステム",
+  description: "イベント写真サービス",
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="bg-magical min-h-screen relative z-10">{children}</body>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }
