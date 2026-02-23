@@ -6,15 +6,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import TagSelector from "@/components/ui/TagSelector";
-import { DEFAULT_SURVEY } from "@/lib/data";
+import { getStoredSurvey } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
 
 export default function SurveyPage() {
   const router = useRouter();
   const [currentQ, setCurrentQ] = useState(0);
   const [allAnswers, setAllAnswers] = useState<Record<string, InterestTag[]>>({});
+  const [survey] = useState(() => getStoredSurvey());
 
-  const question = DEFAULT_SURVEY[currentQ];
+  const question = survey[currentQ];
   const selectedTags = allAnswers[question.id] || [];
 
   const handleToggle = (value: string) => {
@@ -27,7 +28,7 @@ export default function SurveyPage() {
   };
 
   const handleNext = () => {
-    if (currentQ < DEFAULT_SURVEY.length - 1) {
+    if (currentQ < survey.length - 1) {
       setCurrentQ(currentQ + 1);
     } else {
       // Collect all selected tags
@@ -38,7 +39,7 @@ export default function SurveyPage() {
     }
   };
 
-  const isLast = currentQ === DEFAULT_SURVEY.length - 1;
+  const isLast = currentQ === survey.length - 1;
 
   return (
     <main className="min-h-screen flex flex-col items-center p-6 pt-12">
@@ -48,7 +49,7 @@ export default function SurveyPage() {
         animate={{ opacity: 1 }}
         className="flex gap-2 mb-8"
       >
-        {DEFAULT_SURVEY.map((_, i) => (
+        {survey.map((_, i) => (
           <div
             key={i}
             className={`w-3 h-3 rounded-full transition-colors ${
@@ -74,7 +75,7 @@ export default function SurveyPage() {
           <Card>
             <div className="text-center mb-1">
               <span className="text-xs text-gray-400 font-medium">
-                Q{currentQ + 1} / {DEFAULT_SURVEY.length}
+                Q{currentQ + 1} / {survey.length}
               </span>
             </div>
 

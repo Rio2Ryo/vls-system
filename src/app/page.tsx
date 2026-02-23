@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { getEventByPassword } from "@/lib/data";
+import { getEventByPassword } from "@/lib/store";
 
 export default function TopPage() {
   const router = useRouter();

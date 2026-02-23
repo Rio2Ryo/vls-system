@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import PhotoGrid from "@/components/photos/PhotoGrid";
 import PhotoModal from "@/components/photos/PhotoModal";
-import { EVENTS } from "@/lib/data";
+import { getStoredEvents } from "@/lib/store";
 import { PhotoData } from "@/lib/types";
 
 export default function PhotosPage() {
@@ -17,7 +17,8 @@ export default function PhotosPage() {
   const photos = useMemo(() => {
     if (typeof window === "undefined") return [];
     const eventId = sessionStorage.getItem("eventId");
-    const event = EVENTS.find((e) => e.id === eventId);
+    const events = getStoredEvents();
+    const event = events.find((e) => e.id === eventId);
     return event?.photos || [];
   }, []);
 

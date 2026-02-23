@@ -1,83 +1,57 @@
 import { Company, CMMatch, InterestTag } from "./types";
-import { COMPANIES } from "./data";
-
-/**
- * Select platinum company for 15s fixed CM
- * Random from platinum-tier companies
- */
-function selectPlatinumCM(): Company | null {
-  const platinums = COMPANIES.filter((c) => c.tier === "platinum");
-  if (platinums.length === 0) return null;
-  return platinums[Math.floor(Math.random() * platinums.length)];
-}
-
-/**
- * Match a company for 30s+60s CM based on user tags
- *
- * Algorithm per spec:
- * Case A (Pt + Gold + General overlap): Pt=40%, Gd=40%, OP=20%
- * Case B (Pt + Gold only): Pt=50%, Gd=50%
- * Case C (Gold + General only): Gd=80%, OP=20%
- * Case D (Pt + General only): Pt=80%, OP=20%
- * Single match: 100%
- */
-function selectMatchedCM(userTags: InterestTag[]): Company | null {
-  if (userTags.length === 0) {
-    // No tags - random from all
-    return COMPANIES[Math.floor(Math.random() * COMPANIES.length)] || null;
-  }
-
-  const hasOverlap = (company: Company) =>
-    company.tags.some((t) => userTags.includes(t));
-
-  const matched = {
-    platinum: COMPANIES.filter((c) => c.tier === "platinum" && hasOverlap(c)),
-    gold: COMPANIES.filter((c) => c.tier === "gold" && hasOverlap(c)),
-    general: COMPANIES.filter(
-      (c) => (c.tier === "silver" || c.tier === "bronze") && hasOverlap(c)
-    ),
-  };
-
-  const hasPt = matched.platinum.length > 0;
-  const hasGd = matched.gold.length > 0;
-  const hasOp = matched.general.length > 0;
-
-  const rand = Math.random();
-
-  // Case A: all three
-  if (hasPt && hasGd && hasOp) {
-    if (rand < 0.4) return pick(matched.platinum);
-    if (rand < 0.8) return pick(matched.gold);
-    return pick(matched.general);
-  }
-  // Case B: Pt + Gold
-  if (hasPt && hasGd) {
-    return rand < 0.5 ? pick(matched.platinum) : pick(matched.gold);
-  }
-  // Case C: Gold + General
-  if (hasGd && hasOp) {
-    return rand < 0.8 ? pick(matched.gold) : pick(matched.general);
-  }
-  // Case D: Pt + General
-  if (hasPt && hasOp) {
-    return rand < 0.8 ? pick(matched.platinum) : pick(matched.general);
-  }
-  // Single matches
-  if (hasPt) return pick(matched.platinum);
-  if (hasGd) return pick(matched.gold);
-  if (hasOp) return pick(matched.general);
-
-  // No match at all - fallback to random
-  return COMPANIES[Math.floor(Math.random() * COMPANIES.length)] || null;
-}
+import { getStoredCompanies } from "./store";
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 export function getCMMatch(userTags: InterestTag[]): CMMatch {
-  return {
-    platinumCM: selectPlatinumCM(),
-    matchedCM: selectMatchedCM(userTags),
-  };
+  const companies = getStoredCompanies();
+
+  // Platinum CM: random from platinum tier
+  const platinums = companies.filter((c) => c.tier === "platinum");
+  const platinumCM = platinums.length > 0 ? pick(platinums) : null;
+
+  // Matched CM based on user tags
+  let matchedCM: Company | null = null;
+
+  if (userTags.length === 0) {
+    matchedCM = companies.length > 0 ? pick(companies) : null;
+  } else {
+    const hasOverlap = (company: Company) =>
+      company.tags.some((t) => userTags.includes(t));
+
+    const matched = {
+      platinum: companies.filter((c) => c.tier === "platinum" && hasOverlap(c)),
+      gold: companies.filter((c) => c.tier === "gold" && hasOverlap(c)),
+      general: companies.filter(
+        (c) => (c.tier === "silver" || c.tier === "bronze") && hasOverlap(c)
+      ),
+    };
+
+    const hasPt = matched.platinum.length > 0;
+    const hasGd = matched.gold.length > 0;
+    const hasOp = matched.general.length > 0;
+    const rand = Math.random();
+
+    if (hasPt && hasGd && hasOp) {
+      matchedCM = rand < 0.4 ? pick(matched.platinum) : rand < 0.8 ? pick(matched.gold) : pick(matched.general);
+    } else if (hasPt && hasGd) {
+      matchedCM = rand < 0.5 ? pick(matched.platinum) : pick(matched.gold);
+    } else if (hasGd && hasOp) {
+      matchedCM = rand < 0.8 ? pick(matched.gold) : pick(matched.general);
+    } else if (hasPt && hasOp) {
+      matchedCM = rand < 0.8 ? pick(matched.platinum) : pick(matched.general);
+    } else if (hasPt) {
+      matchedCM = pick(matched.platinum);
+    } else if (hasGd) {
+      matchedCM = pick(matched.gold);
+    } else if (hasOp) {
+      matchedCM = pick(matched.general);
+    } else {
+      matchedCM = companies.length > 0 ? pick(companies) : null;
+    }
+  }
+
+  return { platinumCM, matchedCM };
 }
