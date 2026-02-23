@@ -1,16 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { getEventByPassword } from "@/lib/store";
 
-export default function TopPage() {
+function TopPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  // Auto-fill password from ?pw= query parameter
+  useEffect(() => {
+    const pw = searchParams.get("pw");
+    if (pw) setPassword(pw);
+  }, [searchParams]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,5 +115,13 @@ export default function TopPage() {
         イベント主催者からお知らせされたパスワードを入力してください
       </motion.p>
     </main>
+  );
+}
+
+export default function TopPage() {
+  return (
+    <Suspense>
+      <TopPageInner />
+    </Suspense>
   );
 }

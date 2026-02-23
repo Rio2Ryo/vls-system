@@ -202,6 +202,18 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", date: "", description: "", password: "" });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const getShareUrl = (pw: string) => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    return `${base}/?pw=${encodeURIComponent(pw)}`;
+  };
+
+  const copyUrl = (evt: EventData) => {
+    navigator.clipboard.writeText(getShareUrl(evt.password));
+    setCopiedId(evt.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   useEffect(() => { setEvents(getStoredEvents()); }, []);
 
@@ -287,6 +299,29 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
               </span>
               <button onClick={() => startEdit(evt)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>
               <button onClick={() => remove(evt.id)} className="text-xs text-red-400 hover:underline">削除</button>
+            </div>
+          </div>
+          {/* User-facing shareable URL */}
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-[10px] text-gray-400 mb-1">ユーザー向け共有URL</p>
+            <div className="flex items-center gap-2">
+              <code
+                className="flex-1 text-xs bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg font-mono text-gray-600 truncate"
+                data-testid={`event-url-${evt.id}`}
+              >
+                {getShareUrl(evt.password)}
+              </code>
+              <button
+                onClick={() => copyUrl(evt)}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                  copiedId === evt.id
+                    ? "bg-green-50 text-green-600 border border-green-200"
+                    : "bg-[#6EC6FF] text-white hover:bg-blue-400"
+                }`}
+                data-testid={`event-copy-url-${evt.id}`}
+              >
+                {copiedId === evt.id ? "Copied!" : "URLコピー"}
+              </button>
             </div>
           </div>
         </Card>

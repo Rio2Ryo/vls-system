@@ -15,7 +15,6 @@ async function adminLogin(page: import("@playwright/test").Page) {
 
 test.describe("Admin → User Integration", () => {
   test.beforeEach(async ({ page }) => {
-    // Clean localStorage before each test
     await page.goto("/");
     await page.evaluate(() => {
       localStorage.removeItem("vls_admin_events");
@@ -28,7 +27,7 @@ test.describe("Admin → User Integration", () => {
     await adminLogin(page);
     await page.getByRole("button", { name: /イベント管理/ }).click();
 
-    // Create new event with custom password
+    // Create new event
     await page.getByRole("button", { name: /新規作成/ }).click();
     await page.getByTestId("event-name-input").fill("Admin確認イベント");
     await page.getByTestId("event-date-input").fill("2026-06-15");
@@ -36,9 +35,9 @@ test.describe("Admin → User Integration", () => {
     await page.getByRole("button", { name: /保存/ }).click();
     await expect(page.getByTestId("admin-toast")).toBeVisible();
 
-    // Verify event appears in list
+    // Verify event appears with password and shareable URL
     await expect(page.getByText("Admin確認イベント")).toBeVisible();
-    await expect(page.getByText("ADMINTEST1")).toBeVisible();
+    await expect(page.locator("code", { hasText: "/?pw=ADMINTEST1" })).toBeVisible();
 
     // User logs in with the admin-created password
     await page.goto("/");
@@ -46,25 +45,21 @@ test.describe("Admin → User Integration", () => {
     await page.getByRole("button", { name: /写真を見る/ }).click();
     await expect(page).toHaveURL(/\/survey/);
 
-    // Verify correct event name in session
     const eventName = await page.evaluate(() => sessionStorage.getItem("eventName"));
     expect(eventName).toBe("Admin確認イベント");
 
-    // Clean up
     await page.evaluate(() => localStorage.removeItem("vls_admin_events"));
   });
 
   test("2: Admin-registered company CM video plays in STEP 2", async ({ page }) => {
-    // Clear companies so only our test company exists
     await page.evaluate(() => {
       localStorage.setItem("vls_admin_companies", "[]");
     });
 
-    // Admin: add a platinum company with specific CM video ID
     await adminLogin(page);
     await page.getByRole("button", { name: /企業管理/ }).click();
 
-    // No companies should be listed (cleared)
+    // Add platinum company with specific CM video IDs (15s/30s/60s)
     await page.getByRole("button", { name: /企業追加/ }).click();
     await page.getByTestId("company-name-input").fill("テストCM企業");
     await page.getByTestId("company-tier-select").selectOption("platinum");
@@ -74,47 +69,36 @@ test.describe("Admin → User Integration", () => {
     await page.getByTestId("company-cm60-input").fill("L_jWHffIx5E");
     await page.getByRole("button", { name: /保存/ }).click();
     await expect(page.getByTestId("admin-toast")).toBeVisible();
-
-    // Verify company appears in admin list
     await expect(page.getByText("テストCM企業")).toBeVisible();
 
-    // Verify localStorage was properly updated before navigating
+    // Verify localStorage
     const stored = await page.evaluate(() => localStorage.getItem("vls_admin_companies"));
     const companies = JSON.parse(stored!);
     expect(companies).toHaveLength(1);
-    expect(companies[0].name).toBe("テストCM企業");
     expect(companies[0].videos.cm15).toBe("L_jWHffIx5E");
 
-    // Set session data while still on admin page (avoid extra navigation)
+    // Set session and go to STEP 2
     await page.evaluate(() => {
       sessionStorage.setItem("eventId", "evt-summer");
       sessionStorage.setItem("eventName", "夏祭り 2026");
       sessionStorage.setItem("userTags", JSON.stringify(["education"]));
     });
-
-    // Navigate directly to STEP 2
     await page.goto("/processing");
 
-    // Verify video player shows with our registered CM video
+    // Verify CM video plays with our registered video ID
     await expect(page.getByTestId("video-player")).toBeVisible({ timeout: 10000 });
     const iframe = page.locator("iframe");
     await expect(iframe).toBeVisible({ timeout: 5000 });
     const src = await iframe.getAttribute("src");
     expect(src).toContain("youtube.com/embed/L_jWHffIx5E");
-
-    // Verify the company name appears in the CM label
     await expect(page.getByText("テストCM企業")).toBeVisible();
 
-    // Clean up
     await page.evaluate(() => localStorage.removeItem("vls_admin_companies"));
   });
 
   test("3: Admin-uploaded photos appear in STEP 3 with watermarks", async ({ page }) => {
-    // Admin: upload a photo to the summer event
     await adminLogin(page);
     await page.getByRole("button", { name: /写真管理/ }).click();
-
-    // Default first event (夏祭り 2026) should be selected
     await expect(page.getByTestId("photo-event-select")).toBeVisible();
 
     // Upload test image
@@ -125,32 +109,122 @@ test.describe("Admin → User Integration", () => {
       buffer: TINY_PNG,
     });
 
-    // Wait for upload success
     await expect(page.getByTestId("admin-toast")).toBeVisible();
     await expect(page.getByTestId("admin-toast")).toContainText("写真を追加しました");
-
-    // Verify photo count increased (12 default + 1 uploaded = 13)
     await expect(page.getByRole("heading", { name: /13枚/ })).toBeVisible();
 
     // User: go to STEP 3
-    await page.goto("/");
     await page.evaluate(() => {
       sessionStorage.setItem("eventId", "evt-summer");
       sessionStorage.setItem("eventName", "夏祭り 2026");
     });
     await page.goto("/photos");
 
-    // Verify 13 photos shown
     await expect(page.getByText(/13枚の写真が見つかりました/)).toBeVisible();
-
-    // Verify watermarked canvas elements are rendered
     await expect(page.getByTestId("photo-grid")).toBeVisible();
     const canvases = page.locator("canvas");
     await expect(canvases.first()).toBeVisible({ timeout: 10000 });
-    const count = await canvases.count();
-    expect(count).toBe(13);
+    expect(await canvases.count()).toBe(13);
+
+    await page.evaluate(() => localStorage.removeItem("vls_admin_events"));
+  });
+
+  test("4: Event shareable URL with ?pw= auto-fills password", async ({ page }) => {
+    await adminLogin(page);
+    await page.getByRole("button", { name: /イベント管理/ }).click();
+
+    // Verify shareable URL is displayed for default events
+    const urlEl = page.getByTestId("event-url-evt-summer");
+    await expect(urlEl).toBeVisible();
+    const urlText = await urlEl.textContent();
+    expect(urlText).toContain("/?pw=SUMMER2026");
+
+    // Copy button exists
+    const copyBtn = page.getByTestId("event-copy-url-evt-summer");
+    await expect(copyBtn).toContainText("URLコピー");
+
+    // Navigate to the shareable URL
+    await page.goto("/?pw=SUMMER2026");
+
+    // Password should be auto-filled
+    const input = page.getByTestId("password-input");
+    await expect(input).toHaveValue("SUMMER2026");
+
+    // Click submit → should navigate to survey
+    await page.getByRole("button", { name: /写真を見る/ }).click();
+    await expect(page).toHaveURL(/\/survey/);
+  });
+
+  test("5: Full Admin E2E: login → event → photos → CM → URL → user access", async ({ page }) => {
+    // ===== STEP A: Admin Login =====
+    await adminLogin(page);
+
+    // ===== STEP B: Create Event with Password =====
+    await page.getByRole("button", { name: /イベント管理/ }).click();
+    await page.getByRole("button", { name: /新規作成/ }).click();
+    await page.getByTestId("event-name-input").fill("完全テストイベント");
+    await page.getByTestId("event-date-input").fill("2026-08-01");
+    await page.getByTestId("event-password-input").fill("FULLTEST1");
+    await page.getByRole("button", { name: /保存/ }).click();
+    await expect(page.getByTestId("admin-toast")).toBeVisible();
+    await expect(page.getByText("完全テストイベント")).toBeVisible();
+
+    // Verify shareable URL appears
+    const urlEl = page.locator("[data-testid^='event-url-']").last();
+    await expect(urlEl).toContainText("/?pw=FULLTEST1");
+
+    // ===== STEP C: Upload Photos =====
+    await page.getByRole("button", { name: /写真管理/ }).click();
+    await expect(page.getByTestId("photo-event-select")).toBeVisible();
+
+    // Select the new event
+    const newEventId = await page.evaluate(() => {
+      const evts = JSON.parse(localStorage.getItem("vls_admin_events") || "[]");
+      const found = evts.find((e: { name: string }) => e.name === "完全テストイベント");
+      return found?.id;
+    });
+    expect(newEventId).toBeTruthy();
+    await page.getByTestId("photo-event-select").selectOption(newEventId);
+
+    // Upload a test photo
+    await page.getByTestId("photo-file-input").setInputFiles({
+      name: "full-test-photo.png",
+      mimeType: "image/png",
+      buffer: TINY_PNG,
+    });
+    await expect(page.getByTestId("admin-toast")).toBeVisible();
+
+    // ===== STEP D: Register CM Company (15s/30s/60s) =====
+    await page.getByRole("button", { name: /企業管理/ }).click();
+    await page.getByRole("button", { name: /企業追加/ }).click();
+    await page.getByTestId("company-name-input").fill("フルテスト企業");
+    await page.getByTestId("company-tier-select").selectOption("platinum");
+    await page.getByTestId("company-tags-input").fill("education, technology");
+    await page.getByTestId("company-cm15-input").fill("dQw4w9WgXcQ");
+    await page.getByTestId("company-cm30-input").fill("dQw4w9WgXcQ");
+    await page.getByTestId("company-cm60-input").fill("dQw4w9WgXcQ");
+    await page.getByRole("button", { name: /保存/ }).click();
+    await expect(page.getByTestId("admin-toast")).toBeVisible();
+    await expect(page.getByText("フルテスト企業")).toBeVisible();
+
+    // Verify CM status badges
+    const companySection = page.locator("text=フルテスト企業").locator("..").locator("..");
+    await expect(companySection.getByText("CM15s")).toBeVisible();
+
+    // ===== STEP E: User accesses via shareable URL =====
+    await page.goto("/?pw=FULLTEST1");
+    await expect(page.getByTestId("password-input")).toHaveValue("FULLTEST1");
+    await page.getByRole("button", { name: /写真を見る/ }).click();
+    await expect(page).toHaveURL(/\/survey/);
+
+    // Verify event name
+    const storedName = await page.evaluate(() => sessionStorage.getItem("eventName"));
+    expect(storedName).toBe("完全テストイベント");
 
     // Clean up
-    await page.evaluate(() => localStorage.removeItem("vls_admin_events"));
+    await page.evaluate(() => {
+      localStorage.removeItem("vls_admin_events");
+      localStorage.removeItem("vls_admin_companies");
+    });
   });
 });
