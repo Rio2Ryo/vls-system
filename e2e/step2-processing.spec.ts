@@ -1,0 +1,31 @@
+import { test, expect } from "@playwright/test";
+
+test.describe("STEP 2: ライブラリ読み込み中（CM+アンケート）", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/processing");
+  });
+
+  test("処理中タイトルが表示される", async ({ page }) => {
+    await expect(page.locator("h1")).toContainText("写真をしらべているよ");
+  });
+
+  test("プログレスバーが表示される", async ({ page }) => {
+    await expect(page.getByTestId("progress-bar")).toBeVisible();
+  });
+
+  test("ローディングアニメーションが初期表示される", async ({ page }) => {
+    await expect(page.getByTestId("loading-animation")).toBeVisible();
+  });
+
+  test("しばらく待つとCMまたはアンケートが表示される", async ({ page }) => {
+    // Wait for loading phase to end (3s) and CM/survey to appear
+    await page.waitForTimeout(4000);
+
+    // Either CM player or survey form should be visible
+    const cmVisible = await page.getByTestId("cm-player").isVisible().catch(() => false);
+    const cmManagerVisible = await page.getByTestId("cm-segment-manager").isVisible().catch(() => false);
+    const surveyVisible = await page.getByTestId("survey-form").isVisible().catch(() => false);
+
+    expect(cmVisible || cmManagerVisible || surveyVisible).toBeTruthy();
+  });
+});
