@@ -6,6 +6,7 @@ test.describe("STEP 5 – Complete (Offer + Download)", () => {
     await page.evaluate(() => {
       sessionStorage.setItem("eventId", "evt-summer");
       sessionStorage.setItem("eventName", "夏祭り 2026");
+      sessionStorage.setItem("selectedPhotoIds", JSON.stringify(["p1", "p2", "p3"]));
       sessionStorage.setItem(
         "matchedCompany",
         JSON.stringify({
@@ -42,6 +43,10 @@ test.describe("STEP 5 – Complete (Offer + Download)", () => {
     await expect(page.getByText("写真の準備ができました！")).toBeVisible();
   });
 
+  test("shows selected photo count", async ({ page }) => {
+    await expect(page.getByTestId("photo-count-label")).toContainText("3枚の写真が選択されています");
+  });
+
   test("shows platinum sponsor frame", async ({ page }) => {
     await expect(page.getByText(/キッズラーニング株式会社 提供/)).toBeVisible();
     await expect(page.getByRole("button", { name: /記念フレームを保存/ })).toBeVisible();
@@ -57,6 +62,10 @@ test.describe("STEP 5 – Complete (Offer + Download)", () => {
     const btn = page.getByRole("button", { name: /記念フレームを保存/ });
     await btn.click();
     await expect(page.getByRole("button", { name: /保存済み/ })).toBeVisible();
+  });
+
+  test("shows download card with photo count", async ({ page }) => {
+    await expect(page.getByText("3枚の高画質写真をまとめてダウンロード")).toBeVisible();
   });
 
   test("has offer link", async ({ page }) => {

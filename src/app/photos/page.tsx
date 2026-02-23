@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
 import PhotoGrid from "@/components/photos/PhotoGrid";
 import PhotoModal from "@/components/photos/PhotoModal";
@@ -11,7 +11,8 @@ import { PhotoData } from "@/lib/types";
 
 export default function PhotosPage() {
   const router = useRouter();
-  const [selectedPhoto, setSelectedPhoto] = useState<PhotoData | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<PhotoData | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [eventName, setEventName] = useState("");
 
   const photos = useMemo(() => {
@@ -26,14 +27,30 @@ export default function PhotosPage() {
     setEventName(sessionStorage.getItem("eventName") || "イベント");
   }, []);
 
-  const handleDownloadAll = () => {
-    sessionStorage.setItem("selectedPhotoIds", JSON.stringify(photos.map((p) => p.id)));
+  const handleToggleSelect = (photo: PhotoData) => {
+    setSelectedIds((prev) =>
+      prev.includes(photo.id)
+        ? prev.filter((id) => id !== photo.id)
+        : [...prev, photo.id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === photos.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(photos.map((p) => p.id));
+    }
+  };
+
+  const handleDownloadSelected = () => {
+    sessionStorage.setItem("selectedPhotoIds", JSON.stringify(selectedIds));
     router.push("/downloading");
   };
 
-  const handleDownloadSingle = (photo: PhotoData) => {
+  const handleDownloadFromPreview = (photo: PhotoData) => {
     sessionStorage.setItem("selectedPhotoIds", JSON.stringify([photo.id]));
-    setSelectedPhoto(null);
+    setPreviewPhoto(null);
     router.push("/downloading");
   };
 
@@ -53,15 +70,44 @@ export default function PhotosPage() {
           </p>
         </motion.div>
 
-        <PhotoGrid photos={photos} onPhotoClick={setSelectedPhoto} />
+        {/* Selection toolbar */}
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={handleSelectAll}
+            className="text-sm text-[#6EC6FF] hover:underline"
+            data-testid="select-all-btn"
+          >
+            {selectedIds.length === photos.length ? "選択解除" : "すべて選択"}
+          </button>
+          <AnimatePresence>
+            {selectedIds.length > 0 && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="text-sm font-bold text-[#6EC6FF] bg-blue-50 px-3 py-1 rounded-full"
+                data-testid="selection-count"
+              >
+                {selectedIds.length}枚選択中
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </div>
 
-        <PhotoModal
-          photo={selectedPhoto}
-          onClose={() => setSelectedPhoto(null)}
-          onDownload={handleDownloadSingle}
+        <PhotoGrid
+          photos={photos}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onPreview={setPreviewPhoto}
         />
 
-        {/* Download CTA */}
+        <PhotoModal
+          photo={previewPhoto}
+          onClose={() => setPreviewPhoto(null)}
+          onDownload={handleDownloadFromPreview}
+        />
+
+        {/* Download selected CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -70,10 +116,16 @@ export default function PhotosPage() {
         >
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-3xl p-6 border border-blue-100">
             <p className="text-gray-600 font-medium mb-3">
-              高画質・透かしなしでダウンロードしますか？
+              {selectedIds.length > 0
+                ? `${selectedIds.length}枚の写真を高画質でダウンロード`
+                : "写真を選択してダウンロード"}
             </p>
-            <Button onClick={handleDownloadAll} size="lg">
-              全写真を高画質でダウンロード →
+            <Button
+              onClick={handleDownloadSelected}
+              disabled={selectedIds.length === 0}
+              size="lg"
+            >
+              選択した写真をダウンロード →
             </Button>
           </div>
         </motion.div>

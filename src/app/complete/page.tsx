@@ -9,6 +9,7 @@ import { Company } from "@/lib/types";
 export default function CompletePage() {
   const [downloaded, setDownloaded] = useState(false);
   const [eventName, setEventName] = useState("");
+  const [photoCount, setPhotoCount] = useState(0);
 
   const platinumCompany = useMemo((): Company | null => {
     if (typeof window === "undefined") return null;
@@ -30,10 +31,15 @@ export default function CompletePage() {
 
   useEffect(() => {
     setEventName(sessionStorage.getItem("eventName") || "イベント");
+    try {
+      const ids: string[] = JSON.parse(sessionStorage.getItem("selectedPhotoIds") || "[]");
+      setPhotoCount(ids.length);
+    } catch {
+      setPhotoCount(0);
+    }
   }, []);
 
   const handleDownload = () => {
-    // In production, this would download actual photos
     setDownloaded(true);
   };
 
@@ -56,6 +62,11 @@ export default function CompletePage() {
           <h1 className="text-2xl font-bold text-gray-800">
             写真の準備ができました！
           </h1>
+          {photoCount > 0 && (
+            <p className="text-gray-400 text-sm mt-1" data-testid="photo-count-label">
+              {photoCount}枚の写真が選択されています
+            </p>
+          )}
         </motion.div>
 
         {/* Platinum sponsor frame */}
@@ -82,14 +93,21 @@ export default function CompletePage() {
           </Card>
         )}
 
-        {/* Download all photos */}
-        {!platinumCompany && (
-          <Card className="text-center">
-            <Button onClick={handleDownload} size="lg" variant={downloaded ? "secondary" : "primary"}>
-              {downloaded ? "✓ ダウンロード済み" : "写真をダウンロード"}
-            </Button>
-          </Card>
-        )}
+        {/* Download photos */}
+        <Card className="text-center">
+          <p className="text-sm text-gray-600 mb-3">
+            {photoCount > 1
+              ? `${photoCount}枚の高画質写真をまとめてダウンロード`
+              : "高画質写真をダウンロード"}
+          </p>
+          <Button
+            onClick={handleDownload}
+            size="lg"
+            variant={downloaded ? "secondary" : "primary"}
+          >
+            {downloaded ? "✓ ダウンロード済み" : "写真をダウンロード"}
+          </Button>
+        </Card>
 
         {/* Offer cards */}
         {matchedCompany && (

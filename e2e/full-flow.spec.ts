@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Full Flow – STEP 0 → STEP 5", () => {
-  test("STEP 0 → 1 → 2 (UI check) → 3 → modal → 4 (UI check) → 5", async ({ page }) => {
+  test("STEP 0 → 1 → 2 (UI check) → 3 (multi-select) → 4 (UI check) → 5", async ({ page }) => {
     // ===== STEP 0: Password Auth =====
     await page.goto("/");
     await expect(page.getByText("イベント写真サービス")).toBeVisible();
@@ -30,64 +30,80 @@ test.describe("Full Flow – STEP 0 → STEP 5", () => {
     // ===== STEP 2: Processing (45s wait + CM) =====
     await expect(page.getByText("イベントの全写真データを読み込んでいます")).toBeVisible();
     await expect(page.getByText("読み込み中")).toBeVisible();
-    // Button should be disabled initially
     await expect(page.getByRole("button", { name: /写真を見る/ })).toBeDisabled();
 
-    // Verify session data was saved for later steps
+    // Verify session data was saved
     const hasTags = await page.evaluate(() => {
       const tags = sessionStorage.getItem("userTags");
       return tags !== null && JSON.parse(tags).length > 0;
     });
     expect(hasTags).toBeTruthy();
 
-    // Skip the 45s wait by navigating directly with session data intact
+    // Skip the 45s wait by navigating directly
     await page.goto("/photos");
 
-    // ===== STEP 3: Photo Gallery =====
+    // ===== STEP 3: Photo Gallery (Multi-Select) =====
     await expect(page.getByText("夏祭り 2026 の写真")).toBeVisible();
     await expect(page.getByText(/12枚の写真が見つかりました/)).toBeVisible();
 
     // Wait for photo grid to render
-    const photoItem = page.getByTestId("photo-summer-photo-1");
-    await expect(photoItem).toBeVisible({ timeout: 10000 });
+    const photo1 = page.getByTestId("photo-summer-photo-1");
+    const photo2 = page.getByTestId("photo-summer-photo-2");
+    await expect(photo1).toBeVisible({ timeout: 10000 });
 
-    // Click photo → modal opens
-    await photoItem.click();
+    // Download button disabled before selection
+    const dlBtn = page.getByRole("button", { name: /選択した写真をダウンロード/ });
+    await expect(dlBtn).toBeDisabled();
+
+    // Select two photos
+    await photo1.click();
+    await expect(page.getByTestId("check-summer-photo-1")).toContainText("✓");
+    await expect(page.getByTestId("selection-count")).toContainText("1枚選択中");
+
+    await photo2.click();
+    await expect(page.getByTestId("selection-count")).toContainText("2枚選択中");
+
+    // Preview still works via preview button
+    await page.getByTestId("preview-summer-photo-1").click();
     await expect(page.getByTestId("photo-modal")).toBeVisible({ timeout: 5000 });
     await expect(page.getByText("透かし入りプレビュー")).toBeVisible();
+    await page.getByTestId("modal-close").click();
+    await expect(page.getByTestId("photo-modal")).not.toBeVisible();
 
-    // Modal has download button
-    const dlBtn = page.getByTestId("photo-download-btn");
-    await expect(dlBtn).toBeVisible();
-    await expect(dlBtn).toContainText("この写真の高画質データを生成");
-
-    // Click download → navigates to STEP 4
+    // Download selected → STEP 4
+    await expect(dlBtn).toBeEnabled();
     await dlBtn.click();
     await expect(page).toHaveURL(/\/downloading/);
 
-    // Verify selectedPhotoIds was stored
+    // Verify selectedPhotoIds
     const photoIds = await page.evaluate(() => {
       return JSON.parse(sessionStorage.getItem("selectedPhotoIds") || "[]");
     });
-    expect(photoIds).toEqual(["summer-photo-1"]);
+    expect(photoIds).toHaveLength(2);
 
     // ===== STEP 4: Downloading (60s wait + CM) =====
     await expect(page.getByText("高画質データを生成中")).toBeVisible();
-    await expect(page.getByText("1枚の写真を処理中")).toBeVisible();
+    await expect(page.getByText("2枚の写真を処理中")).toBeVisible();
     await expect(page.getByText("データ生成中")).toBeVisible();
     await expect(page.getByRole("button", { name: /ダウンロードへ/ })).toBeDisabled();
 
-    // Verify matched company CM is shown (from sessionStorage set during processing)
+    // Verify matched company CM is shown
     const hasMatchedCompany = await page.evaluate(() => {
       return sessionStorage.getItem("matchedCompany") !== null;
     });
     expect(hasMatchedCompany).toBeTruthy();
 
-    // Skip the 60s wait by navigating directly
+    // Skip the 60s wait
     await page.goto("/complete");
 
     // ===== STEP 5: Complete (Offer + Download) =====
     await expect(page.getByText("写真の準備ができました！")).toBeVisible();
+
+    // Check photo count label
+    await expect(page.getByTestId("photo-count-label")).toContainText("2枚の写真が選択されています");
+
+    // Check download card
+    await expect(page.getByText(/高画質写真をまとめてダウンロード/)).toBeVisible();
 
     // Check platinum sponsor (if set)
     const hasPlatinum = await page.evaluate(() => {
