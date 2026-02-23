@@ -75,26 +75,34 @@ test.describe("Admin → User Integration", () => {
     await page.getByRole("button", { name: /保存/ }).click();
     await expect(page.getByTestId("admin-toast")).toBeVisible();
 
-    // Verify company appears
+    // Verify company appears in admin list
     await expect(page.getByText("テストCM企業")).toBeVisible();
 
-    // User: set session and go to STEP 2
-    await page.goto("/");
+    // Verify localStorage was properly updated before navigating
+    const stored = await page.evaluate(() => localStorage.getItem("vls_admin_companies"));
+    const companies = JSON.parse(stored!);
+    expect(companies).toHaveLength(1);
+    expect(companies[0].name).toBe("テストCM企業");
+    expect(companies[0].videos.cm15).toBe("L_jWHffIx5E");
+
+    // Set session data while still on admin page (avoid extra navigation)
     await page.evaluate(() => {
       sessionStorage.setItem("eventId", "evt-summer");
       sessionStorage.setItem("eventName", "夏祭り 2026");
       sessionStorage.setItem("userTags", JSON.stringify(["education"]));
     });
+
+    // Navigate directly to STEP 2
     await page.goto("/processing");
 
-    // Verify video player with our CM video ID
+    // Verify video player shows with our registered CM video
     await expect(page.getByTestId("video-player")).toBeVisible({ timeout: 10000 });
     const iframe = page.locator("iframe");
     await expect(iframe).toBeVisible({ timeout: 5000 });
     const src = await iframe.getAttribute("src");
     expect(src).toContain("youtube.com/embed/L_jWHffIx5E");
 
-    // Also verify the company name appears in the CM label
+    // Verify the company name appears in the CM label
     await expect(page.getByText("テストCM企業")).toBeVisible();
 
     // Clean up
