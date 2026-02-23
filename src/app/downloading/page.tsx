@@ -12,10 +12,21 @@ import { Company } from "@/lib/types";
 
 const TOTAL_SECONDS = 60;
 
+function useSelectedPhotoCount(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const ids: string[] = JSON.parse(sessionStorage.getItem("selectedPhotoIds") || "[]");
+    return ids.length;
+  } catch {
+    return 0;
+  }
+}
+
 export default function DownloadingPage() {
   const router = useRouter();
   const [elapsed, setElapsed] = useState(0);
   const [videoDone, setVideoDone] = useState(false);
+  const photoCount = useSelectedPhotoCount();
 
   const matchedCompany = useMemo((): Company | null => {
     if (typeof window === "undefined") return null;
@@ -61,7 +72,11 @@ export default function DownloadingPage() {
         <h1 className="text-2xl font-bold text-gray-800">
           高画質データを生成中...
         </h1>
-        <p className="text-gray-400 text-sm mt-1">もうすぐ完了します</p>
+        <p className="text-gray-400 text-sm mt-1">
+          {photoCount > 0
+            ? `${photoCount}枚の写真を処理中...もうすぐ完了します`
+            : "もうすぐ完了します"}
+        </p>
       </motion.div>
 
       <div className="w-full max-w-lg mb-6">

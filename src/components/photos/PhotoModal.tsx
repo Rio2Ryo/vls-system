@@ -7,6 +7,7 @@ import { useRef, useEffect } from "react";
 interface PhotoModalProps {
   photo: PhotoData | null;
   onClose: () => void;
+  onDownload?: (photo: PhotoData) => void;
 }
 
 function LargeWatermarkedImage({ src }: { src: string }) {
@@ -45,7 +46,7 @@ function LargeWatermarkedImage({ src }: { src: string }) {
   return <canvas ref={canvasRef} className="max-w-full max-h-[70vh] rounded-2xl" />;
 }
 
-export default function PhotoModal({ photo, onClose }: PhotoModalProps) {
+export default function PhotoModal({ photo, onClose, onDownload }: PhotoModalProps) {
   return (
     <AnimatePresence>
       {photo && (
@@ -81,10 +82,21 @@ export default function PhotoModal({ photo, onClose }: PhotoModalProps) {
               ×
             </button>
 
-            <div className="text-center mt-3">
+            <div className="text-center mt-4 space-y-2">
               <span className="text-xs text-white/70 bg-black/30 px-3 py-1 rounded-full">
                 透かし入りプレビュー
               </span>
+              {onDownload && (
+                <button
+                  onClick={() => onDownload(photo)}
+                  className="block mx-auto mt-3 px-6 py-3 rounded-xl font-bold text-white
+                             bg-gradient-to-r from-[#6EC6FF] to-[#a78bfa] shadow-lg
+                             hover:shadow-xl active:scale-95 transition-all text-sm"
+                  data-testid="photo-download-btn"
+                >
+                  この写真の高画質データを生成 →
+                </button>
+              )}
             </div>
           </motion.div>
         </motion.div>

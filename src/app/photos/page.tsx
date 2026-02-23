@@ -25,7 +25,14 @@ export default function PhotosPage() {
     setEventName(sessionStorage.getItem("eventName") || "イベント");
   }, []);
 
-  const handleDownload = () => {
+  const handleDownloadAll = () => {
+    sessionStorage.setItem("selectedPhotoIds", JSON.stringify(photos.map((p) => p.id)));
+    router.push("/downloading");
+  };
+
+  const handleDownloadSingle = (photo: PhotoData) => {
+    sessionStorage.setItem("selectedPhotoIds", JSON.stringify([photo.id]));
+    setSelectedPhoto(null);
     router.push("/downloading");
   };
 
@@ -50,6 +57,7 @@ export default function PhotosPage() {
         <PhotoModal
           photo={selectedPhoto}
           onClose={() => setSelectedPhoto(null)}
+          onDownload={handleDownloadSingle}
         />
 
         {/* Download CTA */}
@@ -63,8 +71,8 @@ export default function PhotosPage() {
             <p className="text-gray-600 font-medium mb-3">
               高画質・透かしなしでダウンロードしますか？
             </p>
-            <Button onClick={handleDownload} size="lg">
-              高画質でダウンロード →
+            <Button onClick={handleDownloadAll} size="lg">
+              全写真を高画質でダウンロード →
             </Button>
           </div>
         </motion.div>
