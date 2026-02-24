@@ -29,6 +29,7 @@ export interface EventData {
   id: string;
   name: string;
   date: string;
+  venue?: string;
   description: string;
   password: string;
   photos: PhotoData[];

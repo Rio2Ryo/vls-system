@@ -283,6 +283,7 @@ function exportEventStatsCsv(
   const headerCols = [
     "イベント名",
     "開催日",
+    "会場",
     "アクセス数",
     "アンケート完了",
     "アンケート完了率",
@@ -354,6 +355,7 @@ function exportEventStatsCsv(
     const row = [
       evt.name,
       evt.date,
+      evt.venue || "",
       String(access),
       String(surveyed),
       pct(surveyed, access),
@@ -731,7 +733,7 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", date: "", description: "", password: "", companyIds: [] as string[] });
+  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] as string[] });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [qrEventId, setQrEventId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -783,12 +785,12 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
 
   const startNew = () => {
     setEditing("__new__");
-    setForm({ name: "", date: "", description: "", password: "", companyIds: [] });
+    setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] });
   };
 
   const startEdit = (evt: EventData) => {
     setEditing(evt.id);
-    setForm({ name: evt.name, date: evt.date, description: evt.description, password: evt.password, companyIds: evt.companyIds || [] });
+    setForm({ name: evt.name, date: evt.date, venue: evt.venue || "", description: evt.description, password: evt.password, companyIds: evt.companyIds || [] });
   };
 
   const toggleCompany = (companyId: string) => {
@@ -808,6 +810,7 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
         id: `evt-${Date.now()}`,
         name: form.name,
         date: form.date,
+        venue: form.venue || undefined,
         description: form.description,
         password: form.password.toUpperCase(),
         photos: [],
@@ -821,6 +824,7 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
               ...e,
               name: form.name,
               date: form.date,
+              venue: form.venue || undefined,
               description: form.description,
               password: form.password.toUpperCase(),
               companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
@@ -861,6 +865,7 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
           <div className="space-y-3">
             <input className={inputCls} placeholder="イベント名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="event-name-input" />
             <input className={inputCls} type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="event-date-input" />
+            <input className={inputCls} placeholder="会場（例: 東京ビッグサイト）" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} data-testid="event-venue-input" />
             <input className={inputCls} placeholder="説明" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <input className={inputCls + " font-mono uppercase"} placeholder="パスワード（例: SUMMER2026）" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} data-testid="event-password-input" />
 
@@ -904,7 +909,9 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
           <div className="flex justify-between items-start">
             <div>
               <h3 className="font-bold text-gray-700">{evt.name}</h3>
-              <p className="text-sm text-gray-400">{evt.date} · {evt.description}</p>
+              <p className="text-sm text-gray-400">
+                {evt.date}{evt.venue ? ` · ${evt.venue}` : ""}{evt.description ? ` · ${evt.description}` : ""}
+              </p>
               <p className="text-xs text-gray-400 mt-1">
                 パスワード: <code className="bg-gray-100 px-2 py-0.5 rounded font-mono" data-testid={`event-pw-${evt.id}`}>{evt.password}</code>
               </p>
