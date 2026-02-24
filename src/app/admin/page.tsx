@@ -17,7 +17,7 @@ import {
 } from "@/lib/store";
 import { AnalyticsRecord, VideoPlayRecord } from "@/lib/types";
 
-type Tab = "events" | "photos" | "companies" | "survey" | "dashboard";
+type Tab = "events" | "photos" | "companies" | "survey" | "dashboard" | "storage";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -93,6 +93,7 @@ export default function AdminPage() {
     { key: "photos", label: "写真管理", icon: "📷" },
     { key: "companies", label: "企業管理", icon: "🏢" },
     { key: "survey", label: "アンケート", icon: "📝" },
+    { key: "storage", label: "R2ストレージ", icon: "☁️" },
   ];
 
   return (
@@ -203,6 +204,7 @@ export default function AdminPage() {
             {tab === "photos" && <PhotosTab onSave={(msg) => { showToast(msg); refreshEvents(); }} activeEventId={activeEventId} />}
             {tab === "companies" && <CompaniesTab onSave={showToast} />}
             {tab === "survey" && <SurveyTab onSave={showToast} activeEventId={activeEventId} activeEvent={activeEvent} />}
+            {tab === "storage" && <StorageTab onSave={showToast} />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -1021,41 +1023,29 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
 
 // ===== Photos =====
 
-/** Upload a file to R2 via presigned token (2-step: presign → PUT). */
+/** Upload a file to R2 via /api/upload (single POST with FormData). */
 async function uploadFileToR2(
   file: File | Blob,
   eventId: string,
-  type: "photos" | "thumbs",
+  type: "photos" | "thumbs" | "videos",
   adminPassword: string,
   fileName?: string
 ): Promise<{ key: string; url: string } | null> {
   try {
-    // Step 1: Get presigned token
-    const presignRes = await fetch("/api/admin/presign", {
-      method: "POST",
-      headers: {
-        "x-admin-password": adminPassword,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        eventId,
-        fileName: fileName || (file instanceof File ? file.name : "thumb.jpg"),
-        contentType: file.type || "image/jpeg",
-        type,
-      }),
-    });
-    if (!presignRes.ok) return null;
-    const { token, mediaUrl, uploadUrl } = await presignRes.json();
+    const fd = new FormData();
+    const name = fileName || (file instanceof File ? file.name : "file.jpg");
+    fd.append("file", file, name);
+    fd.append("eventId", eventId);
+    fd.append("type", type);
 
-    // Step 2: PUT directly with token
-    const putRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "x-upload-token": token },
-      body: file,
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "x-admin-password": adminPassword },
+      body: fd,
     });
-    if (!putRes.ok) return null;
-    const result = await putRes.json();
-    return { key: result.key, url: mediaUrl };
+    if (!res.ok) return null;
+    const result = await res.json();
+    return { key: result.key, url: result.url };
   } catch {
     return null;
   }
@@ -1708,5 +1698,315 @@ function SurveyQuestionEditor({
         </div>
       </div>
     </Card>
+  );
+}
+
+// ===== R2 Storage Browser =====
+interface R2FileItem {
+  key: string;
+  size: number;
+  lastModified: string;
+  contentType?: string;
+}
+
+function StorageTab({ onSave }: { onSave: (msg: string) => void }) {
+  const [files, setFiles] = useState<R2FileItem[]>([]);
+  const [prefixes, setPrefixes] = useState<string[]>([]);
+  const [currentPrefix, setCurrentPrefix] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadType, setUploadType] = useState<"photos" | "videos">("photos");
+  const [uploadEventId, setUploadEventId] = useState("");
+  const [events, setEvents] = useState<EventData[]>([]);
+
+  const loadFiles = useCallback(async (prefix?: string) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (prefix) params.set("prefix", prefix);
+      const res = await fetch(`/api/files?${params}`, {
+        headers: { "x-admin-password": ADMIN_PASSWORD },
+      });
+      if (!res.ok) throw new Error("Failed to load");
+      const data = await res.json();
+      setFiles(data.objects || []);
+      setPrefixes(data.prefixes || []);
+    } catch {
+      setFiles([]);
+      setPrefixes([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFiles(currentPrefix || undefined);
+    setEvents(getStoredEvents());
+  }, [currentPrefix, loadFiles]);
+
+  const navigateTo = (prefix: string) => {
+    setCurrentPrefix(prefix);
+  };
+
+  const navigateUp = () => {
+    const parts = currentPrefix.replace(/\/$/, "").split("/");
+    parts.pop();
+    setCurrentPrefix(parts.length > 0 ? parts.join("/") + "/" : "");
+  };
+
+  const handleUpload = async (fileList: FileList) => {
+    setUploading(true);
+    let uploaded = 0;
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      const result = await uploadFileToR2(
+        file,
+        uploadEventId || "general",
+        uploadType,
+        ADMIN_PASSWORD,
+        file.name
+      );
+      if (result) uploaded++;
+    }
+    setUploading(false);
+    if (uploaded > 0) {
+      onSave(`${uploaded}ファイルをR2にアップロードしました`);
+      loadFiles(currentPrefix || undefined);
+    }
+  };
+
+  const handleDelete = async (key: string) => {
+    try {
+      const res = await fetch("/api/files", {
+        method: "DELETE",
+        headers: {
+          "x-admin-password": ADMIN_PASSWORD,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ key }),
+      });
+      if (res.ok) {
+        onSave("ファイルを削除しました");
+        loadFiles(currentPrefix || undefined);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  const getFileIcon = (key: string, contentType?: string) => {
+    if (contentType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/i.test(key)) return "🖼️";
+    if (contentType?.startsWith("video/") || /\.(mp4|mov|avi|webm)$/i.test(key)) return "🎬";
+    return "📄";
+  };
+
+  return (
+    <div className="space-y-4" data-testid="admin-storage">
+      <h2 className="text-lg font-bold text-gray-800">R2 ストレージ (vls-media)</h2>
+
+      {/* Upload form */}
+      <Card>
+        <h3 className="font-bold text-gray-700 mb-3">ファイルアップロード</h3>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">タイプ</label>
+              <select
+                value={uploadType}
+                onChange={(e) => setUploadType(e.target.value as "photos" | "videos")}
+                className={inputCls}
+                data-testid="storage-upload-type"
+              >
+                <option value="photos">写真 (photos/)</option>
+                <option value="videos">動画 (videos/)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">イベント</label>
+              <select
+                value={uploadEventId}
+                onChange={(e) => setUploadEventId(e.target.value)}
+                className={inputCls}
+                data-testid="storage-upload-event"
+              >
+                <option value="">一般 (general)</option>
+                {events.map((evt) => (
+                  <option key={evt.id} value={evt.id}>{evt.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div
+            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+              uploading ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:border-[#6EC6FF]"
+            }`}
+            onClick={() => !uploading && document.getElementById("r2-file-input")?.click()}
+          >
+            {uploading ? (
+              <p className="text-sm text-blue-600 animate-pulse">アップロード中...</p>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600">クリックしてファイルを選択</p>
+                <p className="text-xs text-gray-400 mt-1">写真・動画ファイル対応</p>
+              </>
+            )}
+            <input
+              id="r2-file-input"
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className="hidden"
+              data-testid="storage-file-input"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  handleUpload(e.target.files);
+                  e.target.value = "";
+                }
+              }}
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* File browser */}
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-gray-700">ファイル一覧</h3>
+            {loading && <span className="text-xs text-gray-400 animate-pulse">読み込み中...</span>}
+          </div>
+          <button
+            onClick={() => loadFiles(currentPrefix || undefined)}
+            className="text-xs text-[#6EC6FF] hover:underline"
+          >
+            更新
+          </button>
+        </div>
+
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1 mb-3 text-xs">
+          <button
+            onClick={() => setCurrentPrefix("")}
+            className={`px-2 py-1 rounded ${!currentPrefix ? "bg-[#6EC6FF] text-white" : "text-[#6EC6FF] hover:underline"}`}
+          >
+            vls-media
+          </button>
+          {currentPrefix && currentPrefix.split("/").filter(Boolean).map((part, i, arr) => {
+            const path = arr.slice(0, i + 1).join("/") + "/";
+            return (
+              <span key={path} className="flex items-center gap-1">
+                <span className="text-gray-300">/</span>
+                <button
+                  onClick={() => setCurrentPrefix(path)}
+                  className={`px-2 py-1 rounded ${
+                    path === currentPrefix ? "bg-[#6EC6FF] text-white" : "text-[#6EC6FF] hover:underline"
+                  }`}
+                >
+                  {part}
+                </button>
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Folders */}
+        {(currentPrefix || prefixes.length > 0) && (
+          <div className="space-y-1 mb-3">
+            {currentPrefix && (
+              <button
+                onClick={navigateUp}
+                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-50 text-sm text-gray-600"
+              >
+                <span>📁</span>
+                <span>..</span>
+              </button>
+            )}
+            {prefixes.map((p) => (
+              <button
+                key={p}
+                onClick={() => navigateTo(p)}
+                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-50 text-sm text-gray-600"
+              >
+                <span>📁</span>
+                <span className="font-medium">{p.replace(currentPrefix, "").replace(/\/$/, "")}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Files */}
+        {files.length === 0 && !loading && prefixes.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-6">ファイルがありません</p>
+        )}
+        {files.length > 0 && (
+          <div className="space-y-1">
+            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-3 px-3 py-1 text-[10px] text-gray-400 font-medium border-b border-gray-100">
+              <span></span>
+              <span>ファイル名</span>
+              <span>サイズ</span>
+              <span>更新日時</span>
+              <span></span>
+            </div>
+            {files.map((f) => {
+              const name = f.key.replace(currentPrefix, "");
+              const isImage = f.contentType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/i.test(f.key);
+              return (
+                <div
+                  key={f.key}
+                  className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-3 items-center px-3 py-2 rounded-lg hover:bg-gray-50 group"
+                >
+                  <span className="text-sm">{getFileIcon(f.key, f.contentType)}</span>
+                  <div className="min-w-0">
+                    <a
+                      href={`/api/media/${f.key}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-gray-700 hover:text-[#6EC6FF] truncate block"
+                      title={f.key}
+                    >
+                      {name}
+                    </a>
+                    {isImage && (
+                      <div className="mt-1">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/api/media/${f.key}`}
+                          alt={name}
+                          className="h-10 rounded object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatSize(f.size)}</span>
+                  <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDate(f.lastModified)}</span>
+                  <button
+                    onClick={() => handleDelete(f.key)}
+                    className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    削除
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Summary */}
+        <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between text-xs text-gray-400">
+          <span>{files.length}ファイル</span>
+          <span>合計: {formatSize(files.reduce((s, f) => s + f.size, 0))}</span>
+        </div>
+      </Card>
+    </div>
   );
 }

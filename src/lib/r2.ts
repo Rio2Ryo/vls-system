@@ -105,3 +105,55 @@ export function verifyPresignToken(token: string): PresignPayload | null {
     return null;
   }
 }
+
+// --- List & Delete ---
+
+export interface R2Object {
+  key: string;
+  size: number;
+  lastModified: string;
+  contentType?: string;
+}
+
+/** List objects in R2 with optional prefix. */
+export async function r2List(
+  prefix?: string,
+  limit = 200
+): Promise<{ objects: R2Object[]; prefixes: string[] }> {
+  const base = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${BUCKET_NAME}`;
+  const params = new URLSearchParams();
+  if (prefix) params.set("prefix", prefix);
+  params.set("per_page", String(limit));
+  params.set("delimiter", "/");
+
+  const res = await fetch(`${base}/objects?${params}`, {
+    method: "GET",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`R2 LIST failed (${res.status}): ${text}`);
+  }
+  const json = await res.json();
+  const objects: R2Object[] = (json.result || []).map(
+    (o: Record<string, unknown>) => ({
+      key: o.key as string,
+      size: Number(o.size),
+      lastModified: o.last_modified as string,
+      contentType: (o.http_metadata as Record<string, string> | undefined)
+        ?.contentType,
+    })
+  );
+  const prefixes: string[] = json.result_info?.delimited || [];
+  return { objects, prefixes };
+}
+
+/** Delete an object from R2. */
+export async function r2Delete(key: string): Promise<boolean> {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${BUCKET_NAME}/objects/${encodeURIComponent(key)}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return res.ok;
+}
