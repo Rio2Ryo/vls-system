@@ -7,6 +7,9 @@ test.describe("STEP 1 – Survey (Tag Selection)", () => {
     await page.getByTestId("password-input").fill("SUMMER2026");
     await page.getByRole("button", { name: /写真を見る/ }).click();
     await expect(page).toHaveURL(/\/survey/);
+    // Pass through name input step
+    await expect(page.getByText("お名前を教えてください")).toBeVisible();
+    await page.getByRole("button", { name: /つぎへ/ }).click();
   });
 
   test("shows first question (Q1/3)", async ({ page }) => {

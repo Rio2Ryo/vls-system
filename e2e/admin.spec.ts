@@ -122,6 +122,8 @@ test.describe("Admin – Survey edit", () => {
     await page.getByTestId("password-input").fill("SUMMER2026");
     await page.getByRole("button", { name: /写真を見る/ }).click();
     await expect(page).toHaveURL(/\/survey/);
+    // Skip name input step
+    await page.getByRole("button", { name: /つぎへ/ }).click();
     await expect(page.getByText("テスト質問です")).toBeVisible();
 
     // Clean up

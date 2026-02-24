@@ -65,6 +65,7 @@ export interface AnalyticsRecord {
   id: string;
   eventId: string;
   timestamp: number;
+  respondentName?: string;
   surveyAnswers?: Record<string, InterestTag[]>;
   stepsCompleted: {
     access: boolean;

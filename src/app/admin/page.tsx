@@ -155,6 +155,69 @@ export default function AdminPage() {
 // --- Shared input style ---
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
 
+// ===== CSV Export =====
+function escapeCsvField(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function exportSurveyCsv(
+  records: AnalyticsRecord[],
+  questions: SurveyQuestion[],
+  events: EventData[]
+) {
+  const eventMap = new Map(events.map((e) => [e.id, e.name]));
+
+  // Build tag-to-label map from questions
+  const tagLabelMap = new Map<string, string>();
+  for (const q of questions) {
+    for (const opt of q.options) {
+      tagLabelMap.set(opt.tag, opt.label);
+    }
+  }
+
+  // CSV header
+  const headerCols = [
+    "名前",
+    "イベント名",
+    "回答日時",
+    ...questions.map((q) => q.question),
+    "DL完了",
+  ];
+  const rows: string[] = [headerCols.map(escapeCsvField).join(",")];
+
+  // CSV rows
+  for (const r of records) {
+    const name = r.respondentName || "匿名";
+    const eventName = eventMap.get(r.eventId) || r.eventId;
+    const dt = new Date(r.timestamp);
+    const dateStr = `${dt.getFullYear()}/${String(dt.getMonth() + 1).padStart(2, "0")}/${String(dt.getDate()).padStart(2, "0")} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+
+    const answerCols = questions.map((q) => {
+      const tags = r.surveyAnswers?.[q.id] || [];
+      return tags.map((t) => tagLabelMap.get(t) || t).join(" / ");
+    });
+
+    const downloaded = r.stepsCompleted.downloaded ? "Yes" : "No";
+
+    const row = [name, eventName, dateStr, ...answerCols, downloaded];
+    rows.push(row.map(escapeCsvField).join(","));
+  }
+
+  // BOM for Excel compatibility + CSV content
+  const bom = "\uFEFF";
+  const csvContent = bom + rows.join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `アンケート回答_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ===== Dashboard =====
 function DashboardTab() {
   const [events, setEvents] = useState<EventData[]>([]);
@@ -354,7 +417,18 @@ function DashboardTab() {
 
       {/* Survey results aggregation */}
       <Card>
-        <h3 className="font-bold text-gray-700 mb-1">アンケート集計結果</h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-bold text-gray-700">アンケート集計結果</h3>
+          {answeredRecords.length > 0 && (
+            <button
+              onClick={() => exportSurveyCsv(answeredRecords, surveyQuestions, events)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium transition-colors"
+              data-testid="csv-export-btn"
+            >
+              CSVエクスポート
+            </button>
+          )}
+        </div>
         <p className="text-xs text-gray-400 mb-4">回答数: {answeredRecords.length}件</p>
 
         {answeredRecords.length === 0 ? (

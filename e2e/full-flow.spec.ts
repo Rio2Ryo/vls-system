@@ -9,7 +9,12 @@ test.describe("Full Flow – STEP 0 → STEP 5", () => {
     await page.getByRole("button", { name: /写真を見る/ }).click();
     await expect(page).toHaveURL(/\/survey/);
 
-    // ===== STEP 1: Survey (3 questions) =====
+    // ===== STEP 1: Survey (name + 3 questions) =====
+    // Name input step
+    await expect(page.getByText("お名前を教えてください")).toBeVisible();
+    await page.getByTestId("respondent-name-input").fill("テストユーザー");
+    await page.getByRole("button", { name: /つぎへ/ }).click();
+
     // Q1
     await expect(page.getByText("Q1 / 3")).toBeVisible();
     await page.getByText("教育").click();
