@@ -127,6 +127,12 @@ export default function ProcessingPage() {
               duration={15}
               label="提供CM"
               onComplete={handlePlatinumDone}
+              tracking={{
+                companyId: cmMatch.platinumCM.id,
+                companyName: cmMatch.platinumCM.name,
+                cmType: "cm15",
+                eventId: (typeof window !== "undefined" && sessionStorage.getItem("eventId")) || "",
+              }}
             />
           </Card>
         )}
@@ -139,6 +145,12 @@ export default function ProcessingPage() {
               duration={30}
               label={`${cmMatch.matchedCM.name} のおすすめ`}
               onComplete={handleMatchedDone}
+              tracking={{
+                companyId: cmMatch.matchedCM.id,
+                companyName: cmMatch.matchedCM.name,
+                cmType: "cm30",
+                eventId: (typeof window !== "undefined" && sessionStorage.getItem("eventId")) || "",
+              }}
             />
           </Card>
         )}

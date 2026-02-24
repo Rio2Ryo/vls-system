@@ -80,6 +80,12 @@ export default function AdminPage() {
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <h1 className="font-bold text-gray-800">VLS Admin</h1>
           <div className="flex items-center gap-3">
+            <a
+              href="/admin/stats"
+              className="text-xs text-[#6EC6FF] hover:underline font-medium"
+            >
+              CM統計
+            </a>
             <button
               onClick={() => { resetToDefaults(); showToast("デフォルトに戻しました"); }}
               className="text-xs text-gray-400 hover:text-red-500"

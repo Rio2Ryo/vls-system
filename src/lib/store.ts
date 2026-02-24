@@ -1,4 +1,4 @@
-import { AnalyticsRecord, Company, EventData, SurveyQuestion } from "./types";
+import { AnalyticsRecord, Company, EventData, SurveyQuestion, VideoPlayRecord } from "./types";
 import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY } from "./data";
 
 const KEYS = {
@@ -6,6 +6,7 @@ const KEYS = {
   companies: "vls_admin_companies",
   survey: "vls_admin_survey",
   analytics: "vls_analytics",
+  videoPlays: "vls_video_plays",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -80,6 +81,22 @@ export function updateAnalyticsRecord(id: string, updates: Partial<AnalyticsReco
 export function clearAnalytics(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(KEYS.analytics);
+}
+
+// --- Video Play Records ---
+export function getStoredVideoPlays(): VideoPlayRecord[] {
+  return safeGet(KEYS.videoPlays, []);
+}
+
+export function addVideoPlayRecord(record: VideoPlayRecord): void {
+  const records = getStoredVideoPlays();
+  records.push(record);
+  safeSet(KEYS.videoPlays, records);
+}
+
+export function clearVideoPlays(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(KEYS.videoPlays);
 }
 
 // --- Reset to defaults ---

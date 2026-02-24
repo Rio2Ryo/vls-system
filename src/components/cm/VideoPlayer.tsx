@@ -2,12 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { addVideoPlayRecord } from "@/lib/store";
+import { VideoPlayRecord } from "@/lib/types";
 
 interface VideoPlayerProps {
   videoId: string;
   duration: number;
   label?: string;
   onComplete: () => void;
+  /** Optional tracking metadata — if provided, a VideoPlayRecord is saved */
+  tracking?: {
+    companyId: string;
+    companyName: string;
+    cmType: VideoPlayRecord["cmType"];
+    eventId: string;
+  };
 }
 
 export default function VideoPlayer({
@@ -15,22 +24,63 @@ export default function VideoPlayer({
   duration,
   label,
   onComplete,
+  tracking,
 }: VideoPlayerProps) {
   const [timeLeft, setTimeLeft] = useState(duration);
   const containerRef = useRef<HTMLDivElement>(null);
+  const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
+    startTimeRef.current = Date.now();
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          // Record video play on completion
+          if (tracking) {
+            const watchedMs = Date.now() - startTimeRef.current;
+            addVideoPlayRecord({
+              id: `vp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              companyId: tracking.companyId,
+              companyName: tracking.companyName,
+              videoId,
+              cmType: tracking.cmType,
+              duration,
+              watchedSeconds: Math.round(watchedMs / 1000),
+              completed: true,
+              timestamp: Date.now(),
+              eventId: tracking.eventId,
+            });
+          }
           onComplete();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      // Record partial view on unmount if not completed
+      if (tracking && timeLeft > 1) {
+        const watchedMs = Date.now() - startTimeRef.current;
+        const watchedSec = Math.round(watchedMs / 1000);
+        if (watchedSec >= 2) {
+          addVideoPlayRecord({
+            id: `vp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            companyId: tracking.companyId,
+            companyName: tracking.companyName,
+            videoId,
+            cmType: tracking.cmType,
+            duration,
+            watchedSeconds: watchedSec,
+            completed: false,
+            timestamp: Date.now(),
+            eventId: tracking.eventId,
+          });
+        }
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onComplete, duration]);
 
   // Block keyboard shortcuts that could affect the iframe video

@@ -91,6 +91,12 @@ export default function DownloadingPage() {
               duration={60}
               label={`${matchedCompany.name} からのメッセージ`}
               onComplete={handleVideoDone}
+              tracking={{
+                companyId: matchedCompany.id,
+                companyName: matchedCompany.name,
+                cmType: "cm60",
+                eventId: (typeof window !== "undefined" && sessionStorage.getItem("eventId")) || "",
+              }}
             />
           </Card>
         ) : (

@@ -60,6 +60,20 @@ export interface CMMatch {
   matchedCM: Company | null;   // 30s preview + 60s full
 }
 
+// Video play record for CM tracking
+export interface VideoPlayRecord {
+  id: string;
+  companyId: string;
+  companyName: string;
+  videoId: string;
+  cmType: "cm15" | "cm30" | "cm60";
+  duration: number;         // expected duration in seconds
+  watchedSeconds: number;   // actual seconds watched
+  completed: boolean;
+  timestamp: number;
+  eventId: string;
+}
+
 // Analytics record for each user session
 export interface AnalyticsRecord {
   id: string;
