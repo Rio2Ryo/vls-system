@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import TagSelector from "@/components/ui/TagSelector";
-import { getStoredSurvey, updateAnalyticsRecord } from "@/lib/store";
+import { getSurveyForEvent, getStoredSurvey, updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
 
 export default function SurveyPage() {
@@ -15,7 +15,11 @@ export default function SurveyPage() {
   const [respondentName, setRespondentName] = useState("");
   const [currentQ, setCurrentQ] = useState(0);
   const [allAnswers, setAllAnswers] = useState<Record<string, InterestTag[]>>({});
-  const [survey] = useState(() => getStoredSurvey());
+  const [survey] = useState(() => {
+    if (typeof window === "undefined") return getStoredSurvey();
+    const eventId = sessionStorage.getItem("eventId");
+    return eventId ? getSurveyForEvent(eventId) : getStoredSurvey();
+  });
 
   const handleNameSubmit = () => {
     // Save name to sessionStorage for analytics

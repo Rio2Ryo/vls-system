@@ -56,6 +56,27 @@ export function setStoredSurvey(survey: SurveyQuestion[]): void {
   safeSet(KEYS.survey, survey);
 }
 
+/** Get survey for a specific event. Falls back to global default if not set. */
+export function getSurveyForEvent(eventId: string): SurveyQuestion[] {
+  const events = getStoredEvents();
+  const event = events.find((e) => e.id === eventId);
+  if (event?.surveyQuestions && event.surveyQuestions.length > 0) {
+    return event.surveyQuestions;
+  }
+  return getStoredSurvey();
+}
+
+/** Save per-event survey questions. Pass null to revert to global default. */
+export function setEventSurvey(eventId: string, questions: SurveyQuestion[] | null): void {
+  const events = getStoredEvents();
+  const updated = events.map((e) =>
+    e.id === eventId
+      ? { ...e, surveyQuestions: questions || undefined }
+      : e
+  );
+  setStoredEvents(updated);
+}
+
 // --- Analytics ---
 export function getStoredAnalytics(): AnalyticsRecord[] {
   return safeGet(KEYS.analytics, []);

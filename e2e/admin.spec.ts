@@ -65,7 +65,7 @@ test.describe("Admin – Event CRUD", () => {
     await expect(page.getByTestId("admin-toast")).toBeVisible();
 
     // Verify password and shareable URL show in events list
-    await expect(page.getByText("テストイベント")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "テストイベント" })).toBeVisible();
     await expect(page.locator("code", { hasText: "/?pw=TEST1234" })).toBeVisible();
 
     // Now test user can login with this password

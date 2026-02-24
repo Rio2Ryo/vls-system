@@ -36,7 +36,7 @@ test.describe("Admin → User Integration", () => {
     await expect(page.getByTestId("admin-toast")).toBeVisible();
 
     // Verify event appears with password and shareable URL
-    await expect(page.getByText("Admin確認イベント")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Admin確認イベント" })).toBeVisible();
     await expect(page.locator("code", { hasText: "/?pw=ADMINTEST1" })).toBeVisible();
 
     // User logs in with the admin-created password
@@ -167,7 +167,7 @@ test.describe("Admin → User Integration", () => {
     await page.getByTestId("event-password-input").fill("FULLTEST1");
     await page.getByRole("button", { name: /保存/ }).click();
     await expect(page.getByTestId("admin-toast")).toBeVisible();
-    await expect(page.getByText("完全テストイベント")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "完全テストイベント" })).toBeVisible();
 
     // Verify shareable URL appears
     const urlEl = page.locator("[data-testid^='event-url-']").last();

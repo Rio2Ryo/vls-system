@@ -24,11 +24,32 @@ export default function AdminPage() {
   const [pwError, setPwError] = useState("");
   const [tab, setTab] = useState<Tab>("dashboard");
   const [toast, setToast] = useState("");
+  const [activeEventId, setActiveEventId] = useState<string>("");
+  const [adminEvents, setAdminEvents] = useState<EventData[]>([]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(""), 2000);
   }, []);
+
+  // Load events for the event context selector
+  useEffect(() => {
+    if (!authed) return;
+    const evts = getStoredEvents();
+    setAdminEvents(evts);
+    if (evts.length > 0 && !activeEventId) setActiveEventId(evts[0].id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authed]);
+
+  const refreshEvents = useCallback(() => {
+    const evts = getStoredEvents();
+    setAdminEvents(evts);
+    if (!evts.find((e) => e.id === activeEventId) && evts.length > 0) {
+      setActiveEventId(evts[0].id);
+    }
+  }, [activeEventId]);
+
+  const activeEvent = adminEvents.find((e) => e.id === activeEventId);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +108,7 @@ export default function AdminPage() {
               CM統計
             </a>
             <button
-              onClick={() => { resetToDefaults(); showToast("デフォルトに戻しました"); }}
+              onClick={() => { resetToDefaults(); showToast("デフォルトに戻しました"); refreshEvents(); }}
               className="text-xs text-gray-400 hover:text-red-500"
               data-testid="admin-reset"
             >
@@ -99,6 +120,30 @@ export default function AdminPage() {
             >
               ログアウト
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Active event context bar */}
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-blue-100 px-6 py-2">
+        <div className="max-w-6xl mx-auto flex items-center gap-3">
+          <span className="text-xs text-gray-500 font-medium flex-shrink-0">操作対象:</span>
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            {adminEvents.map((evt) => (
+              <button
+                key={evt.id}
+                onClick={() => setActiveEventId(evt.id)}
+                className={`text-xs px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition-colors ${
+                  activeEventId === evt.id
+                    ? "bg-[#6EC6FF] text-white shadow-sm"
+                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                }`}
+                data-testid={`ctx-event-${evt.id}`}
+              >
+                {evt.name}
+                <span className="ml-1 opacity-60">({evt.photos.length}枚)</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -147,10 +192,10 @@ export default function AdminPage() {
             transition={{ duration: 0.2 }}
           >
             {tab === "dashboard" && <DashboardTab />}
-            {tab === "events" && <EventsTab onSave={showToast} />}
-            {tab === "photos" && <PhotosTab onSave={showToast} />}
+            {tab === "events" && <EventsTab onSave={(msg) => { showToast(msg); refreshEvents(); }} />}
+            {tab === "photos" && <PhotosTab onSave={(msg) => { showToast(msg); refreshEvents(); }} activeEventId={activeEventId} />}
             {tab === "companies" && <CompaniesTab onSave={showToast} />}
-            {tab === "survey" && <SurveyTab onSave={showToast} />}
+            {tab === "survey" && <SurveyTab onSave={showToast} activeEventId={activeEventId} activeEvent={activeEvent} />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -862,7 +907,7 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-function PhotosTab({ onSave }: { onSave: (msg: string) => void }) {
+function PhotosTab({ onSave, activeEventId }: { onSave: (msg: string) => void; activeEventId: string }) {
   const [events, setEvts] = useState<EventData[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -872,8 +917,13 @@ function PhotosTab({ onSave }: { onSave: (msg: string) => void }) {
   useEffect(() => {
     const evts = getStoredEvents();
     setEvts(evts);
-    if (evts.length > 0) setSelectedEventId(evts[0].id);
-  }, []);
+    // Use the global active event context
+    if (activeEventId && evts.find((e) => e.id === activeEventId)) {
+      setSelectedEventId(activeEventId);
+    } else if (evts.length > 0) {
+      setSelectedEventId(evts[0].id);
+    }
+  }, [activeEventId]);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
@@ -1213,21 +1263,49 @@ function CompaniesTab({ onSave }: { onSave: (msg: string) => void }) {
 }
 
 // ===== Survey =====
-function SurveyTab({ onSave }: { onSave: (msg: string) => void }) {
+function SurveyTab({ onSave, activeEventId, activeEvent }: { onSave: (msg: string) => void; activeEventId: string; activeEvent?: EventData }) {
   const [survey, setSurvey] = useState<SurveyQuestion[]>([]);
+  const [mode, setMode] = useState<"event" | "global">("event");
 
-  useEffect(() => { setSurvey(getStoredSurvey()); }, []);
+  const isEventCustom = activeEvent?.surveyQuestions && activeEvent.surveyQuestions.length > 0;
+
+  useEffect(() => {
+    if (mode === "event" && activeEventId) {
+      const evts = getStoredEvents();
+      const evt = evts.find((e) => e.id === activeEventId);
+      if (evt?.surveyQuestions && evt.surveyQuestions.length > 0) {
+        setSurvey(evt.surveyQuestions);
+      } else {
+        setSurvey(getStoredSurvey());
+      }
+    } else {
+      setSurvey(getStoredSurvey());
+    }
+  }, [activeEventId, mode]);
+
+  const persistSurvey = (updated: SurveyQuestion[]) => {
+    if (mode === "event" && activeEventId) {
+      // Save to event-specific survey
+      const events = getStoredEvents();
+      const updatedEvents = events.map((e) =>
+        e.id === activeEventId ? { ...e, surveyQuestions: updated } : e
+      );
+      setStoredEvents(updatedEvents);
+    } else {
+      setStoredSurvey(updated);
+    }
+  };
 
   const updateQuestion = (id: string, question: string) => {
     const updated = survey.map((q) => (q.id === id ? { ...q, question } : q));
     setSurvey(updated);
-    setStoredSurvey(updated);
+    persistSurvey(updated);
   };
 
   const updateMaxSelections = (id: string, max: number) => {
     const updated = survey.map((q) => (q.id === id ? { ...q, maxSelections: max } : q));
     setSurvey(updated);
-    setStoredSurvey(updated);
+    persistSurvey(updated);
   };
 
   const addOption = (qId: string, label: string, tag: string) => {
@@ -1238,7 +1316,7 @@ function SurveyTab({ onSave }: { onSave: (msg: string) => void }) {
         : q
     );
     setSurvey(updated);
-    setStoredSurvey(updated);
+    persistSurvey(updated);
     onSave("選択肢を追加しました");
   };
 
@@ -1249,7 +1327,7 @@ function SurveyTab({ onSave }: { onSave: (msg: string) => void }) {
         : q
     );
     setSurvey(updated);
-    setStoredSurvey(updated);
+    persistSurvey(updated);
   };
 
   const addQuestion = () => {
@@ -1261,27 +1339,87 @@ function SurveyTab({ onSave }: { onSave: (msg: string) => void }) {
     };
     const updated = [...survey, newQ];
     setSurvey(updated);
-    setStoredSurvey(updated);
+    persistSurvey(updated);
     onSave("質問を追加しました");
   };
 
   const removeQuestion = (id: string) => {
     const updated = survey.filter((q) => q.id !== id);
     setSurvey(updated);
-    setStoredSurvey(updated);
+    persistSurvey(updated);
     onSave("質問を削除しました");
   };
 
   const saveSurvey = () => {
-    setStoredSurvey(survey);
-    onSave("アンケートを保存しました");
+    persistSurvey(survey);
+    onSave(mode === "event" ? `${activeEvent?.name || "イベント"}のアンケートを保存しました` : "グローバルアンケートを保存しました");
+  };
+
+  const resetToGlobal = () => {
+    if (!activeEventId) return;
+    const events = getStoredEvents();
+    const updatedEvents = events.map((e) =>
+      e.id === activeEventId ? { ...e, surveyQuestions: undefined } : e
+    );
+    setStoredEvents(updatedEvents);
+    setSurvey(getStoredSurvey());
+    onSave("グローバル設定に戻しました");
+  };
+
+  const copyFromGlobal = () => {
+    const globalSurvey = getStoredSurvey();
+    setSurvey(globalSurvey);
+    persistSurvey(globalSurvey);
+    onSave("グローバル設定をコピーしました");
   };
 
   return (
     <div className="space-y-4" data-testid="admin-survey">
+      {/* Mode toggle */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex rounded-xl overflow-hidden border border-gray-200">
+          <button
+            onClick={() => setMode("event")}
+            className={`text-xs px-4 py-2 font-medium transition-colors ${
+              mode === "event" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            イベント別
+          </button>
+          <button
+            onClick={() => setMode("global")}
+            className={`text-xs px-4 py-2 font-medium transition-colors ${
+              mode === "global" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            グローバル（デフォルト）
+          </button>
+        </div>
+        {mode === "event" && activeEvent && (
+          <span className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-medium">
+            {activeEvent.name}
+            {isEventCustom ? " (カスタム)" : " (グローバル使用中)"}
+          </span>
+        )}
+      </div>
+
+      {mode === "event" && activeEvent && !isEventCustom && (
+        <Card>
+          <p className="text-sm text-gray-500 mb-2">
+            このイベントはグローバルアンケートを使用しています。カスタマイズするにはコピーしてください。
+          </p>
+          <Button size="sm" onClick={copyFromGlobal}>グローバルからコピーしてカスタマイズ</Button>
+        </Card>
+      )}
+
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold text-gray-800">アンケート設定</h2>
+        <h2 className="text-lg font-bold text-gray-800">
+          {mode === "event" ? "イベント別アンケート設定" : "グローバルアンケート設定"}
+        </h2>
         <div className="flex gap-2">
+          {mode === "event" && isEventCustom && (
+            <Button size="sm" variant="secondary" onClick={resetToGlobal}>グローバルに戻す</Button>
+          )}
           <Button size="sm" variant="secondary" onClick={addQuestion}>+ 質問追加</Button>
           <Button size="sm" onClick={saveSurvey}>保存</Button>
         </div>
