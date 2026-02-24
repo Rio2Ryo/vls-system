@@ -32,6 +32,7 @@ export interface EventData {
   description: string;
   password: string;
   photos: PhotoData[];
+  companyIds?: string[];  // associated company IDs; undefined = all companies
 }
 
 export interface PhotoData {

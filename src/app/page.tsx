@@ -37,6 +37,11 @@ function TopPageInner() {
 
     sessionStorage.setItem("eventId", event.id);
     sessionStorage.setItem("eventName", event.name);
+    if (event.companyIds && event.companyIds.length > 0) {
+      sessionStorage.setItem("eventCompanyIds", JSON.stringify(event.companyIds));
+    } else {
+      sessionStorage.removeItem("eventCompanyIds");
+    }
     router.push("/survey");
   };
 

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { ADMIN_PASSWORD } from "@/lib/data";
-import { Company, CompanyTier, EventData, InterestTag, SurveyQuestion } from "@/lib/types";
+import { Company, CompanyTier, EventData, InterestTag, PhotoData, SurveyQuestion } from "@/lib/types";
 import {
   getStoredEvents, setStoredEvents,
   getStoredCompanies, setStoredCompanies,
@@ -200,8 +200,9 @@ function DashboardTab() {
 // ===== Events =====
 function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
   const [events, setEvents] = useState<EventData[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", date: "", description: "", password: "" });
+  const [form, setForm] = useState({ name: "", date: "", description: "", password: "", companyIds: [] as string[] });
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const getShareUrl = (pw: string) => {
@@ -215,16 +216,28 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  useEffect(() => { setEvents(getStoredEvents()); }, []);
+  useEffect(() => {
+    setEvents(getStoredEvents());
+    setCompanies(getStoredCompanies());
+  }, []);
 
   const startNew = () => {
     setEditing("__new__");
-    setForm({ name: "", date: "", description: "", password: "" });
+    setForm({ name: "", date: "", description: "", password: "", companyIds: [] });
   };
 
   const startEdit = (evt: EventData) => {
     setEditing(evt.id);
-    setForm({ name: evt.name, date: evt.date, description: evt.description, password: evt.password });
+    setForm({ name: evt.name, date: evt.date, description: evt.description, password: evt.password, companyIds: evt.companyIds || [] });
+  };
+
+  const toggleCompany = (companyId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      companyIds: prev.companyIds.includes(companyId)
+        ? prev.companyIds.filter((id) => id !== companyId)
+        : [...prev.companyIds, companyId],
+    }));
   };
 
   const save = () => {
@@ -238,12 +251,20 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
         description: form.description,
         password: form.password.toUpperCase(),
         photos: [],
+        companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
       };
       updated = [...events, newEvt];
     } else {
       updated = events.map((e) =>
         e.id === editing
-          ? { ...e, name: form.name, date: form.date, description: form.description, password: form.password.toUpperCase() }
+          ? {
+              ...e,
+              name: form.name,
+              date: form.date,
+              description: form.description,
+              password: form.password.toUpperCase(),
+              companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
+            }
           : e
       );
     }
@@ -258,6 +279,13 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
     setStoredEvents(updated);
     setEvents(updated);
     onSave("イベントを削除しました");
+  };
+
+  const TIER_COLORS: Record<string, string> = {
+    platinum: "bg-blue-100 text-blue-700",
+    gold: "bg-yellow-100 text-yellow-700",
+    silver: "bg-gray-100 text-gray-600",
+    bronze: "bg-orange-100 text-orange-700",
   };
 
   return (
@@ -275,6 +303,34 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
             <input className={inputCls} type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="event-date-input" />
             <input className={inputCls} placeholder="説明" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <input className={inputCls + " font-mono uppercase"} placeholder="パスワード（例: SUMMER2026）" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} data-testid="event-password-input" />
+
+            {/* Company assignment */}
+            <div className="border border-gray-100 rounded-xl p-3" data-testid="event-company-assign">
+              <p className="text-xs font-bold text-gray-500 mb-2">CM企業の割り当て</p>
+              <p className="text-[10px] text-gray-400 mb-2">未選択の場合は全企業のCMが配信されます</p>
+              {companies.length === 0 ? (
+                <p className="text-xs text-gray-400">企業が登録されていません</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {companies.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={form.companyIds.includes(c.id)}
+                        onChange={() => toggleCompany(c.id)}
+                        className="rounded border-gray-300 text-[#6EC6FF] focus:ring-[#6EC6FF]"
+                        data-testid={`event-company-${c.id}`}
+                      />
+                      <span className="text-sm text-gray-600 group-hover:text-gray-800">{c.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${TIER_COLORS[c.tier]}`}>
+                        {c.tier}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-2">
               <Button size="sm" onClick={save}>保存</Button>
               <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>キャンセル</Button>
@@ -301,6 +357,24 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
               <button onClick={() => remove(evt.id)} className="text-xs text-red-400 hover:underline">削除</button>
             </div>
           </div>
+
+          {/* Associated companies */}
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-gray-400">CM企業:</span>
+            {(!evt.companyIds || evt.companyIds.length === 0) ? (
+              <span className="text-[10px] bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full text-gray-500">全企業</span>
+            ) : (
+              evt.companyIds.map((cId) => {
+                const co = companies.find((c) => c.id === cId);
+                return co ? (
+                  <span key={cId} className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${TIER_COLORS[co.tier]}`}>
+                    {co.name}
+                  </span>
+                ) : null;
+              })
+            )}
+          </div>
+
           {/* User-facing shareable URL */}
           <div className="mt-3 pt-3 border-t border-gray-100">
             <p className="text-[10px] text-gray-400 mb-1">ユーザー向け共有URL</p>
@@ -331,10 +405,84 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
 }
 
 // ===== Photos =====
+
+/** Upload a file to R2 via presigned token (2-step: presign → PUT). */
+async function uploadFileToR2(
+  file: File | Blob,
+  eventId: string,
+  type: "photos" | "thumbs",
+  adminPassword: string,
+  fileName?: string
+): Promise<{ key: string; url: string } | null> {
+  try {
+    // Step 1: Get presigned token
+    const presignRes = await fetch("/api/admin/presign", {
+      method: "POST",
+      headers: {
+        "x-admin-password": adminPassword,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        eventId,
+        fileName: fileName || (file instanceof File ? file.name : "thumb.jpg"),
+        contentType: file.type || "image/jpeg",
+        type,
+      }),
+    });
+    if (!presignRes.ok) return null;
+    const { token, mediaUrl, uploadUrl } = await presignRes.json();
+
+    // Step 2: PUT directly with token
+    const putRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "x-upload-token": token },
+      body: file,
+    });
+    if (!putRes.ok) return null;
+    const result = await putRes.json();
+    return { key: result.key, url: mediaUrl };
+  } catch {
+    return null;
+  }
+}
+
+function createThumbnailBlob(file: File): Promise<Blob> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 400;
+        canvas.height = 300;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, 400, 300);
+        canvas.toBlob(
+          (blob) => resolve(blob!),
+          "image/jpeg",
+          0.6
+        );
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(file);
+  });
+}
+
 function PhotosTab({ onSave }: { onSave: (msg: string) => void }) {
   const [events, setEvts] = useState<EventData[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     const evts = getStoredEvents();
@@ -344,46 +492,71 @@ function PhotosTab({ onSave }: { onSave: (msg: string) => void }) {
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
-  const addPhotos = (files: FileList) => {
+  const addPhotos = async (files: FileList) => {
     if (!selectedEvent) return;
-    const promises = Array.from(files).map(
-      (file) =>
-        new Promise<{ original: string; thumb: string }>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const dataUrl = reader.result as string;
-            // Generate thumbnail by drawing smaller canvas
-            const img = new window.Image();
-            img.onload = () => {
-              const canvas = document.createElement("canvas");
-              canvas.width = 400;
-              canvas.height = 300;
-              const ctx = canvas.getContext("2d")!;
-              ctx.drawImage(img, 0, 0, 400, 300);
-              resolve({ original: dataUrl, thumb: canvas.toDataURL("image/jpeg", 0.6) });
-            };
-            img.src = dataUrl;
-          };
-          reader.readAsDataURL(file);
-        })
-    );
 
-    Promise.all(promises).then((results) => {
-      const newPhotos = results.map((r, i) => ({
-        id: `uploaded-${Date.now()}-${i}`,
-        originalUrl: r.original,
-        thumbnailUrl: r.thumb,
-        watermarked: true,
-      }));
-      const updated = events.map((e) =>
-        e.id === selectedEventId
-          ? { ...e, photos: [...e.photos, ...newPhotos] }
-          : e
+    const fileArray = Array.from(files);
+    setUploading(true);
+    setUploadProgress({ current: 0, total: fileArray.length });
+
+    const newPhotos: PhotoData[] = [];
+
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      setUploadProgress({ current: i + 1, total: fileArray.length });
+
+      // Try R2 upload first
+      const originalResult = await uploadFileToR2(
+        file,
+        selectedEventId,
+        "photos",
+        ADMIN_PASSWORD
       );
-      setStoredEvents(updated);
-      setEvts(updated);
-      onSave(`${results.length}枚の写真を追加しました`);
-    });
+
+      let thumbResult: { key: string; url: string } | null = null;
+      if (originalResult) {
+        const thumbBlob = await createThumbnailBlob(file);
+        const thumbFile = new File([thumbBlob], file.name, { type: "image/jpeg" });
+        thumbResult = await uploadFileToR2(
+          thumbFile,
+          selectedEventId,
+          "thumbs",
+          ADMIN_PASSWORD
+        );
+      }
+
+      if (originalResult && thumbResult) {
+        // R2 upload succeeded
+        newPhotos.push({
+          id: `uploaded-${Date.now()}-${i}`,
+          originalUrl: originalResult.url,
+          thumbnailUrl: thumbResult.url,
+          watermarked: true,
+        });
+      } else {
+        // Fallback to base64 localStorage
+        const dataUrl = await readAsDataUrl(file);
+        const thumbBlob = await createThumbnailBlob(file);
+        const thumbDataUrl = await readAsDataUrl(new File([thumbBlob], file.name));
+        newPhotos.push({
+          id: `uploaded-${Date.now()}-${i}`,
+          originalUrl: dataUrl,
+          thumbnailUrl: thumbDataUrl,
+          watermarked: true,
+        });
+      }
+    }
+
+    const updated = events.map((e) =>
+      e.id === selectedEventId
+        ? { ...e, photos: [...e.photos, ...newPhotos] }
+        : e
+    );
+    setStoredEvents(updated);
+    setEvts(updated);
+    setUploading(false);
+    setUploadProgress({ current: 0, total: 0 });
+    onSave(`${newPhotos.length}枚の写真を追加しました`);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -431,18 +604,35 @@ function PhotosTab({ onSave }: { onSave: (msg: string) => void }) {
         <div
           className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-colors ${
             dragging ? "border-[#6EC6FF] bg-blue-50" : "border-gray-200 hover:border-[#6EC6FF]"
-          }`}
+          } ${uploading ? "pointer-events-none opacity-60" : ""}`}
           data-testid="photo-upload-zone"
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
-          onClick={() => document.getElementById("photo-file-input")?.click()}
+          onClick={() => !uploading && document.getElementById("photo-file-input")?.click()}
         >
-          <div className="text-4xl mb-2">📁</div>
-          <p className="font-medium text-gray-600">写真をドラッグ＆ドロップ</p>
-          <p className="text-xs text-gray-400 mt-1">
-            またはクリックしてファイルを選択
-          </p>
+          {uploading ? (
+            <>
+              <div className="text-4xl mb-2 animate-pulse">📤</div>
+              <p className="font-medium text-gray-600">
+                アップロード中... ({uploadProgress.current}/{uploadProgress.total})
+              </p>
+              <div className="w-48 mx-auto mt-3 bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-[#6EC6FF] h-2 rounded-full transition-all"
+                  style={{ width: `${uploadProgress.total > 0 ? (uploadProgress.current / uploadProgress.total) * 100 : 0}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-4xl mb-2">📁</div>
+              <p className="font-medium text-gray-600">写真をドラッグ＆ドロップ</p>
+              <p className="text-xs text-gray-400 mt-1">
+                またはクリックしてファイルを選択
+              </p>
+            </>
+          )}
           <input
             id="photo-file-input"
             type="file"

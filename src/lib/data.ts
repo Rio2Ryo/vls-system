@@ -24,9 +24,9 @@ export const COMPANIES: Company[] = [
     tier: "gold",
     tags: ["travel", "travel_service", "nature", "food"],
     videos: {
-      cm15: "dQw4w9WgXcQ",
-      cm30: "dQw4w9WgXcQ",
-      cm60: "dQw4w9WgXcQ",
+      cm15: "9bZkp7q19f0",
+      cm30: "9bZkp7q19f0",
+      cm60: "9bZkp7q19f0",
     },
     offerText: "家族旅行10%OFFクーポン",
     offerUrl: "https://example.com/family-travel",
@@ -39,9 +39,9 @@ export const COMPANIES: Company[] = [
     tier: "silver",
     tags: ["sports", "lessons", "education"],
     videos: {
-      cm15: "dQw4w9WgXcQ",
-      cm30: "dQw4w9WgXcQ",
-      cm60: "dQw4w9WgXcQ",
+      cm15: "jNQXAC9IVRw",
+      cm30: "jNQXAC9IVRw",
+      cm60: "jNQXAC9IVRw",
     },
     offerText: "入会金無料キャンペーン中！",
     offerUrl: "https://example.com/sports-kids",
@@ -54,8 +54,8 @@ export const COMPANIES: Company[] = [
     tags: ["food", "food_product"],
     videos: {
       cm15: "dQw4w9WgXcQ",
-      cm30: "dQw4w9WgXcQ",
-      cm60: "dQw4w9WgXcQ",
+      cm30: "9bZkp7q19f0",
+      cm60: "jNQXAC9IVRw",
     },
     offerText: "お試しセット500円OFF",
     offerUrl: "https://example.com/oishii-kitchen",
@@ -71,6 +71,7 @@ export const EVENTS: EventData[] = [
     description: "楽しい夏祭りイベント",
     password: "SUMMER2026",
     photos: generateDemoPhotos("summer", 12),
+    companyIds: ["co-platinum-1", "co-gold-1", "co-bronze-1"],
   },
   {
     id: "evt-sports",
@@ -79,6 +80,7 @@ export const EVENTS: EventData[] = [
     description: "秋の大運動会",
     password: "SPORTS2026",
     photos: generateDemoPhotos("sports", 9),
+    companyIds: ["co-platinum-1", "co-silver-1"],
   },
   {
     id: "evt-graduation",
@@ -87,6 +89,7 @@ export const EVENTS: EventData[] = [
     description: "感動の卒業式",
     password: "GRADUATION2026",
     photos: generateDemoPhotos("graduation", 15),
+    companyIds: ["co-platinum-1", "co-gold-1", "co-silver-1", "co-bronze-1"],
   },
 ];
 

@@ -18,14 +18,20 @@ export default function ProcessingPage() {
   const [elapsed, setElapsed] = useState(0);
   const [phase, setPhase] = useState<"platinum" | "matched" | "waiting">("platinum");
 
-  // Load user tags from session
+  // Load user tags and event companies from session
   const cmMatch = useMemo(() => {
     if (typeof window === "undefined") return getCMMatch([]);
     try {
       const tags: InterestTag[] = JSON.parse(
         sessionStorage.getItem("userTags") || "[]"
       );
-      return getCMMatch(tags);
+      const companyIds: string[] | undefined = (() => {
+        try {
+          const raw = sessionStorage.getItem("eventCompanyIds");
+          return raw ? JSON.parse(raw) : undefined;
+        } catch { return undefined; }
+      })();
+      return getCMMatch(tags, companyIds);
     } catch {
       return getCMMatch([]);
     }

@@ -5,8 +5,12 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export function getCMMatch(userTags: InterestTag[]): CMMatch {
-  const companies = getStoredCompanies();
+export function getCMMatch(userTags: InterestTag[], eventCompanyIds?: string[]): CMMatch {
+  const allCompanies = getStoredCompanies();
+  // Filter by event-associated companies if specified; otherwise use all
+  const companies = eventCompanyIds && eventCompanyIds.length > 0
+    ? allCompanies.filter((c) => eventCompanyIds.includes(c.id))
+    : allCompanies;
 
   // Platinum CM: random from platinum tier
   const platinums = companies.filter((c) => c.tier === "platinum");
