@@ -12,9 +12,10 @@ import {
   getStoredCompanies, setStoredCompanies,
   getStoredSurvey, setStoredSurvey,
   getStoredAnalytics, clearAnalytics,
+  getStoredVideoPlays,
   resetToDefaults,
 } from "@/lib/store";
-import { AnalyticsRecord } from "@/lib/types";
+import { AnalyticsRecord, VideoPlayRecord } from "@/lib/types";
 
 type Tab = "events" | "photos" | "companies" | "survey" | "dashboard";
 
@@ -269,17 +270,138 @@ function exportSurveyCsv(
   URL.revokeObjectURL(url);
 }
 
+// ===== Event Stats CSV Export =====
+function exportEventStatsCsv(
+  events: EventData[],
+  analytics: AnalyticsRecord[],
+  videoPlays: VideoPlayRecord[],
+  companies: Company[]
+) {
+  const companyMap = new Map(companies.map((c) => [c.id, c.name]));
+
+  // Header
+  const headerCols = [
+    "イベント名",
+    "開催日",
+    "アクセス数",
+    "アンケート完了",
+    "アンケート完了率",
+    "CM視聴完了",
+    "CM視聴完了率",
+    "写真閲覧数",
+    "写真閲覧率",
+    "DL完了数",
+    "DL完了率",
+    "CM再生回数（合計）",
+    "CM完了回数（合計）",
+    "CM完了率（合計）",
+    "CM平均視聴秒数",
+    "CM15s再生",
+    "CM15s完了率",
+    "CM30s再生",
+    "CM30s完了率",
+    "CM60s再生",
+    "CM60s完了率",
+    "企業別CM再生詳細",
+  ];
+  const rows: string[] = [headerCols.map(escapeCsvField).join(",")];
+
+  for (const evt of events) {
+    const evtAnalytics = analytics.filter((r) => r.eventId === evt.id);
+    const evtPlays = videoPlays.filter((p) => p.eventId === evt.id);
+
+    const access = evtAnalytics.filter((r) => r.stepsCompleted.access).length;
+    const surveyed = evtAnalytics.filter((r) => r.stepsCompleted.survey).length;
+    const cmViewed = evtAnalytics.filter((r) => r.stepsCompleted.cmViewed).length;
+    const photosViewed = evtAnalytics.filter((r) => r.stepsCompleted.photosViewed).length;
+    const downloaded = evtAnalytics.filter((r) => r.stepsCompleted.downloaded).length;
+
+    const pct = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : "—";
+
+    // CM play stats
+    const totalCmPlays = evtPlays.length;
+    const totalCmCompleted = evtPlays.filter((p) => p.completed).length;
+    const avgWatch = totalCmPlays > 0
+      ? Math.round(evtPlays.reduce((s, p) => s + p.watchedSeconds, 0) / totalCmPlays)
+      : 0;
+
+    // By CM type
+    const cmByType = (type: "cm15" | "cm30" | "cm60") => {
+      const typed = evtPlays.filter((p) => p.cmType === type);
+      const comp = typed.filter((p) => p.completed).length;
+      return { plays: typed.length, rate: pct(comp, typed.length) };
+    };
+    const cm15 = cmByType("cm15");
+    const cm30 = cmByType("cm30");
+    const cm60 = cmByType("cm60");
+
+    // Per-company breakdown
+    const companyBreakdown: string[] = [];
+    const companyPlayMap = new Map<string, { plays: number; completed: number }>();
+    for (const p of evtPlays) {
+      if (!companyPlayMap.has(p.companyId)) {
+        companyPlayMap.set(p.companyId, { plays: 0, completed: 0 });
+      }
+      const entry = companyPlayMap.get(p.companyId)!;
+      entry.plays++;
+      if (p.completed) entry.completed++;
+    }
+    Array.from(companyPlayMap.entries()).forEach(([cId, stat]) => {
+      const name = companyMap.get(cId) || cId;
+      companyBreakdown.push(`${name}:${stat.plays}回(完了${pct(stat.completed, stat.plays)})`);
+    });
+
+    const row = [
+      evt.name,
+      evt.date,
+      String(access),
+      String(surveyed),
+      pct(surveyed, access),
+      String(cmViewed),
+      pct(cmViewed, access),
+      String(photosViewed),
+      pct(photosViewed, access),
+      String(downloaded),
+      pct(downloaded, access),
+      String(totalCmPlays),
+      String(totalCmCompleted),
+      pct(totalCmCompleted, totalCmPlays),
+      `${avgWatch}秒`,
+      String(cm15.plays),
+      cm15.rate,
+      String(cm30.plays),
+      cm30.rate,
+      String(cm60.plays),
+      cm60.rate,
+      companyBreakdown.join(" / "),
+    ];
+    rows.push(row.map(escapeCsvField).join(","));
+  }
+
+  const bom = "\uFEFF";
+  const csvContent = bom + rows.join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `イベント統計_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ===== Dashboard =====
 function DashboardTab() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsRecord[]>([]);
+  const [videoPlays, setVideoPlays] = useState<VideoPlayRecord[]>([]);
   const [selectedEventFilter, setSelectedEventFilter] = useState<string>("all");
 
   useEffect(() => {
     setEvents(getStoredEvents());
     setCompanies(getStoredCompanies());
     setAnalytics(getStoredAnalytics());
+    setVideoPlays(getStoredVideoPlays());
   }, []);
 
   const filteredAnalytics = selectedEventFilter === "all"
@@ -332,12 +454,22 @@ function DashboardTab() {
   // Per-event stats
   const eventStats = events.map((evt) => {
     const evtRecords = analytics.filter((r) => r.eventId === evt.id);
+    const evtPlays = videoPlays.filter((p) => p.eventId === evt.id);
+    const accessCount = evtRecords.filter((r) => r.stepsCompleted.access).length;
+    const dlCount = evtRecords.filter((r) => r.stepsCompleted.downloaded).length;
+    const cmPlayCount = evtPlays.length;
+    const cmCompletedCount = evtPlays.filter((p) => p.completed).length;
     return {
       event: evt,
-      access: evtRecords.filter((r) => r.stepsCompleted.access).length,
-      completed: evtRecords.filter((r) => r.stepsCompleted.downloaded).length,
-      completionRate: evtRecords.length > 0
-        ? Math.round((evtRecords.filter((r) => r.stepsCompleted.downloaded).length / evtRecords.length) * 100)
+      access: accessCount,
+      completed: dlCount,
+      completionRate: accessCount > 0
+        ? Math.round((dlCount / accessCount) * 100)
+        : 0,
+      cmPlays: cmPlayCount,
+      cmCompleted: cmCompletedCount,
+      cmCompletionRate: cmPlayCount > 0
+        ? Math.round((cmCompletedCount / cmPlayCount) * 100)
         : 0,
     };
   });
@@ -375,6 +507,34 @@ function DashboardTab() {
           </Card>
         ))}
       </div>
+
+      {/* Stats CSV Export */}
+      <Card>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-gray-700">統計CSVエクスポート</h3>
+            <p className="text-xs text-gray-400 mt-0.5">イベント別のDL数・CM視聴完了率を含む統計データ</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportEventStatsCsv(events, analytics, videoPlays, companies)}
+              className="text-xs px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium transition-colors"
+              data-testid="stats-csv-export-btn"
+            >
+              イベント統計CSV
+            </button>
+            {analytics.filter((r) => r.surveyAnswers).length > 0 && (
+              <button
+                onClick={() => exportSurveyCsv(analytics.filter((r) => r.surveyAnswers), getStoredSurvey(), events)}
+                className="text-xs px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-medium transition-colors"
+                data-testid="survey-csv-export-btn"
+              >
+                アンケート回答CSV
+              </button>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* Event filter */}
       <Card>
@@ -438,9 +598,11 @@ function DashboardTab() {
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-2 text-gray-500 font-medium">イベント名</th>
-                  <th className="text-center py-2 text-gray-500 font-medium">アクセス数</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">アクセス</th>
                   <th className="text-center py-2 text-gray-500 font-medium">DL完了</th>
-                  <th className="text-center py-2 text-gray-500 font-medium">完了率</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">DL率</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">CM再生</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">CM完了率</th>
                 </tr>
               </thead>
               <tbody>
@@ -456,6 +618,16 @@ function DashboardTab() {
                         "bg-gray-50 text-gray-500"
                       }`}>
                         {es.access > 0 ? `${es.completionRate}%` : "—"}
+                      </span>
+                    </td>
+                    <td className="py-2 text-center font-mono">{es.cmPlays}</td>
+                    <td className="py-2 text-center">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                        es.cmCompletionRate >= 70 ? "bg-green-50 text-green-600" :
+                        es.cmCompletionRate >= 40 ? "bg-yellow-50 text-yellow-600" :
+                        "bg-gray-50 text-gray-500"
+                      }`}>
+                        {es.cmPlays > 0 ? `${es.cmCompletionRate}%` : "—"}
                       </span>
                     </td>
                   </tr>
