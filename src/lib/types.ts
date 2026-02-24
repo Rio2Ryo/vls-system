@@ -60,9 +60,19 @@ export interface CMMatch {
   matchedCM: Company | null;   // 30s preview + 60s full
 }
 
-// Admin stats
-export interface DashboardStats {
-  totalAccesses: number;
-  cmViews: Record<string, number>;
-  downloads: number;
+// Analytics record for each user session
+export interface AnalyticsRecord {
+  id: string;
+  eventId: string;
+  timestamp: number;
+  surveyAnswers?: Record<string, InterestTag[]>;
+  stepsCompleted: {
+    access: boolean;
+    survey: boolean;
+    cmViewed: boolean;
+    photosViewed: boolean;
+    downloaded: boolean;
+  };
+  matchedCompanyId?: string;
+  platinumCompanyId?: string;
 }

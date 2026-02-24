@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { getEventByPassword } from "@/lib/store";
+import { getEventByPassword, addAnalyticsRecord } from "@/lib/store";
 
 function TopPageInner() {
   const router = useRouter();
@@ -42,6 +42,23 @@ function TopPageInner() {
     } else {
       sessionStorage.removeItem("eventCompanyIds");
     }
+
+    // Create analytics record for this session
+    const analyticsId = `a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    sessionStorage.setItem("analyticsId", analyticsId);
+    addAnalyticsRecord({
+      id: analyticsId,
+      eventId: event.id,
+      timestamp: Date.now(),
+      stepsCompleted: {
+        access: true,
+        survey: false,
+        cmViewed: false,
+        photosViewed: false,
+        downloaded: false,
+      },
+    });
+
     router.push("/survey");
   };
 

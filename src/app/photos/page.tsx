@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
 import PhotoGrid from "@/components/photos/PhotoGrid";
 import PhotoModal from "@/components/photos/PhotoModal";
-import { getStoredEvents } from "@/lib/store";
+import { getStoredEvents, updateAnalyticsRecord } from "@/lib/store";
 import { PhotoData } from "@/lib/types";
 
 export default function PhotosPage() {
@@ -25,6 +25,19 @@ export default function PhotosPage() {
 
   useEffect(() => {
     setEventName(sessionStorage.getItem("eventName") || "イベント");
+    // Record photos viewed
+    const analyticsId = sessionStorage.getItem("analyticsId");
+    if (analyticsId) {
+      updateAnalyticsRecord(analyticsId, {
+        stepsCompleted: {
+          access: true,
+          survey: true,
+          cmViewed: true,
+          photosViewed: true,
+          downloaded: false,
+        },
+      });
+    }
   }, []);
 
   const handleToggleSelect = (photo: PhotoData) => {

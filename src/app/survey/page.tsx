@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import TagSelector from "@/components/ui/TagSelector";
-import { getStoredSurvey } from "@/lib/store";
+import { getStoredSurvey, updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
 
 export default function SurveyPage() {
@@ -35,6 +35,22 @@ export default function SurveyPage() {
       const allTags = Object.values(allAnswers).flat();
       sessionStorage.setItem("userTags", JSON.stringify(allTags));
       sessionStorage.setItem("surveyAnswers", JSON.stringify(allAnswers));
+
+      // Record survey completion in analytics
+      const analyticsId = sessionStorage.getItem("analyticsId");
+      if (analyticsId) {
+        updateAnalyticsRecord(analyticsId, {
+          surveyAnswers: allAnswers,
+          stepsCompleted: {
+            access: true,
+            survey: true,
+            cmViewed: false,
+            photosViewed: false,
+            downloaded: false,
+          },
+        });
+      }
+
       router.push("/processing");
     }
   };

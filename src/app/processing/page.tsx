@@ -9,6 +9,7 @@ import VideoPlayer from "@/components/cm/VideoPlayer";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { getCMMatch } from "@/lib/matching";
+import { updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
 
 const TOTAL_SECONDS = 45;
@@ -45,6 +46,14 @@ export default function ProcessingPage() {
     if (cmMatch.platinumCM) {
       sessionStorage.setItem("platinumCompany", JSON.stringify(cmMatch.platinumCM));
     }
+    // Record matched company IDs in analytics
+    const analyticsId = sessionStorage.getItem("analyticsId");
+    if (analyticsId) {
+      updateAnalyticsRecord(analyticsId, {
+        matchedCompanyId: cmMatch.matchedCM?.id || undefined,
+        platinumCompanyId: cmMatch.platinumCM?.id || undefined,
+      });
+    }
   }, [cmMatch]);
 
   // 45-second timer
@@ -73,6 +82,19 @@ export default function ProcessingPage() {
   }, []);
 
   const handleNext = () => {
+    // Record CM viewed step
+    const analyticsId = sessionStorage.getItem("analyticsId");
+    if (analyticsId) {
+      updateAnalyticsRecord(analyticsId, {
+        stepsCompleted: {
+          access: true,
+          survey: true,
+          cmViewed: true,
+          photosViewed: false,
+          downloaded: false,
+        },
+      });
+    }
     router.push("/photos");
   };
 

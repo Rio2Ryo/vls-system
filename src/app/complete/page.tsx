@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import { updateAnalyticsRecord } from "@/lib/store";
 import { Company } from "@/lib/types";
 
 export default function CompletePage() {
@@ -36,6 +37,19 @@ export default function CompletePage() {
       setPhotoCount(ids.length);
     } catch {
       setPhotoCount(0);
+    }
+    // Record download/completion step
+    const analyticsId = sessionStorage.getItem("analyticsId");
+    if (analyticsId) {
+      updateAnalyticsRecord(analyticsId, {
+        stepsCompleted: {
+          access: true,
+          survey: true,
+          cmViewed: true,
+          photosViewed: true,
+          downloaded: true,
+        },
+      });
     }
   }, []);
 

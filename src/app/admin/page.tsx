@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import QRCode from "qrcode";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { ADMIN_PASSWORD } from "@/lib/data";
@@ -10,8 +11,10 @@ import {
   getStoredEvents, setStoredEvents,
   getStoredCompanies, setStoredCompanies,
   getStoredSurvey, setStoredSurvey,
+  getStoredAnalytics, clearAnalytics,
   resetToDefaults,
 } from "@/lib/store";
+import { AnalyticsRecord } from "@/lib/types";
 
 type Tab = "events" | "photos" | "companies" | "survey" | "dashboard";
 
@@ -156,19 +159,99 @@ const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:borde
 function DashboardTab() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
-  useEffect(() => { setEvents(getStoredEvents()); setCompanies(getStoredCompanies()); }, []);
+  const [analytics, setAnalytics] = useState<AnalyticsRecord[]>([]);
+  const [selectedEventFilter, setSelectedEventFilter] = useState<string>("all");
 
-  const stats = [
-    { label: "登録イベント", value: String(events.length), icon: "🎪", color: "bg-yellow-50 text-yellow-700" },
-    { label: "パートナー企業", value: String(companies.length), icon: "🏢", color: "bg-blue-50 text-blue-600" },
-    { label: "総写真数", value: String(events.reduce((s, e) => s + e.photos.length, 0)), icon: "📷", color: "bg-pink-50 text-pink-600" },
-    { label: "アンケート設問", value: String(getStoredSurvey().length), icon: "📝", color: "bg-green-50 text-green-600" },
+  useEffect(() => {
+    setEvents(getStoredEvents());
+    setCompanies(getStoredCompanies());
+    setAnalytics(getStoredAnalytics());
+  }, []);
+
+  const filteredAnalytics = selectedEventFilter === "all"
+    ? analytics
+    : analytics.filter((r) => r.eventId === selectedEventFilter);
+
+  // Funnel counts
+  const funnel = {
+    access: filteredAnalytics.filter((r) => r.stepsCompleted.access).length,
+    survey: filteredAnalytics.filter((r) => r.stepsCompleted.survey).length,
+    cmViewed: filteredAnalytics.filter((r) => r.stepsCompleted.cmViewed).length,
+    photosViewed: filteredAnalytics.filter((r) => r.stepsCompleted.photosViewed).length,
+    downloaded: filteredAnalytics.filter((r) => r.stepsCompleted.downloaded).length,
+  };
+
+  // Survey aggregation
+  const surveyQuestions = getStoredSurvey();
+  const answeredRecords = filteredAnalytics.filter((r) => r.surveyAnswers);
+  const surveyAgg: Record<string, Record<string, number>> = {};
+  for (const q of surveyQuestions) {
+    surveyAgg[q.id] = {};
+    for (const opt of q.options) {
+      surveyAgg[q.id][opt.tag] = 0;
+    }
+  }
+  for (const record of answeredRecords) {
+    if (!record.surveyAnswers) continue;
+    for (const [qId, tags] of Object.entries(record.surveyAnswers)) {
+      if (!surveyAgg[qId]) continue;
+      for (const tag of tags) {
+        surveyAgg[qId][tag] = (surveyAgg[qId][tag] || 0) + 1;
+      }
+    }
+  }
+
+  // CM view aggregation
+  const cmViewCounts: Record<string, { matched: number; platinum: number }> = {};
+  for (const c of companies) {
+    cmViewCounts[c.id] = { matched: 0, platinum: 0 };
+  }
+  for (const record of filteredAnalytics) {
+    if (record.matchedCompanyId && cmViewCounts[record.matchedCompanyId]) {
+      cmViewCounts[record.matchedCompanyId].matched++;
+    }
+    if (record.platinumCompanyId && cmViewCounts[record.platinumCompanyId]) {
+      cmViewCounts[record.platinumCompanyId].platinum++;
+    }
+  }
+
+  // Per-event stats
+  const eventStats = events.map((evt) => {
+    const evtRecords = analytics.filter((r) => r.eventId === evt.id);
+    return {
+      event: evt,
+      access: evtRecords.filter((r) => r.stepsCompleted.access).length,
+      completed: evtRecords.filter((r) => r.stepsCompleted.downloaded).length,
+      completionRate: evtRecords.length > 0
+        ? Math.round((evtRecords.filter((r) => r.stepsCompleted.downloaded).length / evtRecords.length) * 100)
+        : 0,
+    };
+  });
+
+  const handleClearAnalytics = () => {
+    clearAnalytics();
+    setAnalytics([]);
+  };
+
+  const funnelSteps = [
+    { key: "access", label: "アクセス", count: funnel.access, color: "bg-blue-400" },
+    { key: "survey", label: "アンケート完了", count: funnel.survey, color: "bg-green-400" },
+    { key: "cmViewed", label: "CM視聴完了", count: funnel.cmViewed, color: "bg-yellow-400" },
+    { key: "photosViewed", label: "写真閲覧", count: funnel.photosViewed, color: "bg-pink-400" },
+    { key: "downloaded", label: "DL完了", count: funnel.downloaded, color: "bg-purple-400" },
   ];
+  const maxFunnel = Math.max(funnel.access, 1);
 
   return (
     <div className="space-y-6" data-testid="admin-dashboard">
+      {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map((s) => (
+        {[
+          { label: "総アクセス数", value: String(analytics.length), icon: "👥", color: "bg-blue-50 text-blue-600" },
+          { label: "登録イベント", value: String(events.length), icon: "🎪", color: "bg-yellow-50 text-yellow-700" },
+          { label: "パートナー企業", value: String(companies.length), icon: "🏢", color: "bg-pink-50 text-pink-600" },
+          { label: "DL完了率", value: analytics.length > 0 ? `${Math.round((funnel.downloaded / analytics.length) * 100)}%` : "—", icon: "📊", color: "bg-green-50 text-green-600" },
+        ].map((s) => (
           <Card key={s.label} className="text-center">
             <div className={`inline-flex w-10 h-10 rounded-full items-center justify-center text-lg mb-2 ${s.color}`}>
               {s.icon}
@@ -179,19 +262,168 @@ function DashboardTab() {
         ))}
       </div>
 
+      {/* Event filter */}
       <Card>
-        <h3 className="font-bold text-gray-700 mb-3">企業別CM設定状況</h3>
-        <div className="space-y-2">
-          {companies.map((c) => (
-            <div key={c.id} className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={c.logoUrl} alt={c.name} className="w-8 h-8 rounded-full" />
-              <span className="text-sm text-gray-600 flex-1">{c.name}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase">{c.tier}</span>
-              <span className="text-xs text-gray-400 font-mono">{c.videos.cm15 ? "CM✓" : "CM✗"}</span>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-gray-700">アクセス・完了ファネル</h3>
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedEventFilter}
+              onChange={(e) => setSelectedEventFilter(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF]"
+              data-testid="dashboard-event-filter"
+            >
+              <option value="all">全イベント</option>
+              {events.map((evt) => (
+                <option key={evt.id} value={evt.id}>{evt.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleClearAnalytics}
+              className="text-[10px] text-red-400 hover:text-red-600"
+            >
+              データクリア
+            </button>
+          </div>
         </div>
+
+        {/* Funnel visualization */}
+        {analytics.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">まだアクセスデータがありません</p>
+        ) : (
+          <div className="space-y-3">
+            {funnelSteps.map((step) => (
+              <div key={step.key} className="flex items-center gap-3">
+                <span className="text-xs text-gray-500 w-28 text-right flex-shrink-0">{step.label}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${step.color} transition-all duration-500`}
+                    style={{ width: `${(step.count / maxFunnel) * 100}%` }}
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700">
+                    {step.count}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-400 w-12 flex-shrink-0">
+                  {funnel.access > 0 ? `${Math.round((step.count / funnel.access) * 100)}%` : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Per-event stats table */}
+      <Card>
+        <h3 className="font-bold text-gray-700 mb-3">イベント別アクセス統計</h3>
+        {eventStats.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">イベントが登録されていません</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="event-stats-table">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-2 text-gray-500 font-medium">イベント名</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">アクセス数</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">DL完了</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">完了率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eventStats.map((es) => (
+                  <tr key={es.event.id} className="border-b border-gray-50">
+                    <td className="py-2 text-gray-700">{es.event.name}</td>
+                    <td className="py-2 text-center font-mono">{es.access}</td>
+                    <td className="py-2 text-center font-mono">{es.completed}</td>
+                    <td className="py-2 text-center">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                        es.completionRate >= 70 ? "bg-green-50 text-green-600" :
+                        es.completionRate >= 40 ? "bg-yellow-50 text-yellow-600" :
+                        "bg-gray-50 text-gray-500"
+                      }`}>
+                        {es.access > 0 ? `${es.completionRate}%` : "—"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Survey results aggregation */}
+      <Card>
+        <h3 className="font-bold text-gray-700 mb-1">アンケート集計結果</h3>
+        <p className="text-xs text-gray-400 mb-4">回答数: {answeredRecords.length}件</p>
+
+        {answeredRecords.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">まだ回答データがありません</p>
+        ) : (
+          <div className="space-y-6">
+            {surveyQuestions.map((q) => {
+              const qData = surveyAgg[q.id] || {};
+              const maxCount = Math.max(...Object.values(qData), 1);
+              return (
+                <div key={q.id} data-testid={`survey-result-${q.id}`}>
+                  <p className="text-sm font-bold text-gray-600 mb-2">{q.question}</p>
+                  <div className="space-y-1.5">
+                    {q.options.map((opt) => {
+                      const count = qData[opt.tag] || 0;
+                      const pct = answeredRecords.length > 0 ? Math.round((count / answeredRecords.length) * 100) : 0;
+                      return (
+                        <div key={opt.tag} className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 w-16 text-right flex-shrink-0">{opt.label}</span>
+                          <div className="flex-1 bg-gray-100 rounded-full h-5 relative overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-[#6EC6FF] transition-all duration-500"
+                              style={{ width: `${maxCount > 0 ? (count / maxCount) * 100 : 0}%` }}
+                            />
+                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-600">
+                              {count > 0 ? `${count}件 (${pct}%)` : ""}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      {/* CM view stats */}
+      <Card>
+        <h3 className="font-bold text-gray-700 mb-3">CM表示回数（企業別）</h3>
+        {companies.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">企業が登録されていません</p>
+        ) : (
+          <div className="space-y-3">
+            {companies.map((c) => {
+              const views = cmViewCounts[c.id] || { matched: 0, platinum: 0 };
+              const total = views.matched + views.platinum;
+              return (
+                <div key={c.id} className="flex items-center gap-3" data-testid={`cm-stats-${c.id}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={c.logoUrl} alt={c.name} className="w-8 h-8 rounded-full flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm text-gray-600 truncate">{c.name}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase flex-shrink-0">{c.tier}</span>
+                    </div>
+                    <div className="flex gap-3 text-xs">
+                      <span className="text-blue-500">提供CM: <b>{views.platinum}</b>回</span>
+                      <span className="text-green-500">マッチCM: <b>{views.matched}</b>回</span>
+                      <span className="text-gray-400">合計: <b>{total}</b>回</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -204,6 +436,9 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", date: "", description: "", password: "", companyIds: [] as string[] });
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [qrEventId, setQrEventId] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const getShareUrl = (pw: string) => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
@@ -214,6 +449,34 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
     navigator.clipboard.writeText(getShareUrl(evt.password));
     setCopiedId(evt.id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const toggleQr = async (evt: EventData) => {
+    if (qrEventId === evt.id) {
+      setQrEventId(null);
+      setQrDataUrl(null);
+      return;
+    }
+    setQrEventId(evt.id);
+    const url = getShareUrl(evt.password);
+    try {
+      const dataUrl = await QRCode.toDataURL(url, {
+        width: 400,
+        margin: 2,
+        color: { dark: "#333333", light: "#ffffff" },
+      });
+      setQrDataUrl(dataUrl);
+    } catch {
+      setQrDataUrl(null);
+    }
+  };
+
+  const downloadQr = (evtName: string) => {
+    if (!qrDataUrl) return;
+    const a = document.createElement("a");
+    a.href = qrDataUrl;
+    a.download = `QR_${evtName.replace(/\s+/g, "_")}.png`;
+    a.click();
   };
 
   useEffect(() => {
@@ -396,7 +659,49 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
               >
                 {copiedId === evt.id ? "Copied!" : "URLコピー"}
               </button>
+              <button
+                onClick={() => toggleQr(evt)}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                  qrEventId === evt.id
+                    ? "bg-gray-200 text-gray-600"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                data-testid={`event-qr-toggle-${evt.id}`}
+              >
+                {qrEventId === evt.id ? "QR閉じる" : "QRコード"}
+              </button>
             </div>
+
+            {/* QR Code display */}
+            <AnimatePresence>
+              {qrEventId === evt.id && qrDataUrl && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-3 flex flex-col items-center gap-3 p-4 bg-white border border-gray-200 rounded-xl" data-testid={`event-qr-${evt.id}`}>
+                    <canvas ref={qrCanvasRef} className="hidden" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={qrDataUrl}
+                      alt={`QR Code for ${evt.name}`}
+                      className="w-48 h-48"
+                      data-testid={`event-qr-image-${evt.id}`}
+                    />
+                    <p className="text-[10px] text-gray-400 text-center">{getShareUrl(evt.password)}</p>
+                    <button
+                      onClick={() => downloadQr(evt.name)}
+                      className="text-xs px-4 py-2 rounded-lg bg-[#6EC6FF] text-white hover:bg-blue-400 font-medium transition-colors"
+                      data-testid={`event-qr-download-${evt.id}`}
+                    >
+                      QRコードをダウンロード
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </Card>
       ))}
