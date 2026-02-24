@@ -103,6 +103,12 @@ export default function AdminPage() {
           <h1 className="font-bold text-gray-800">VLS Admin</h1>
           <div className="flex items-center gap-3">
             <a
+              href="/admin/events"
+              className="text-xs text-[#6EC6FF] hover:underline font-medium"
+            >
+              イベント管理
+            </a>
+            <a
               href="/admin/stats"
               className="text-xs text-[#6EC6FF] hover:underline font-medium"
             >
