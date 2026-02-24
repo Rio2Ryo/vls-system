@@ -737,6 +737,8 @@ function DashboardTab() {
 }
 
 // ===== Events =====
+type EventSortKey = "default" | "date-desc" | "date-asc" | "name-asc" | "name-desc" | "photos-desc";
+
 function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -746,6 +748,12 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
   const [qrEventId, setQrEventId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Sort & filter state
+  const [sortKey, setSortKey] = useState<EventSortKey>("default");
+  const [filterText, setFilterText] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
 
   const getShareUrl = (pw: string) => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
@@ -860,12 +868,109 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
     bronze: "bg-orange-100 text-orange-700",
   };
 
+  // --- Sort & filter logic ---
+  const filtered = events.filter((evt) => {
+    if (filterText) {
+      const q = filterText.toLowerCase();
+      const match =
+        evt.name.toLowerCase().includes(q) ||
+        (evt.venue || "").toLowerCase().includes(q) ||
+        evt.password.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    if (filterDateFrom && evt.date < filterDateFrom) return false;
+    if (filterDateTo && evt.date > filterDateTo) return false;
+    return true;
+  });
+
+  const sorted = sortKey === "default"
+    ? filtered
+    : [...filtered].sort((a, b) => {
+        switch (sortKey) {
+          case "date-desc": return (b.date || "").localeCompare(a.date || "");
+          case "date-asc": return (a.date || "").localeCompare(b.date || "");
+          case "name-asc": return a.name.localeCompare(b.name, "ja");
+          case "name-desc": return b.name.localeCompare(a.name, "ja");
+          case "photos-desc": return b.photos.length - a.photos.length;
+          default: return 0;
+        }
+      });
+
+  const hasActiveFilters = !!(filterText || filterDateFrom || filterDateTo);
+
   return (
     <div className="space-y-4" data-testid="admin-events">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold text-gray-800">イベント一覧</h2>
         <Button size="sm" onClick={startNew}>+ 新規作成</Button>
       </div>
+
+      {/* Sort & Filter bar */}
+      <Card>
+        <div className="space-y-3">
+          {/* Search + Sort row */}
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1">
+              <input
+                className={inputCls + " pl-8"}
+                placeholder="イベント名・会場・パスワードで検索"
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                data-testid="event-filter-text"
+              />
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
+                🔍
+              </span>
+            </div>
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as EventSortKey)}
+              className="px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600 bg-white"
+              data-testid="event-sort-select"
+            >
+              <option value="default">登録順</option>
+              <option value="date-desc">日付: 新しい順</option>
+              <option value="date-asc">日付: 古い順</option>
+              <option value="name-asc">名前: A→Z</option>
+              <option value="name-desc">名前: Z→A</option>
+              <option value="photos-desc">写真: 多い順</option>
+            </select>
+          </div>
+          {/* Date range row */}
+          <div className="flex gap-2 items-center">
+            <span className="text-xs text-gray-500 flex-shrink-0">期間:</span>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="px-2 py-1.5 rounded-lg border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600"
+              data-testid="event-filter-date-from"
+            />
+            <span className="text-xs text-gray-400">〜</span>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="px-2 py-1.5 rounded-lg border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600"
+              data-testid="event-filter-date-to"
+            />
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setFilterText(""); setFilterDateFrom(""); setFilterDateTo(""); }}
+                className="text-[10px] text-red-400 hover:text-red-600 ml-auto"
+              >
+                フィルタ解除
+              </button>
+            )}
+          </div>
+          {/* Result count */}
+          <p className="text-[10px] text-gray-400">
+            {hasActiveFilters
+              ? `${sorted.length}件 / ${events.length}件表示`
+              : `${events.length}件のイベント`}
+          </p>
+        </div>
+      </Card>
 
       {editing && (
         <Card>
@@ -912,7 +1017,11 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
         </Card>
       )}
 
-      {events.map((evt) => (
+      {sorted.length === 0 && hasActiveFilters && (
+        <p className="text-sm text-gray-400 text-center py-8">条件に一致するイベントがありません</p>
+      )}
+
+      {sorted.map((evt) => (
         <Card key={evt.id}>
           <div className="flex justify-between items-start">
             <div>
