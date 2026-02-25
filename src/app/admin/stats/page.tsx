@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { ADMIN_PASSWORD } from "@/lib/data";
@@ -9,7 +8,6 @@ import { getStoredCompanies, getStoredEvents, getStoredVideoPlays, clearVideoPla
 import { Company, EventData, VideoPlayRecord } from "@/lib/types";
 
 export default function StatsPage() {
-  const router = useRouter();
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
   const [pwError, setPwError] = useState("");
@@ -25,10 +23,15 @@ export default function StatsPage() {
     setEvents(getStoredEvents());
   }, []);
 
+  useEffect(() => {
+    if (sessionStorage.getItem("adminAuthed") === "true") setAuthed(true);
+  }, []);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pw === ADMIN_PASSWORD) {
       setAuthed(true);
+      sessionStorage.setItem("adminAuthed", "true");
     } else {
       setPwError("パスワードが違います");
     }
@@ -195,22 +198,14 @@ export default function StatsPage() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push("/admin")}
-              className="text-xs text-[#6EC6FF] hover:underline"
-            >
-              Admin管理画面
-            </button>
-            <button
-              onClick={handleClear}
-              className="text-xs text-red-400 hover:text-red-600"
-            >
+            <a href="/admin" className="text-xs text-[#6EC6FF] hover:underline font-medium">Admin</a>
+            <a href="/admin/events" className="text-xs text-[#6EC6FF] hover:underline font-medium">イベント管理</a>
+            <a href="/admin/analytics" className="text-xs text-[#6EC6FF] hover:underline font-medium">アンケート分析</a>
+            <a href="/admin/users" className="text-xs text-[#6EC6FF] hover:underline font-medium">ユーザー管理</a>
+            <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
               データクリア
             </button>
-            <button
-              onClick={() => setAuthed(false)}
-              className="text-sm text-gray-400 hover:text-gray-600"
-            >
+            <button onClick={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }} className="text-sm text-gray-400 hover:text-gray-600">
               ログアウト
             </button>
           </div>

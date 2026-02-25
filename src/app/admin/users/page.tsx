@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { ADMIN_PASSWORD } from "@/lib/data";
@@ -52,7 +51,6 @@ function calcCmScore(plays: VideoPlayRecord[]): number {
 type SortKey = "date-desc" | "date-asc" | "name-asc" | "score-desc" | "score-asc";
 
 export default function UsersPage() {
-  const router = useRouter();
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
   const [pwError, setPwError] = useState("");
@@ -78,10 +76,18 @@ export default function UsersPage() {
 
   useEffect(() => { reload(); }, [reload]);
 
+  useEffect(() => {
+    if (sessionStorage.getItem("adminAuthed") === "true") setAuthed(true);
+  }, []);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw === ADMIN_PASSWORD) setAuthed(true);
-    else setPwError("パスワードが違います");
+    if (pw === ADMIN_PASSWORD) {
+      setAuthed(true);
+      sessionStorage.setItem("adminAuthed", "true");
+    } else {
+      setPwError("パスワードが違います");
+    }
   };
 
   // Build user sessions by joining analytics + video plays
@@ -242,10 +248,11 @@ export default function UsersPage() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/admin")} className="text-xs text-[#6EC6FF] hover:underline">Admin</button>
-            <button onClick={() => router.push("/admin/analytics")} className="text-xs text-[#6EC6FF] hover:underline">アンケート分析</button>
-            <button onClick={() => router.push("/admin/stats")} className="text-xs text-[#6EC6FF] hover:underline">CM統計</button>
-            <button onClick={() => setAuthed(false)} className="text-sm text-gray-400 hover:text-gray-600">ログアウト</button>
+            <a href="/admin" className="text-xs text-[#6EC6FF] hover:underline font-medium">Admin</a>
+            <a href="/admin/events" className="text-xs text-[#6EC6FF] hover:underline font-medium">イベント管理</a>
+            <a href="/admin/analytics" className="text-xs text-[#6EC6FF] hover:underline font-medium">アンケート分析</a>
+            <a href="/admin/stats" className="text-xs text-[#6EC6FF] hover:underline font-medium">CM統計</a>
+            <button onClick={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }} className="text-sm text-gray-400 hover:text-gray-600">ログアウト</button>
           </div>
         </div>
       </div>

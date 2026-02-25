@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import QRCode from "qrcode";
 import Button from "@/components/ui/Button";
@@ -25,7 +24,6 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 export default function EventsPage() {
-  const router = useRouter();
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
   const [pwError, setPwError] = useState("");
@@ -57,10 +55,18 @@ export default function EventsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed]);
 
+  useEffect(() => {
+    if (sessionStorage.getItem("adminAuthed") === "true") setAuthed(true);
+  }, []);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw === ADMIN_PASSWORD) setAuthed(true);
-    else setPwError("パスワードが違います");
+    if (pw === ADMIN_PASSWORD) {
+      setAuthed(true);
+      sessionStorage.setItem("adminAuthed", "true");
+    } else {
+      setPwError("パスワードが違います");
+    }
   };
 
   if (!authed) {
@@ -191,13 +197,11 @@ export default function EventsPage() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/admin")} className="text-xs text-[#6EC6FF] hover:underline font-medium">
-              Admin管理画面
-            </button>
-            <button onClick={() => router.push("/admin/stats")} className="text-xs text-[#6EC6FF] hover:underline font-medium">
-              CM統計
-            </button>
-            <button onClick={() => setAuthed(false)} className="text-sm text-gray-400 hover:text-gray-600">
+            <a href="/admin" className="text-xs text-[#6EC6FF] hover:underline font-medium">Admin</a>
+            <a href="/admin/analytics" className="text-xs text-[#6EC6FF] hover:underline font-medium">アンケート分析</a>
+            <a href="/admin/users" className="text-xs text-[#6EC6FF] hover:underline font-medium">ユーザー管理</a>
+            <a href="/admin/stats" className="text-xs text-[#6EC6FF] hover:underline font-medium">CM統計</a>
+            <button onClick={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }} className="text-sm text-gray-400 hover:text-gray-600">
               ログアウト
             </button>
           </div>

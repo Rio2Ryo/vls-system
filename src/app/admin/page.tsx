@@ -52,10 +52,18 @@ export default function AdminPage() {
 
   const activeEvent = adminEvents.find((e) => e.id === activeEventId);
 
+  // Check sessionStorage for existing auth on mount
+  useEffect(() => {
+    if (sessionStorage.getItem("adminAuthed") === "true") {
+      setAuthed(true);
+    }
+  }, []);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pw === ADMIN_PASSWORD) {
       setAuthed(true);
+      sessionStorage.setItem("adminAuthed", "true");
     } else {
       setPwError("パスワードが違います");
     }
@@ -135,7 +143,7 @@ export default function AdminPage() {
               リセット
             </button>
             <button
-              onClick={() => setAuthed(false)}
+              onClick={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
               className="text-sm text-gray-400 hover:text-gray-600"
             >
               ログアウト

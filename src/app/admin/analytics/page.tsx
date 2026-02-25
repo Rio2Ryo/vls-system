@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -24,7 +23,6 @@ const COLORS = [
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
 
 export default function AnalyticsPage() {
-  const router = useRouter();
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
   const [pwError, setPwError] = useState("");
@@ -51,10 +49,18 @@ export default function AnalyticsPage() {
     }
   }, [filterEvent]);
 
+  useEffect(() => {
+    if (sessionStorage.getItem("adminAuthed") === "true") setAuthed(true);
+  }, []);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw === ADMIN_PASSWORD) setAuthed(true);
-    else setPwError("パスワードが違います");
+    if (pw === ADMIN_PASSWORD) {
+      setAuthed(true);
+      sessionStorage.setItem("adminAuthed", "true");
+    } else {
+      setPwError("パスワードが違います");
+    }
   };
 
   // --- Filtered records ---
@@ -250,16 +256,14 @@ export default function AnalyticsPage() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/admin")} className="text-xs text-[#6EC6FF] hover:underline">
-              Admin管理画面
-            </button>
-            <button onClick={() => router.push("/admin/stats")} className="text-xs text-[#6EC6FF] hover:underline">
-              CM統計
-            </button>
+            <a href="/admin" className="text-xs text-[#6EC6FF] hover:underline font-medium">Admin</a>
+            <a href="/admin/events" className="text-xs text-[#6EC6FF] hover:underline font-medium">イベント管理</a>
+            <a href="/admin/users" className="text-xs text-[#6EC6FF] hover:underline font-medium">ユーザー管理</a>
+            <a href="/admin/stats" className="text-xs text-[#6EC6FF] hover:underline font-medium">CM統計</a>
             <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
               データクリア
             </button>
-            <button onClick={() => setAuthed(false)} className="text-sm text-gray-400 hover:text-gray-600">
+            <button onClick={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }} className="text-sm text-gray-400 hover:text-gray-600">
               ログアウト
             </button>
           </div>
