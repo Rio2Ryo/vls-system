@@ -110,6 +110,12 @@ export default function AdminPage() {
               イベント管理
             </a>
             <a
+              href="/admin/users"
+              className="text-xs text-[#6EC6FF] hover:underline font-medium"
+            >
+              ユーザー管理
+            </a>
+            <a
               href="/admin/analytics"
               className="text-xs text-[#6EC6FF] hover:underline font-medium"
             >
