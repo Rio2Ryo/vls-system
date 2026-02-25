@@ -19,6 +19,10 @@ export default function ProcessingPage() {
   const [elapsed, setElapsed] = useState(0);
   const [phase, setPhase] = useState<"platinum" | "matched" | "waiting">("platinum");
 
+  useEffect(() => {
+    if (!sessionStorage.getItem("eventId")) router.replace("/");
+  }, [router]);
+
   // Load user tags and event companies from session
   const cmMatch = useMemo(() => {
     if (typeof window === "undefined") return getCMMatch([]);

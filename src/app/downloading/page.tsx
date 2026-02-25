@@ -28,6 +28,10 @@ export default function DownloadingPage() {
   const [videoDone, setVideoDone] = useState(false);
   const photoCount = useSelectedPhotoCount();
 
+  useEffect(() => {
+    if (!sessionStorage.getItem("eventId")) router.replace("/");
+  }, [router]);
+
   const matchedCompany = useMemo((): Company | null => {
     if (typeof window === "undefined") return null;
     try {

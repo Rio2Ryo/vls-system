@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -27,11 +28,16 @@ async function downloadImage(url: string, filename: string): Promise<void> {
 }
 
 export default function CompletePage() {
+  const router = useRouter();
   const [downloaded, setDownloaded] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [eventName, setEventName] = useState("");
   const [photoCount, setPhotoCount] = useState(0);
   const [selectedPhotos, setSelectedPhotos] = useState<PhotoData[]>([]);
+
+  useEffect(() => {
+    if (!sessionStorage.getItem("eventId")) router.replace("/");
+  }, [router]);
 
   const platinumCompany = useMemo((): Company | null => {
     if (typeof window === "undefined") return null;

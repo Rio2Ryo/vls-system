@@ -15,6 +15,10 @@ export default function PhotosPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [eventName, setEventName] = useState("");
 
+  useEffect(() => {
+    if (!sessionStorage.getItem("eventId")) router.replace("/");
+  }, [router]);
+
   const photos = useMemo(() => {
     if (typeof window === "undefined") return [];
     const eventId = sessionStorage.getItem("eventId");

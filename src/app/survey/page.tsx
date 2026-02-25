@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
@@ -11,6 +11,10 @@ import { InterestTag } from "@/lib/types";
 
 export default function SurveyPage() {
   const router = useRouter();
+
+  useEffect(() => {
+    if (!sessionStorage.getItem("eventId")) router.replace("/");
+  }, [router]);
   const [phase, setPhase] = useState<"name" | "questions">("name");
   const [respondentName, setRespondentName] = useState("");
   const [currentQ, setCurrentQ] = useState(0);
