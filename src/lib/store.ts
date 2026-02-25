@@ -21,7 +21,11 @@ function safeGet<T>(key: string, fallback: T): T {
 
 function safeSet(key: string, value: unknown): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // QuotaExceededError — silently ignore to prevent page crash
+  }
 }
 
 // --- Events ---
@@ -88,13 +92,18 @@ export function addAnalyticsRecord(record: AnalyticsRecord): void {
   safeSet(KEYS.analytics, records);
 }
 
-export function updateAnalyticsRecord(id: string, updates: Partial<AnalyticsRecord>): void {
+type AnalyticsUpdate = Omit<Partial<AnalyticsRecord>, "stepsCompleted"> & {
+  stepsCompleted?: Partial<AnalyticsRecord["stepsCompleted"]>;
+};
+
+export function updateAnalyticsRecord(id: string, updates: AnalyticsUpdate): void {
   const records = getStoredAnalytics();
   const idx = records.findIndex((r) => r.id === id);
   if (idx === -1) return;
-  records[idx] = { ...records[idx], ...updates };
+  const original = records[idx];
+  records[idx] = { ...original, ...updates } as AnalyticsRecord;
   if (updates.stepsCompleted) {
-    records[idx].stepsCompleted = { ...records[idx].stepsCompleted, ...updates.stepsCompleted };
+    records[idx].stepsCompleted = { ...original.stepsCompleted, ...updates.stepsCompleted };
   }
   safeSet(KEYS.analytics, records);
 }

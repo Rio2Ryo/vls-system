@@ -31,13 +31,16 @@ export default function VideoPlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const startTimeRef = useRef(Date.now());
+  const completedRef = useRef(false);
 
   useEffect(() => {
     startTimeRef.current = Date.now();
+    completedRef.current = false;
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          completedRef.current = true;
           // Record video play on completion
           if (tracking) {
             const watchedMs = Date.now() - startTimeRef.current;
@@ -62,8 +65,8 @@ export default function VideoPlayer({
     }, 1000);
     return () => {
       clearInterval(timer);
-      // Record partial view on unmount if not completed
-      if (tracking && timeLeft > 1) {
+      // Record partial view on unmount only if not already completed
+      if (tracking && !completedRef.current) {
         const watchedMs = Date.now() - startTimeRef.current;
         const watchedSec = Math.round(watchedMs / 1000);
         if (watchedSec >= 2) {

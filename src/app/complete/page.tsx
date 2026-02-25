@@ -82,8 +82,9 @@ export default function CompletePage() {
     if (downloading) return;
     setDownloading(true);
 
+    let didDownload = false;
     if (selectedPhotos.length > 0) {
-      // Download each resolved photo
+      didDownload = true;
       for (let i = 0; i < selectedPhotos.length; i++) {
         const photo = selectedPhotos[i];
         const ext = photo.originalUrl.includes(".png") ? "png" : "jpg";
@@ -98,18 +99,14 @@ export default function CompletePage() {
     setDownloaded(true);
     setDownloading(false);
 
-    // Record download completion in analytics
-    const analyticsId = sessionStorage.getItem("analyticsId");
-    if (analyticsId) {
-      updateAnalyticsRecord(analyticsId, {
-        stepsCompleted: {
-          access: true,
-          survey: true,
-          cmViewed: true,
-          photosViewed: true,
-          downloaded: true,
-        },
-      });
+    // Only record download if files were actually downloaded
+    if (didDownload) {
+      const analyticsId = sessionStorage.getItem("analyticsId");
+      if (analyticsId) {
+        updateAnalyticsRecord(analyticsId, {
+          stepsCompleted: { downloaded: true },
+        });
+      }
     }
   };
 

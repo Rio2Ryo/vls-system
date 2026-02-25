@@ -35,6 +35,20 @@ export default function SurveyPage() {
         updateAnalyticsRecord(analyticsId, { respondentName: trimmed });
       }
     }
+    // If no survey questions, skip directly to processing
+    if (survey.length === 0) {
+      sessionStorage.setItem("userTags", "[]");
+      sessionStorage.setItem("surveyAnswers", "{}");
+      const analyticsId = sessionStorage.getItem("analyticsId");
+      if (analyticsId) {
+        updateAnalyticsRecord(analyticsId, {
+          surveyAnswers: {},
+          stepsCompleted: { access: true, survey: true, cmViewed: false, photosViewed: false, downloaded: false },
+        });
+      }
+      router.push("/processing");
+      return;
+    }
     setPhase("questions");
   };
 
