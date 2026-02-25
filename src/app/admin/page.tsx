@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { ADMIN_PASSWORD } from "@/lib/data";
 import { Company, CompanyTier, EventData, InterestTag, PhotoData, SurveyQuestion } from "@/lib/types";
+import AdminHeader from "@/components/admin/AdminHeader";
 import {
   getStoredEvents, setStoredEvents,
   getStoredCompanies, setStoredCompanies,
@@ -106,51 +107,19 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="font-bold text-gray-800">VLS Admin</h1>
-          <div className="flex items-center gap-3">
-            <a
-              href="/admin/events"
-              className="text-xs text-[#6EC6FF] hover:underline font-medium"
-            >
-              イベント管理
-            </a>
-            <a
-              href="/admin/users"
-              className="text-xs text-[#6EC6FF] hover:underline font-medium"
-            >
-              ユーザー管理
-            </a>
-            <a
-              href="/admin/analytics"
-              className="text-xs text-[#6EC6FF] hover:underline font-medium"
-            >
-              アンケート分析
-            </a>
-            <a
-              href="/admin/stats"
-              className="text-xs text-[#6EC6FF] hover:underline font-medium"
-            >
-              CM統計
-            </a>
-            <button
-              onClick={() => { resetToDefaults(); showToast("デフォルトに戻しました"); refreshEvents(); }}
-              className="text-xs text-gray-400 hover:text-red-500"
-              data-testid="admin-reset"
-            >
-              リセット
-            </button>
-            <button
-              onClick={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
-              className="text-sm text-gray-400 hover:text-gray-600"
-            >
-              ログアウト
-            </button>
-          </div>
-        </div>
-      </div>
+      <AdminHeader
+        title="VLS Admin"
+        onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
+        actions={
+          <button
+            onClick={() => { resetToDefaults(); showToast("デフォルトに戻しました"); refreshEvents(); }}
+            className="text-xs text-gray-400 hover:text-red-500"
+            data-testid="admin-reset"
+          >
+            リセット
+          </button>
+        }
+      />
 
       {/* Active event context bar */}
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-blue-100 px-6 py-2">

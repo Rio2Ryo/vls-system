@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import AdminHeader from "@/components/admin/AdminHeader";
 import { ADMIN_PASSWORD } from "@/lib/data";
 import {
   getStoredAnalytics, getStoredEvents, getStoredSurvey,
@@ -246,29 +247,16 @@ export default function AnalyticsPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="font-bold text-gray-800">アンケート分析ダッシュボード</h1>
-            <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
-              {summary.answered}件回答
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <a href="/admin" className="text-xs text-[#6EC6FF] hover:underline font-medium">Admin</a>
-            <a href="/admin/events" className="text-xs text-[#6EC6FF] hover:underline font-medium">イベント管理</a>
-            <a href="/admin/users" className="text-xs text-[#6EC6FF] hover:underline font-medium">ユーザー管理</a>
-            <a href="/admin/stats" className="text-xs text-[#6EC6FF] hover:underline font-medium">CM統計</a>
-            <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
-              データクリア
-            </button>
-            <button onClick={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }} className="text-sm text-gray-400 hover:text-gray-600">
-              ログアウト
-            </button>
-          </div>
-        </div>
-      </div>
+      <AdminHeader
+        title="アンケート分析ダッシュボード"
+        badge={`${summary.answered}件回答`}
+        onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
+        actions={
+          <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
+            データクリア
+          </button>
+        }
+      />
 
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         {/* Filters */}

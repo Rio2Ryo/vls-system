@@ -78,11 +78,17 @@ test.describe("Admin → User Integration", () => {
     expect(companies[0].videos.cm15).toBe("L_jWHffIx5E");
 
     // Set session and go to STEP 2
-    await page.evaluate(() => {
+    // Ensure test company is in localStorage before navigation
+    // (re-set directly to prevent any race condition with React state)
+    await page.evaluate((videoId) => {
+      const stored = JSON.parse(localStorage.getItem("vls_admin_companies") || "[]");
+      if (stored.length === 0 || stored[0].videos.cm15 !== videoId) {
+        throw new Error("Company not found in localStorage: " + JSON.stringify(stored));
+      }
       sessionStorage.setItem("eventId", "evt-summer");
       sessionStorage.setItem("eventName", "夏祭り 2026");
       sessionStorage.setItem("userTags", JSON.stringify(["education"]));
-    });
+    }, "L_jWHffIx5E");
     await page.goto("/processing");
 
     // Verify CM video plays with our registered video ID

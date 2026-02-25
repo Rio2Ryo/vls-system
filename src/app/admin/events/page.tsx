@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import QRCode from "qrcode";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import AdminHeader from "@/components/admin/AdminHeader";
 import { ADMIN_PASSWORD } from "@/lib/data";
 import { Company, EventData } from "@/lib/types";
 import {
@@ -187,26 +188,11 @@ export default function EventsPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="font-bold text-gray-800">イベント管理</h1>
-            <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
-              {events.length}件
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <a href="/admin" className="text-xs text-[#6EC6FF] hover:underline font-medium">Admin</a>
-            <a href="/admin/analytics" className="text-xs text-[#6EC6FF] hover:underline font-medium">アンケート分析</a>
-            <a href="/admin/users" className="text-xs text-[#6EC6FF] hover:underline font-medium">ユーザー管理</a>
-            <a href="/admin/stats" className="text-xs text-[#6EC6FF] hover:underline font-medium">CM統計</a>
-            <button onClick={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }} className="text-sm text-gray-400 hover:text-gray-600">
-              ログアウト
-            </button>
-          </div>
-        </div>
-      </div>
+      <AdminHeader
+        title="イベント管理"
+        badge={`${events.length}件`}
+        onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
+      />
 
       {/* Active event context bar */}
       {events.length > 0 && (
