@@ -27,7 +27,9 @@ export default function VideoPlayer({
   tracking,
 }: VideoPlayerProps) {
   const [timeLeft, setTimeLeft] = useState(duration);
+  const [muted, setMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
@@ -97,10 +99,25 @@ export default function VideoPlayer({
     return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, []);
 
-  // YouTube params to restrict user control
+  const toggleMute = () => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.postMessage(
+        JSON.stringify({
+          event: "command",
+          func: muted ? "unMute" : "mute",
+          args: [],
+        }),
+        "*"
+      );
+    }
+    setMuted(!muted);
+  };
+
+  // YouTube params — start muted for reliable autoplay across all browsers
   const ytParams = new URLSearchParams({
     autoplay: "1",
-    mute: "0",
+    mute: "1",
     controls: "0",
     disablekb: "1",
     modestbranding: "1",
@@ -109,6 +126,7 @@ export default function VideoPlayer({
     showinfo: "0",
     fs: "0",
     playsinline: "1",
+    enablejsapi: "1",
   }).toString();
 
   return (
@@ -127,19 +145,32 @@ export default function VideoPlayer({
         onContextMenu={(e) => e.preventDefault()}
       >
         <iframe
+          ref={iframeRef}
           src={`https://www.youtube.com/embed/${videoId}?${ytParams}`}
           className="w-full h-full"
           allow="autoplay; encrypted-media"
           title="CM動画"
           tabIndex={-1}
         />
-        {/* Transparent overlay to block all clicks on the video */}
+        {/* Overlay to block direct video interaction + unmute control */}
         <div
           className="absolute inset-0 z-10"
           style={{ pointerEvents: "all" }}
           onContextMenu={(e) => e.preventDefault()}
           data-testid="video-overlay"
-        />
+        >
+          <button
+            onClick={toggleMute}
+            className="absolute bottom-3 left-3 flex items-center gap-1.5 px-3 py-1.5
+                       rounded-full bg-black/60 text-white text-xs font-medium
+                       hover:bg-black/80 transition-colors backdrop-blur-sm
+                       border border-white/20"
+            data-testid="video-mute-btn"
+          >
+            <span className="text-sm">{muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}</span>
+            {muted ? "タップで音声ON" : "ミュート"}
+          </button>
+        </div>
       </div>
       <div className="mt-2 text-center">
         <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full">

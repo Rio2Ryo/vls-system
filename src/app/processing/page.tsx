@@ -42,6 +42,15 @@ export default function ProcessingPage() {
     }
   }, []);
 
+  // Set correct initial phase based on available CMs
+  useEffect(() => {
+    if (!cmMatch.platinumCM && cmMatch.matchedCM) {
+      setPhase("matched");
+    } else if (!cmMatch.platinumCM && !cmMatch.matchedCM) {
+      setPhase("waiting");
+    }
+  }, [cmMatch]);
+
   // Save matched company for STEP 4
   useEffect(() => {
     if (cmMatch.matchedCM) {
@@ -78,8 +87,8 @@ export default function ProcessingPage() {
   const canProceed = elapsed >= TOTAL_SECONDS;
 
   const handlePlatinumDone = useCallback(() => {
-    setPhase("matched");
-  }, []);
+    setPhase(cmMatch.matchedCM ? "matched" : "waiting");
+  }, [cmMatch.matchedCM]);
 
   const handleMatchedDone = useCallback(() => {
     setPhase("waiting");
@@ -159,8 +168,8 @@ export default function ProcessingPage() {
           </Card>
         )}
 
-        {/* Waiting / Loading animation */}
-        {(phase === "waiting" || (!cmMatch.platinumCM && !cmMatch.matchedCM)) && (
+        {/* Waiting / Loading animation — show when no video is active */}
+        {(phase === "waiting" || (phase === "platinum" && !cmMatch.platinumCM) || (phase === "matched" && !cmMatch.matchedCM)) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
