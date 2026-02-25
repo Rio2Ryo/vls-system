@@ -37,6 +37,13 @@ export default function DownloadingPage() {
     }
   }, []);
 
+  // Auto-complete video when no matched company to show
+  useEffect(() => {
+    if (!matchedCompany) {
+      setVideoDone(true);
+    }
+  }, [matchedCompany]);
+
   // 60-second timer
   useEffect(() => {
     const timer = setInterval(() => {

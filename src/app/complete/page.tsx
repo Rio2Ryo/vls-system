@@ -4,13 +4,34 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { updateAnalyticsRecord } from "@/lib/store";
-import { Company } from "@/lib/types";
+import { getStoredEvents, updateAnalyticsRecord } from "@/lib/store";
+import { Company, PhotoData } from "@/lib/types";
+
+/** Fetch an image and trigger browser download */
+async function downloadImage(url: string, filename: string): Promise<void> {
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    // Fallback: open in new tab
+    window.open(url, "_blank");
+  }
+}
 
 export default function CompletePage() {
   const [downloaded, setDownloaded] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [eventName, setEventName] = useState("");
   const [photoCount, setPhotoCount] = useState(0);
+  const [selectedPhotos, setSelectedPhotos] = useState<PhotoData[]>([]);
 
   const platinumCompany = useMemo((): Company | null => {
     if (typeof window === "undefined") return null;
@@ -35,10 +56,43 @@ export default function CompletePage() {
     try {
       const ids: string[] = JSON.parse(sessionStorage.getItem("selectedPhotoIds") || "[]");
       setPhotoCount(ids.length);
+
+      // Resolve actual photo data for downloads
+      const eventId = sessionStorage.getItem("eventId");
+      if (eventId && ids.length > 0) {
+        const events = getStoredEvents();
+        const event = events.find((e) => e.id === eventId);
+        if (event) {
+          const photos = event.photos.filter((p) => ids.includes(p.id));
+          setSelectedPhotos(photos);
+        }
+      }
     } catch {
       setPhotoCount(0);
     }
-    // Record download/completion step
+  }, []);
+
+  const handleDownloadPhotos = async () => {
+    if (downloading) return;
+    setDownloading(true);
+
+    if (selectedPhotos.length > 0) {
+      // Download each resolved photo
+      for (let i = 0; i < selectedPhotos.length; i++) {
+        const photo = selectedPhotos[i];
+        const ext = photo.originalUrl.includes(".png") ? "png" : "jpg";
+        const filename = `${eventName}_photo_${i + 1}.${ext}`;
+        await downloadImage(photo.originalUrl, filename);
+        if (i < selectedPhotos.length - 1) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+    }
+
+    setDownloaded(true);
+    setDownloading(false);
+
+    // Record download completion in analytics
     const analyticsId = sessionStorage.getItem("analyticsId");
     if (analyticsId) {
       updateAnalyticsRecord(analyticsId, {
@@ -51,9 +105,9 @@ export default function CompletePage() {
         },
       });
     }
-  }, []);
+  };
 
-  const handleDownload = () => {
+  const handleDownloadFrame = () => {
     setDownloaded(true);
   };
 
@@ -101,7 +155,7 @@ export default function CompletePage() {
                 />
               </div>
             </div>
-            <Button onClick={handleDownload} size="md" variant={downloaded ? "secondary" : "primary"}>
+            <Button onClick={handleDownloadFrame} size="md" variant={downloaded ? "secondary" : "primary"}>
               {downloaded ? "✓ 保存済み" : "記念フレームを保存"}
             </Button>
           </Card>
@@ -115,11 +169,16 @@ export default function CompletePage() {
               : "高画質写真をダウンロード"}
           </p>
           <Button
-            onClick={handleDownload}
+            onClick={handleDownloadPhotos}
+            disabled={downloading}
             size="lg"
             variant={downloaded ? "secondary" : "primary"}
           >
-            {downloaded ? "✓ ダウンロード済み" : "写真をダウンロード"}
+            {downloading
+              ? "ダウンロード中..."
+              : downloaded
+                ? "✓ ダウンロード済み"
+                : "写真をダウンロード"}
           </Button>
         </Card>
 
