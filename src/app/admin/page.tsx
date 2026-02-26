@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import QRCode from "qrcode";
+import { jsPDF } from "jspdf";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { ADMIN_PASSWORD } from "@/lib/data";
-import { Company, CompanyTier, EventData, InterestTag, PhotoData, SurveyQuestion } from "@/lib/types";
+import { AnalyticsRecord, CMMatchResult, Company, CompanyTier, EventData, InterestTag, PhotoData, SurveyQuestion, VideoPlayRecord } from "@/lib/types";
 import AdminHeader from "@/components/admin/AdminHeader";
 import {
   getStoredEvents, setStoredEvents,
@@ -14,11 +15,17 @@ import {
   getStoredSurvey, setStoredSurvey,
   getStoredAnalytics, clearAnalytics,
   getStoredVideoPlays,
+  getStoredTenants,
   resetToDefaults,
 } from "@/lib/store";
-import { AnalyticsRecord, VideoPlayRecord } from "@/lib/types";
+import { getCMMatch } from "@/lib/matching";
+import { IS_DEMO_MODE } from "@/lib/demo";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import TenantManager from "@/components/admin/TenantManager";
+import BulkImport from "@/components/admin/BulkImport";
+import InvoiceGenerator from "@/components/admin/InvoiceGenerator";
 
-type Tab = "events" | "photos" | "companies" | "survey" | "dashboard" | "storage";
+type Tab = "events" | "photos" | "companies" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -28,28 +35,32 @@ export default function AdminPage() {
   const [toast, setToast] = useState("");
   const [activeEventId, setActiveEventId] = useState<string>("");
   const [adminEvents, setAdminEvents] = useState<EventData[]>([]);
+  const [adminTenantId, setAdminTenantId] = useState<string | null>(null);
+  const [adminTenantName, setAdminTenantName] = useState<string>("");
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(""), 2000);
   }, []);
 
-  // Load events for the event context selector
+  // Load events for the event context selector (filtered by tenant)
   useEffect(() => {
     if (!authed) return;
-    const evts = getStoredEvents();
+    const allEvts = getStoredEvents();
+    const evts = adminTenantId ? allEvts.filter((e) => e.tenantId === adminTenantId) : allEvts;
     setAdminEvents(evts);
     if (evts.length > 0 && !activeEventId) setActiveEventId(evts[0].id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authed]);
+  }, [authed, adminTenantId]);
 
   const refreshEvents = useCallback(() => {
-    const evts = getStoredEvents();
+    const allEvts = getStoredEvents();
+    const evts = adminTenantId ? allEvts.filter((e) => e.tenantId === adminTenantId) : allEvts;
     setAdminEvents(evts);
     if (!evts.find((e) => e.id === activeEventId) && evts.length > 0) {
       setActiveEventId(evts[0].id);
     }
-  }, [activeEventId]);
+  }, [activeEventId, adminTenantId]);
 
   const activeEvent = adminEvents.find((e) => e.id === activeEventId);
 
@@ -57,6 +68,12 @@ export default function AdminPage() {
   useEffect(() => {
     if (sessionStorage.getItem("adminAuthed") === "true") {
       setAuthed(true);
+      const tid = sessionStorage.getItem("adminTenantId");
+      if (tid) {
+        setAdminTenantId(tid);
+        const t = getStoredTenants().find((t) => t.id === tid);
+        if (t) setAdminTenantName(t.name);
+      }
     }
   }, []);
 
@@ -64,9 +81,23 @@ export default function AdminPage() {
     e.preventDefault();
     if (pw === ADMIN_PASSWORD) {
       setAuthed(true);
+      setAdminTenantId(null);
+      setAdminTenantName("");
       sessionStorage.setItem("adminAuthed", "true");
+      sessionStorage.removeItem("adminTenantId");
     } else {
-      setPwError("パスワードが違います");
+      // Check tenant passwords
+      const tenants = getStoredTenants();
+      const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
+      if (tenant) {
+        setAuthed(true);
+        setAdminTenantId(tenant.id);
+        setAdminTenantName(tenant.name);
+        sessionStorage.setItem("adminAuthed", "true");
+        sessionStorage.setItem("adminTenantId", tenant.id);
+      } else {
+        setPwError("パスワードが違います");
+      }
     }
   };
 
@@ -96,28 +127,40 @@ export default function AdminPage() {
     );
   }
 
-  const TABS: { key: Tab; label: string; icon: string }[] = [
+  const ALL_TABS: { key: Tab; label: string; icon: string; demoHidden?: boolean; superOnly?: boolean }[] = [
     { key: "dashboard", label: "ダッシュボード", icon: "📊" },
     { key: "events", label: "イベント管理", icon: "🎪" },
     { key: "photos", label: "写真管理", icon: "📷" },
     { key: "companies", label: "企業管理", icon: "🏢" },
     { key: "survey", label: "アンケート", icon: "📝" },
-    { key: "storage", label: "R2ストレージ", icon: "☁️" },
+    { key: "import", label: "参加者管理", icon: "👥" },
+    { key: "invoices", label: "請求書", icon: "🧾" },
+    { key: "funnel", label: "完了率分析", icon: "📉" },
+    { key: "tenants", label: "テナント管理", icon: "🏫", superOnly: true },
+    { key: "storage", label: "R2ストレージ", icon: "☁️", demoHidden: true, superOnly: true },
+    { key: "matching", label: "マッチングテスト", icon: "🎯", demoHidden: true },
   ];
+  const TABS = ALL_TABS.filter((t) => {
+    if (IS_DEMO_MODE && t.demoHidden) return false;
+    if (adminTenantId && t.superOnly) return false;
+    return true;
+  });
 
   return (
     <main className="min-h-screen bg-gray-50">
       <AdminHeader
-        title="VLS Admin"
-        onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
+        title={IS_DEMO_MODE ? "VLS Admin (Demo)" : adminTenantName ? `VLS Admin — ${adminTenantName}` : "VLS Admin"}
+        onLogout={() => { setAuthed(false); setAdminTenantId(null); setAdminTenantName(""); sessionStorage.removeItem("adminAuthed"); sessionStorage.removeItem("adminTenantId"); }}
         actions={
-          <button
-            onClick={() => { resetToDefaults(); showToast("デフォルトに戻しました"); refreshEvents(); }}
-            className="text-xs text-gray-400 hover:text-red-500"
-            data-testid="admin-reset"
-          >
-            リセット
-          </button>
+          IS_DEMO_MODE ? undefined : (
+            <button
+              onClick={() => { resetToDefaults(); showToast("デフォルトに戻しました"); refreshEvents(); }}
+              className="text-xs text-gray-400 hover:text-red-500"
+              data-testid="admin-reset"
+            >
+              リセット
+            </button>
+          )
         }
       />
 
@@ -193,7 +236,12 @@ export default function AdminPage() {
             {tab === "photos" && <PhotosTab onSave={(msg) => { showToast(msg); refreshEvents(); }} activeEventId={activeEventId} />}
             {tab === "companies" && <CompaniesTab onSave={showToast} />}
             {tab === "survey" && <SurveyTab onSave={showToast} activeEventId={activeEventId} activeEvent={activeEvent} />}
+            {tab === "import" && <BulkImport onSave={showToast} />}
+            {tab === "invoices" && <InvoiceGenerator onSave={showToast} />}
+            {tab === "funnel" && <FunnelAnalysisTab />}
+            {tab === "tenants" && <TenantManager onSave={showToast} />}
             {tab === "storage" && <StorageTab onSave={showToast} />}
+            {tab === "matching" && <MatchingDebugTab />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -551,12 +599,14 @@ function DashboardTab() {
                 <option key={evt.id} value={evt.id}>{evt.name}</option>
               ))}
             </select>
-            <button
-              onClick={handleClearAnalytics}
-              className="text-[10px] text-red-400 hover:text-red-600"
-            >
-              データクリア
-            </button>
+            {!IS_DEMO_MODE && (
+              <button
+                onClick={handleClearAnalytics}
+                className="text-[10px] text-red-400 hover:text-red-600"
+              >
+                データクリア
+              </button>
+            )}
           </div>
         </div>
 
@@ -732,7 +782,7 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] as string[] });
+  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] as string[], slug: "", notifyEmail: "" });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [qrEventId, setQrEventId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -749,8 +799,13 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
     return `${base}/?pw=${encodeURIComponent(pw)}`;
   };
 
+  const getEventUrl = (evt: EventData) => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    return evt.slug ? `${base}/e/${evt.slug}` : getShareUrl(evt.password);
+  };
+
   const copyUrl = (evt: EventData) => {
-    navigator.clipboard.writeText(getShareUrl(evt.password));
+    navigator.clipboard.writeText(getEventUrl(evt));
     setCopiedId(evt.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -762,7 +817,7 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
       return;
     }
     setQrEventId(evt.id);
-    const url = getShareUrl(evt.password);
+    const url = getEventUrl(evt);
     try {
       const dataUrl = await QRCode.toDataURL(url, {
         width: 400,
@@ -790,12 +845,12 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
 
   const startNew = () => {
     setEditing("__new__");
-    setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] });
+    setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [], slug: "", notifyEmail: "" });
   };
 
   const startEdit = (evt: EventData) => {
     setEditing(evt.id);
-    setForm({ name: evt.name, date: evt.date, venue: evt.venue || "", description: evt.description, password: evt.password, companyIds: evt.companyIds || [] });
+    setForm({ name: evt.name, date: evt.date, venue: evt.venue || "", description: evt.description, password: evt.password, companyIds: evt.companyIds || [], slug: evt.slug || "", notifyEmail: evt.notifyEmail || "" });
   };
 
   const toggleCompany = (companyId: string) => {
@@ -809,8 +864,11 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
 
   const save = () => {
     if (!form.name || !form.password) return;
+    const slugVal = form.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") || undefined;
+    const emailVal = form.notifyEmail.trim() || undefined;
     let updated: EventData[];
     if (editing === "__new__") {
+      const tenantId = typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") || undefined : undefined;
       const newEvt: EventData = {
         id: `evt-${Date.now()}`,
         name: form.name,
@@ -820,6 +878,9 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
         password: form.password.toUpperCase(),
         photos: [],
         companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
+        slug: slugVal,
+        notifyEmail: emailVal,
+        tenantId,
       };
       updated = [...events, newEvt];
     } else {
@@ -833,6 +894,8 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
               description: form.description,
               password: form.password.toUpperCase(),
               companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
+              slug: slugVal,
+              notifyEmail: emailVal,
             }
           : e
       );
@@ -887,11 +950,78 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
 
   const hasActiveFilters = !!(filterText || filterDateFrom || filterDateTo);
 
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+
+  const generateBulkQrPdf = async () => {
+    if (events.length === 0) return;
+    setPdfGenerating(true);
+    try {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = 210;
+      const margin = 15;
+      const cols = 2;
+      const qrSize = 60;
+      const cellW = (pageW - margin * 2) / cols;
+      const cellH = 90;
+      let idx = 0;
+
+      for (const evt of events) {
+        const url = getEventUrl(evt);
+        const dataUrl = await QRCode.toDataURL(url, { width: 400, margin: 1 });
+
+        const col = idx % cols;
+        const row = Math.floor((idx % (cols * 3)) / cols);
+
+        if (idx > 0 && idx % (cols * 3) === 0) {
+          doc.addPage();
+        }
+
+        const x = margin + col * cellW;
+        const y = margin + row * cellH;
+
+        // QR code image
+        doc.addImage(dataUrl, "PNG", x + (cellW - qrSize) / 2, y, qrSize, qrSize);
+
+        // Event name (using built-in font, limited to ASCII-safe display)
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        const label = evt.name;
+        doc.text(label, x + cellW / 2, y + qrSize + 5, { align: "center" });
+
+        // URL below
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.text(url, x + cellW / 2, y + qrSize + 10, { align: "center" });
+
+        // Password
+        doc.setFontSize(8);
+        doc.text(`PW: ${evt.password}`, x + cellW / 2, y + qrSize + 15, { align: "center" });
+
+        idx++;
+      }
+
+      doc.save(`VLS_QR_codes_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (err) {
+      console.error("PDF generation error:", err);
+    }
+    setPdfGenerating(false);
+  };
+
   return (
     <div className="space-y-4" data-testid="admin-events">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold text-gray-800">イベント一覧</h2>
-        <Button size="sm" onClick={startNew}>+ 新規作成</Button>
+        <div className="flex gap-2">
+          <button
+            onClick={generateBulkQrPdf}
+            disabled={pdfGenerating || events.length === 0}
+            className="text-xs px-3 py-1.5 rounded-lg bg-purple-500 text-white hover:bg-purple-600 font-medium disabled:opacity-50 transition-colors"
+            data-testid="bulk-qr-pdf-btn"
+          >
+            {pdfGenerating ? "PDF生成中..." : `QR一括PDF (${events.length}件)`}
+          </button>
+          {!IS_DEMO_MODE && <Button size="sm" onClick={startNew}>+ 新規作成</Button>}
+        </div>
       </div>
 
       {/* Sort & Filter bar */}
@@ -961,7 +1091,7 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
         </div>
       </Card>
 
-      {editing && (
+      {!IS_DEMO_MODE && editing && (
         <Card>
           <h3 className="font-bold text-gray-700 mb-3">{editing === "__new__" ? "新規イベント" : "イベント編集"}</h3>
           <div className="space-y-3">
@@ -970,6 +1100,8 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
             <input className={inputCls} placeholder="会場（例: 東京ビッグサイト）" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} data-testid="event-venue-input" />
             <input className={inputCls} placeholder="説明" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <input className={inputCls + " font-mono uppercase"} placeholder="パスワード（例: SUMMER2026）" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} data-testid="event-password-input" />
+            <input className={inputCls + " font-mono"} placeholder="カスタムURL slug（例: summer2026 → /e/summer2026）" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} data-testid="event-slug-input" />
+            <input className={inputCls} type="email" placeholder="通知メール（任意: admin@example.com）" value={form.notifyEmail} onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })} data-testid="event-notify-email" />
 
             {/* Company assignment */}
             <div className="border border-gray-100 rounded-xl p-3" data-testid="event-company-assign">
@@ -1020,14 +1152,15 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
               </p>
               <p className="text-xs text-gray-400 mt-1">
                 パスワード: <code className="bg-gray-100 px-2 py-0.5 rounded font-mono" data-testid={`event-pw-${evt.id}`}>{evt.password}</code>
+                {evt.slug && <span className="ml-2 text-blue-500">slug: /e/{evt.slug}</span>}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-full">
                 {evt.photos.length}枚
               </span>
-              <button onClick={() => startEdit(evt)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>
-              <button onClick={() => remove(evt.id)} className="text-xs text-red-400 hover:underline">削除</button>
+              {!IS_DEMO_MODE && <button onClick={() => startEdit(evt)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>}
+              {!IS_DEMO_MODE && <button onClick={() => remove(evt.id)} className="text-xs text-red-400 hover:underline">削除</button>}
             </div>
           </div>
 
@@ -1056,7 +1189,7 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
                 className="flex-1 text-xs bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg font-mono text-gray-600 truncate"
                 data-testid={`event-url-${evt.id}`}
               >
-                {getShareUrl(evt.password)}
+                {evt.slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/e/${evt.slug}` : getShareUrl(evt.password)}
               </code>
               <button
                 onClick={() => copyUrl(evt)}
@@ -1308,50 +1441,52 @@ function PhotosTab({ onSave, activeEventId }: { onSave: (msg: string) => void; a
       </Card>
 
       {/* Drop zone */}
-      <Card>
-        <div
-          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-colors ${
-            dragging ? "border-[#6EC6FF] bg-blue-50" : "border-gray-200 hover:border-[#6EC6FF]"
-          } ${uploading ? "pointer-events-none opacity-60" : ""}`}
-          data-testid="photo-upload-zone"
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          onClick={() => !uploading && document.getElementById("photo-file-input")?.click()}
-        >
-          {uploading ? (
-            <>
-              <div className="text-4xl mb-2 animate-pulse">📤</div>
-              <p className="font-medium text-gray-600">
-                アップロード中... ({uploadProgress.current}/{uploadProgress.total})
-              </p>
-              <div className="w-48 mx-auto mt-3 bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-[#6EC6FF] h-2 rounded-full transition-all"
-                  style={{ width: `${uploadProgress.total > 0 ? (uploadProgress.current / uploadProgress.total) * 100 : 0}%` }}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-4xl mb-2">📁</div>
-              <p className="font-medium text-gray-600">写真をドラッグ＆ドロップ</p>
-              <p className="text-xs text-gray-400 mt-1">
-                またはクリックしてファイルを選択
-              </p>
-            </>
-          )}
-          <input
-            id="photo-file-input"
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-            data-testid="photo-file-input"
-          />
-        </div>
-      </Card>
+      {!IS_DEMO_MODE && (
+        <Card>
+          <div
+            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-colors ${
+              dragging ? "border-[#6EC6FF] bg-blue-50" : "border-gray-200 hover:border-[#6EC6FF]"
+            } ${uploading ? "pointer-events-none opacity-60" : ""}`}
+            data-testid="photo-upload-zone"
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => !uploading && document.getElementById("photo-file-input")?.click()}
+          >
+            {uploading ? (
+              <>
+                <div className="text-4xl mb-2 animate-pulse">📤</div>
+                <p className="font-medium text-gray-600">
+                  アップロード中... ({uploadProgress.current}/{uploadProgress.total})
+                </p>
+                <div className="w-48 mx-auto mt-3 bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-[#6EC6FF] h-2 rounded-full transition-all"
+                    style={{ width: `${uploadProgress.total > 0 ? (uploadProgress.current / uploadProgress.total) * 100 : 0}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-4xl mb-2">📁</div>
+                <p className="font-medium text-gray-600">写真をドラッグ＆ドロップ</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  またはクリックしてファイルを選択
+                </p>
+              </>
+            )}
+            <input
+              id="photo-file-input"
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+              data-testid="photo-file-input"
+            />
+          </div>
+        </Card>
+      )}
 
       {/* Photo list */}
       {selectedEvent && selectedEvent.photos.length > 0 && (
@@ -1366,12 +1501,14 @@ function PhotosTab({ onSave, activeEventId }: { onSave: (msg: string) => void; a
                   alt={p.id}
                   className="w-full aspect-[4/3] object-cover rounded-lg"
                 />
-                <button
-                  onClick={() => removePhoto(p.id)}
-                  className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                >
-                  ×
-                </button>
+                {!IS_DEMO_MODE && (
+                  <button
+                    onClick={() => removePhoto(p.id)}
+                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -1460,10 +1597,10 @@ function CompaniesTab({ onSave }: { onSave: (msg: string) => void }) {
     <div className="space-y-4" data-testid="admin-companies">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold text-gray-800">パートナー企業</h2>
-        <Button size="sm" onClick={startNew}>+ 企業追加</Button>
+        {!IS_DEMO_MODE && <Button size="sm" onClick={startNew}>+ 企業追加</Button>}
       </div>
 
-      {editing && (
+      {!IS_DEMO_MODE && editing && (
         <Card>
           <h3 className="font-bold text-gray-700 mb-3">{editing === "__new__" ? "新規企業" : "企業編集"}</h3>
           <div className="space-y-3">
@@ -1524,10 +1661,12 @@ function CompaniesTab({ onSave }: { onSave: (msg: string) => void }) {
                 </p>
               )}
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => startEdit(c)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>
-              <button onClick={() => remove(c.id)} className="text-xs text-red-400 hover:underline">削除</button>
-            </div>
+            {!IS_DEMO_MODE && (
+              <div className="flex gap-2">
+                <button onClick={() => startEdit(c)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>
+                <button onClick={() => remove(c.id)} className="text-xs text-red-400 hover:underline">削除</button>
+              </div>
+            )}
           </div>
         </Card>
       ))}
@@ -1676,7 +1815,7 @@ function SurveyTab({ onSave, activeEventId, activeEvent }: { onSave: (msg: strin
         )}
       </div>
 
-      {mode === "event" && activeEvent && !isEventCustom && (
+      {!IS_DEMO_MODE && mode === "event" && activeEvent && !isEventCustom && (
         <Card>
           <p className="text-sm text-gray-500 mb-2">
             このイベントはグローバルアンケートを使用しています。カスタマイズするにはコピーしてください。
@@ -1689,25 +1828,48 @@ function SurveyTab({ onSave, activeEventId, activeEvent }: { onSave: (msg: strin
         <h2 className="text-lg font-bold text-gray-800">
           {mode === "event" ? "イベント別アンケート設定" : "グローバルアンケート設定"}
         </h2>
-        <div className="flex gap-2">
-          {mode === "event" && isEventCustom && (
-            <Button size="sm" variant="secondary" onClick={resetToGlobal}>グローバルに戻す</Button>
-          )}
-          <Button size="sm" variant="secondary" onClick={addQuestion}>+ 質問追加</Button>
-          <Button size="sm" onClick={saveSurvey}>保存</Button>
-        </div>
+        {!IS_DEMO_MODE && (
+          <div className="flex gap-2">
+            {mode === "event" && isEventCustom && (
+              <Button size="sm" variant="secondary" onClick={resetToGlobal}>グローバルに戻す</Button>
+            )}
+            <Button size="sm" variant="secondary" onClick={addQuestion}>+ 質問追加</Button>
+            <Button size="sm" onClick={saveSurvey}>保存</Button>
+          </div>
+        )}
       </div>
       {survey.map((q, i) => (
-        <SurveyQuestionEditor
-          key={q.id}
-          index={i}
-          question={q}
-          onUpdateQuestion={(text) => updateQuestion(q.id, text)}
-          onUpdateMax={(max) => updateMaxSelections(q.id, max)}
-          onAddOption={(label, tag) => addOption(q.id, label, tag)}
-          onRemoveOption={(tag) => removeOption(q.id, tag)}
-          onRemove={() => removeQuestion(q.id)}
-        />
+        IS_DEMO_MODE ? (
+          <Card key={q.id}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs bg-[#6EC6FF] text-white w-6 h-6 rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                {i + 1}
+              </span>
+              <span className="text-sm font-medium text-gray-700">{q.question}</span>
+            </div>
+            <div className="ml-8">
+              <p className="text-xs text-gray-400 mb-2">最大選択数: {q.maxSelections}</p>
+              <div className="flex flex-wrap gap-2">
+                {q.options.map((opt) => (
+                  <span key={opt.tag} className="text-xs bg-gray-50 border border-gray-200 px-3 py-1 rounded-full text-gray-600">
+                    {opt.label} <span className="text-[10px] text-gray-400">({opt.tag})</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <SurveyQuestionEditor
+            key={q.id}
+            index={i}
+            question={q}
+            onUpdateQuestion={(text) => updateQuestion(q.id, text)}
+            onUpdateMax={(max) => updateMaxSelections(q.id, max)}
+            onAddOption={(label, tag) => addOption(q.id, label, tag)}
+            onRemoveOption={(tag) => removeOption(q.id, tag)}
+            onRemove={() => removeQuestion(q.id)}
+          />
+        )
       ))}
     </div>
   );
@@ -1807,6 +1969,32 @@ interface R2FileItem {
   contentType?: string;
 }
 
+interface LifecycleRunResult {
+  timestamp: string;
+  scanned: number;
+  compressed: number;
+  deleted: number;
+  errors: number;
+  skipped: number;
+  details: string[];
+}
+
+interface LifecycleData {
+  lastRun: LifecycleRunResult | null;
+  history: LifecycleRunResult[];
+  stats: {
+    totalSize: number;
+    totalCount: number;
+    activeSize: number;
+    activeCount: number;
+    longTermSize: number;
+    longTermCount: number;
+    byPrefix: Record<string, { count: number; size: number }>;
+    ageDistribution: { recent: number; month: number; quarter: number; year: number; old: number };
+  };
+  config: { compressAfterDays: number; deleteAfterDays: number; cronSchedule: string };
+}
+
 function StorageTab({ onSave }: { onSave: (msg: string) => void }) {
   const [files, setFiles] = useState<R2FileItem[]>([]);
   const [prefixes, setPrefixes] = useState<string[]>([]);
@@ -1815,6 +2003,8 @@ function StorageTab({ onSave }: { onSave: (msg: string) => void }) {
   const [uploading, setUploading] = useState(false);
   const [uploadType, setUploadType] = useState<"photos" | "videos">("photos");
   const [uploadEventId, setUploadEventId] = useState("");
+  const [lifecycle, setLifecycle] = useState<LifecycleData | null>(null);
+  const [lifecycleLoading, setLifecycleLoading] = useState(false);
   const [events, setEvents] = useState<EventData[]>([]);
 
   const loadFiles = useCallback(async (prefix?: string) => {
@@ -1837,10 +2027,24 @@ function StorageTab({ onSave }: { onSave: (msg: string) => void }) {
     }
   }, []);
 
+  const loadLifecycle = useCallback(async () => {
+    setLifecycleLoading(true);
+    try {
+      const res = await fetch("/api/lifecycle", {
+        headers: { "x-admin-password": ADMIN_PASSWORD },
+      });
+      if (res.ok) {
+        setLifecycle(await res.json());
+      }
+    } catch { /* ignore */ }
+    finally { setLifecycleLoading(false); }
+  }, []);
+
   useEffect(() => {
     loadFiles(currentPrefix || undefined);
     setEvents(getStoredEvents());
-  }, [currentPrefix, loadFiles]);
+    loadLifecycle();
+  }, [currentPrefix, loadFiles, loadLifecycle]);
 
   const navigateTo = (prefix: string) => {
     setCurrentPrefix(prefix);
@@ -2105,6 +2309,680 @@ function StorageTab({ onSave }: { onSave: (msg: string) => void }) {
           <span>合計: {formatSize(files.reduce((s, f) => s + f.size, 0))}</span>
         </div>
       </Card>
+
+      {/* Lifecycle Policy Status */}
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-gray-700">ライフサイクルポリシー</h3>
+          <div className="flex items-center gap-2">
+            {lifecycleLoading && <span className="text-xs text-gray-400 animate-pulse">読み込み中...</span>}
+            <button onClick={loadLifecycle} className="text-xs text-[#6EC6FF] hover:underline">更新</button>
+          </div>
+        </div>
+
+        {lifecycle ? (
+          <div className="space-y-4">
+            {/* Config info */}
+            <div className="bg-gray-50 rounded-xl p-3">
+              <p className="text-xs font-bold text-gray-500 mb-2">ポリシー設定</p>
+              <div className="grid grid-cols-3 gap-3 text-xs text-gray-600">
+                <div>
+                  <span className="text-gray-400">圧縮開始:</span>{" "}
+                  <span className="font-mono font-bold">{lifecycle.config.compressAfterDays}日</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">削除:</span>{" "}
+                  <span className="font-mono font-bold">{lifecycle.config.deleteAfterDays}日</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Cron:</span>{" "}
+                  <span className="font-mono text-[10px]">{lifecycle.config.cronSchedule}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Storage stats */}
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-2">ストレージ使用量</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-blue-50 rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-blue-600">{lifecycle.stats.totalCount}</p>
+                  <p className="text-[10px] text-gray-500">総ファイル数</p>
+                  <p className="text-xs text-blue-500 font-mono">{formatSize(lifecycle.stats.totalSize)}</p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-green-600">{lifecycle.stats.activeCount}</p>
+                  <p className="text-[10px] text-gray-500">アクティブ</p>
+                  <p className="text-xs text-green-500 font-mono">{formatSize(lifecycle.stats.activeSize)}</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-purple-600">{lifecycle.stats.longTermCount}</p>
+                  <p className="text-[10px] text-gray-500">長期保存</p>
+                  <p className="text-xs text-purple-500 font-mono">{formatSize(lifecycle.stats.longTermSize)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Age distribution */}
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-2">ファイル経過日数</p>
+              <div className="flex gap-1">
+                {[
+                  { label: "7日未満", count: lifecycle.stats.ageDistribution.recent, color: "bg-green-400" },
+                  { label: "7-30日", count: lifecycle.stats.ageDistribution.month, color: "bg-blue-400" },
+                  { label: "30-90日", count: lifecycle.stats.ageDistribution.quarter, color: "bg-yellow-400" },
+                  { label: "90日-1年", count: lifecycle.stats.ageDistribution.year, color: "bg-orange-400" },
+                  { label: "1年以上", count: lifecycle.stats.ageDistribution.old, color: "bg-red-400" },
+                ].map((d) => (
+                  <div key={d.label} className="flex-1 text-center">
+                    <div className={`h-8 rounded-lg ${d.color} flex items-center justify-center`} style={{ opacity: d.count > 0 ? 1 : 0.2 }}>
+                      <span className="text-white text-xs font-bold">{d.count}</span>
+                    </div>
+                    <p className="text-[9px] text-gray-400 mt-1">{d.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* By prefix */}
+            {Object.keys(lifecycle.stats.byPrefix).length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-gray-500 mb-2">プレフィックス別</p>
+                <div className="space-y-1">
+                  {Object.entries(lifecycle.stats.byPrefix)
+                    .sort(([, a], [, b]) => b.size - a.size)
+                    .map(([prefix, info]) => (
+                      <div key={prefix} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-1.5">
+                        <span className="font-mono text-gray-600">{prefix}</span>
+                        <span className="text-gray-400">{info.count}ファイル / {formatSize(info.size)}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Last run */}
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-2">最終実行</p>
+              {lifecycle.lastRun ? (
+                <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">実行日時:</span>
+                    <span className="font-mono text-gray-600">{new Date(lifecycle.lastRun.timestamp).toLocaleString("ja-JP")}</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div>
+                      <p className="text-sm font-bold text-gray-700">{lifecycle.lastRun.scanned}</p>
+                      <p className="text-[10px] text-gray-400">スキャン</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-blue-600">{lifecycle.lastRun.compressed}</p>
+                      <p className="text-[10px] text-gray-400">圧縮/移動</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-red-600">{lifecycle.lastRun.deleted}</p>
+                      <p className="text-[10px] text-gray-400">削除</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-orange-600">{lifecycle.lastRun.errors}</p>
+                      <p className="text-[10px] text-gray-400">エラー</p>
+                    </div>
+                  </div>
+                  {lifecycle.lastRun.details.length > 0 && (
+                    <div className="mt-2 max-h-32 overflow-y-auto">
+                      {lifecycle.lastRun.details.map((d, i) => (
+                        <p key={i} className="text-[10px] text-gray-500 font-mono">{d}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 text-center py-3">まだライフサイクル処理は実行されていません</p>
+              )}
+            </div>
+
+            {/* Run history */}
+            {lifecycle.history.length > 1 && (
+              <div>
+                <p className="text-xs font-bold text-gray-500 mb-2">実行履歴（直近{lifecycle.history.length}回）</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-1 text-gray-400">日時</th>
+                        <th className="text-center py-1 text-gray-400">スキャン</th>
+                        <th className="text-center py-1 text-gray-400">圧縮</th>
+                        <th className="text-center py-1 text-gray-400">削除</th>
+                        <th className="text-center py-1 text-gray-400">エラー</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...lifecycle.history].reverse().map((run, i) => (
+                        <tr key={i} className="border-b border-gray-50">
+                          <td className="py-1 font-mono text-gray-500">{new Date(run.timestamp).toLocaleDateString("ja-JP")}</td>
+                          <td className="py-1 text-center font-mono">{run.scanned}</td>
+                          <td className="py-1 text-center font-mono text-blue-600">{run.compressed}</td>
+                          <td className="py-1 text-center font-mono text-red-600">{run.deleted}</td>
+                          <td className="py-1 text-center font-mono text-orange-600">{run.errors}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 text-center py-4">
+            {lifecycleLoading ? "読み込み中..." : "R2が未設定、またはライフサイクルデータがありません"}
+          </p>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ===== Matching Debug =====
+const TAG_GROUPS: { label: string; tags: { tag: InterestTag; label: string }[] }[] = [
+  {
+    label: "テーマ (Q1)",
+    tags: [
+      { tag: "education", label: "教育" },
+      { tag: "sports", label: "スポーツ" },
+      { tag: "food", label: "食" },
+      { tag: "travel", label: "旅行" },
+      { tag: "technology", label: "テクノロジー" },
+      { tag: "art", label: "アート" },
+      { tag: "nature", label: "自然" },
+    ],
+  },
+  {
+    label: "サービス (Q2)",
+    tags: [
+      { tag: "cram_school", label: "学習塾" },
+      { tag: "lessons", label: "習い事" },
+      { tag: "food_product", label: "食品" },
+      { tag: "travel_service", label: "旅行" },
+      { tag: "smartphone", label: "スマホ" },
+      { tag: "camera", label: "カメラ" },
+      { tag: "insurance", label: "保険" },
+    ],
+  },
+  {
+    label: "年齢 (Q3)",
+    tags: [
+      { tag: "age_0_3", label: "0〜3歳" },
+      { tag: "age_4_6", label: "4〜6歳" },
+      { tag: "age_7_9", label: "7〜9歳" },
+      { tag: "age_10_12", label: "10〜12歳" },
+      { tag: "age_13_plus", label: "13歳以上" },
+    ],
+  },
+];
+
+const PRESETS: { label: string; tags: InterestTag[] }[] = [
+  { label: "教育重視", tags: ["education", "cram_school", "age_4_6"] },
+  { label: "スポーツ家族", tags: ["sports", "lessons", "age_7_9"] },
+  { label: "テック好き", tags: ["technology", "education", "smartphone", "age_10_12"] },
+  { label: "旅行・自然", tags: ["travel", "nature", "travel_service", "age_7_9"] },
+  { label: "食 & アート", tags: ["food", "art", "food_product", "age_4_6"] },
+  { label: "全タグなし", tags: [] },
+];
+
+const TIER_BADGE_COLORS: Record<string, string> = {
+  platinum: "bg-blue-100 text-blue-700",
+  gold: "bg-yellow-100 text-yellow-700",
+  silver: "bg-gray-100 text-gray-600",
+  bronze: "bg-orange-100 text-orange-700",
+};
+
+// ===== Funnel Analysis =====
+function FunnelAnalysisTab() {
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsRecord[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>("all");
+
+  useEffect(() => {
+    setEvents(getStoredEvents());
+    setAnalytics(getStoredAnalytics());
+  }, []);
+
+  const filtered = selectedEventId === "all"
+    ? analytics
+    : analytics.filter((r) => r.eventId === selectedEventId);
+
+  const steps = [
+    { key: "access" as const, label: "STEP 0: アクセス", color: "#60A5FA" },
+    { key: "survey" as const, label: "STEP 1: アンケート完了", color: "#34D399" },
+    { key: "cmViewed" as const, label: "STEP 2: CM視聴完了", color: "#FBBF24" },
+    { key: "photosViewed" as const, label: "STEP 3: 写真閲覧", color: "#F472B6" },
+    { key: "downloaded" as const, label: "STEP 4-5: DL完了", color: "#A78BFA" },
+  ];
+
+  const total = filtered.length;
+  const counts = steps.map((s) => filtered.filter((r) => r.stepsCompleted[s.key]).length);
+  const rates = counts.map((c) => total > 0 ? Math.round((c / total) * 100) : 0);
+  const dropoffs = counts.map((c, i) => {
+    const prev = i === 0 ? total : counts[i - 1];
+    return prev > 0 ? Math.round(((prev - c) / prev) * 100) : 0;
+  });
+
+  // Per-event comparison data
+  const eventComparison = events.map((evt) => {
+    const evtRecords = analytics.filter((r) => r.eventId === evt.id);
+    const evtTotal = evtRecords.length;
+    return {
+      name: evt.name.length > 8 ? evt.name.slice(0, 8) + "..." : evt.name,
+      fullName: evt.name,
+      total: evtTotal,
+      access: evtRecords.filter((r) => r.stepsCompleted.access).length,
+      survey: evtRecords.filter((r) => r.stepsCompleted.survey).length,
+      cmViewed: evtRecords.filter((r) => r.stepsCompleted.cmViewed).length,
+      photosViewed: evtRecords.filter((r) => r.stepsCompleted.photosViewed).length,
+      downloaded: evtRecords.filter((r) => r.stepsCompleted.downloaded).length,
+      completionRate: evtTotal > 0 ? Math.round((evtRecords.filter((r) => r.stepsCompleted.downloaded).length / evtTotal) * 100) : 0,
+    };
+  });
+
+  return (
+    <div className="space-y-6" data-testid="admin-funnel">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-800">STEP完了率分析</h2>
+        <select
+          value={selectedEventId}
+          onChange={(e) => setSelectedEventId(e.target.value)}
+          className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF]"
+        >
+          <option value="all">全イベント ({analytics.length}件)</option>
+          {events.map((evt) => {
+            const c = analytics.filter((r) => r.eventId === evt.id).length;
+            return <option key={evt.id} value={evt.id}>{evt.name} ({c}件)</option>;
+          })}
+        </select>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+        {steps.map((s, i) => (
+          <Card key={s.key} className="text-center">
+            <div className="text-2xl font-bold" style={{ color: s.color }}>{counts[i]}</div>
+            <p className="text-[10px] text-gray-500 mt-0.5">{s.label.split(": ")[1]}</p>
+            <p className="text-xs font-bold text-gray-700">{rates[i]}%</p>
+          </Card>
+        ))}
+      </div>
+
+      {/* Funnel visualization */}
+      <Card>
+        <h3 className="font-bold text-gray-700 mb-4">ファネル (離脱率)</h3>
+        {total === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-8">まだデータがありません</p>
+        ) : (
+          <div className="space-y-4">
+            {steps.map((s, i) => {
+              const width = total > 0 ? Math.max(8, (counts[i] / total) * 100) : 0;
+              return (
+                <div key={s.key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-gray-600">{s.label}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-gray-800">{counts[i]}人 ({rates[i]}%)</span>
+                      {i > 0 && dropoffs[i] > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-500 font-bold">
+                          -{dropoffs[i]}% 離脱
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-8 relative overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700 flex items-center justify-center"
+                      style={{ width: `${width}%`, backgroundColor: s.color }}
+                    >
+                      {width > 20 && (
+                        <span className="text-white text-xs font-bold">{rates[i]}%</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {/* Overall conversion */}
+            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-sm font-bold text-gray-700">総合コンバージョン率</span>
+              <span className={`text-lg font-bold ${
+                rates[4] >= 60 ? "text-green-600" : rates[4] >= 30 ? "text-yellow-600" : "text-red-500"
+              }`}>
+                {rates[4]}%
+              </span>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Bar chart visualization */}
+      {total > 0 && (
+        <Card>
+          <h3 className="font-bold text-gray-700 mb-4">STEP別完了数（棒グラフ）</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={steps.map((s, i) => ({ name: s.label.split(": ")[1], count: counts[i], color: s.color, dropoff: dropoffs[i] }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value) => [`${value}`, "完了数"]} />
+                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                  {steps.map((s, i) => (
+                    <Cell key={`cell-${i}`} fill={s.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
+
+      {/* Per-event comparison table */}
+      {events.length > 1 && (
+        <Card>
+          <h3 className="font-bold text-gray-700 mb-3">イベント別比較</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-2 text-gray-500 font-medium">イベント</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">総数</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">アンケート</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">CM視聴</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">写真閲覧</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">DL完了</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">完了率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eventComparison.map((ec) => (
+                  <tr key={ec.fullName} className="border-b border-gray-50">
+                    <td className="py-2 text-gray-700 font-medium" title={ec.fullName}>{ec.name}</td>
+                    <td className="py-2 text-center font-mono">{ec.total}</td>
+                    <td className="py-2 text-center font-mono">{ec.survey}</td>
+                    <td className="py-2 text-center font-mono">{ec.cmViewed}</td>
+                    <td className="py-2 text-center font-mono">{ec.photosViewed}</td>
+                    <td className="py-2 text-center font-mono">{ec.downloaded}</td>
+                    <td className="py-2 text-center">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                        ec.completionRate >= 60 ? "bg-green-50 text-green-600" :
+                        ec.completionRate >= 30 ? "bg-yellow-50 text-yellow-600" :
+                        "bg-red-50 text-red-500"
+                      }`}>
+                        {ec.total > 0 ? `${ec.completionRate}%` : "—"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Step-by-step dropout analysis */}
+      <Card>
+        <h3 className="font-bold text-gray-700 mb-3">STEP間離脱分析</h3>
+        {total === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">データなし</p>
+        ) : (
+          <div className="space-y-3">
+            {steps.map((s, i) => {
+              if (i === 0) return null;
+              const prevCount = counts[i - 1];
+              const dropped = prevCount - counts[i];
+              const dropPct = prevCount > 0 ? Math.round((dropped / prevCount) * 100) : 0;
+              const severity = dropPct >= 50 ? "text-red-600 bg-red-50" : dropPct >= 25 ? "text-yellow-600 bg-yellow-50" : "text-green-600 bg-green-50";
+              return (
+                <div key={s.key} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+                  <div className="flex items-center gap-1 text-xs text-gray-500 w-44 flex-shrink-0">
+                    <span>{steps[i - 1].label.split(": ")[1]}</span>
+                    <span className="text-gray-300">→</span>
+                    <span>{s.label.split(": ")[1]}</span>
+                  </div>
+                  <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div className="h-full bg-red-300 rounded-full" style={{ width: `${dropPct}%` }} />
+                  </div>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${severity}`}>
+                    {dropped}人離脱 ({dropPct}%)
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function MatchingDebugTab() {
+  const [selectedTags, setSelectedTags] = useState<InterestTag[]>([]);
+  const [eventFilter, setEventFilter] = useState<string>("all");
+  const [result, setResult] = useState<CMMatchResult | null>(null);
+  const [events] = useState(() => getStoredEvents());
+
+  const toggleTag = (tag: InterestTag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const applyPreset = (tags: InterestTag[]) => {
+    setSelectedTags(tags);
+  };
+
+  const runMatch = () => {
+    const eventCompanyIds = eventFilter !== "all"
+      ? events.find((e) => e.id === eventFilter)?.companyIds
+      : undefined;
+    const r = getCMMatch(selectedTags, eventCompanyIds, { includeDebug: true });
+    setResult(r);
+  };
+
+  const renderScoreBar = (score: number, max: number) => {
+    const pct = max > 0 ? Math.min((score / max) * 100, 100) : 0;
+    return (
+      <div className="w-full bg-gray-100 rounded-full h-3 relative overflow-hidden">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400 transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-600">
+          {score}
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4" data-testid="admin-matching">
+      <h2 className="text-lg font-bold text-gray-800">マッチングテスト</h2>
+      <p className="text-xs text-gray-400">
+        アンケート回答タグを選択して、スコアリングベースのマッチング結果を確認できます。
+      </p>
+
+      {/* Quick presets */}
+      <Card>
+        <p className="text-xs font-bold text-gray-500 mb-2">クイックプリセット</p>
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              onClick={() => applyPreset(p.tags)}
+              className="text-xs px-3 py-1.5 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 font-medium transition-colors"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      {/* Tag selector */}
+      <Card>
+        <p className="text-xs font-bold text-gray-500 mb-3">タグ選択</p>
+        <div className="space-y-4">
+          {TAG_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="text-[10px] text-gray-400 font-medium mb-1.5">{group.label}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {group.tags.map((t) => (
+                  <button
+                    key={t.tag}
+                    onClick={() => toggleTag(t.tag)}
+                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                      selectedTags.includes(t.tag)
+                        ? "bg-[#6EC6FF] text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 text-xs text-gray-400">
+          選択中: {selectedTags.length > 0 ? selectedTags.join(", ") : "(なし)"}
+        </div>
+      </Card>
+
+      {/* Event filter + Run */}
+      <Card>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <p className="text-xs font-bold text-gray-500 mb-1">イベントフィルター</p>
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value)}
+              className={inputCls}
+            >
+              <option value="all">全企業（フィルターなし）</option>
+              {events.map((evt) => (
+                <option key={evt.id} value={evt.id}>
+                  {evt.name} ({evt.companyIds ? `${evt.companyIds.length}社` : "全社"})
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={runMatch}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-bold text-sm hover:from-blue-600 hover:to-purple-600 transition-all shadow-md"
+            data-testid="matching-run-btn"
+          >
+            マッチング実行
+          </button>
+        </div>
+      </Card>
+
+      {/* Results */}
+      {result && result.debug && (
+        <>
+          {/* Selected CMs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className={result.platinumCM ? "border-2 border-blue-300" : ""}>
+              <p className="text-xs font-bold text-blue-600 mb-2">Platinum CM (15s)</p>
+              {result.platinumCM ? (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={result.platinumCM.logoUrl} alt="" className="w-10 h-10 rounded-full" />
+                  <div>
+                    <p className="font-bold text-gray-700 text-sm">{result.platinumCM.name}</p>
+                    <p className="text-xs text-gray-400">
+                      Score: {result.debug.platinumScores[0]?.totalScore ?? 0}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">Platinum企業なし</p>
+              )}
+            </Card>
+            <Card className={result.matchedCM ? "border-2 border-green-300" : ""}>
+              <p className="text-xs font-bold text-green-600 mb-2">Matched CM (30s/60s)</p>
+              {result.matchedCM ? (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={result.matchedCM.logoUrl} alt="" className="w-10 h-10 rounded-full" />
+                  <div>
+                    <p className="font-bold text-gray-700 text-sm">{result.matchedCM.name}</p>
+                    <p className="text-xs text-gray-400">
+                      Score: {result.debug.allScores.find((s) => s.companyId === result.matchedCM?.id)?.totalScore ?? 0}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">マッチ企業なし</p>
+              )}
+            </Card>
+          </div>
+
+          {/* Reason */}
+          <Card>
+            <p className="text-xs font-bold text-gray-500 mb-1">マッチング理由</p>
+            <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded-lg">{result.debug.reason}</p>
+          </Card>
+
+          {/* Full ranking table */}
+          <Card>
+            <p className="text-xs font-bold text-gray-500 mb-3">全企業スコアランキング</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs" data-testid="matching-score-table">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-2 px-1 text-gray-500">#</th>
+                    <th className="text-left py-2 px-1 text-gray-500">企業名</th>
+                    <th className="text-center py-2 px-1 text-gray-500">Tier</th>
+                    <th className="text-center py-2 px-1 text-gray-500 w-24">総合</th>
+                    <th className="text-center py-2 px-1 text-gray-500">タグ</th>
+                    <th className="text-center py-2 px-1 text-gray-500">Tier</th>
+                    <th className="text-center py-2 px-1 text-gray-500">年齢</th>
+                    <th className="text-center py-2 px-1 text-gray-500">幅広</th>
+                    <th className="text-left py-2 px-1 text-gray-500">一致タグ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.debug.allScores.map((s, i) => {
+                    const isPlatinum = s.companyId === result.platinumCM?.id;
+                    const isMatched = s.companyId === result.matchedCM?.id;
+                    const rowBg = isPlatinum ? "bg-blue-50" : isMatched ? "bg-green-50" : i % 2 === 0 ? "bg-white" : "bg-gray-50/50";
+                    const maxScore = result.debug!.allScores[0]?.totalScore || 1;
+                    return (
+                      <tr key={s.companyId} className={`${rowBg} border-b border-gray-50`}>
+                        <td className="py-2 px-1 font-mono text-gray-400">{i + 1}</td>
+                        <td className="py-2 px-1">
+                          <span className="font-medium text-gray-700">{s.companyName}</span>
+                          {isPlatinum && <span className="ml-1 text-[9px] bg-blue-200 text-blue-700 px-1 rounded">PT</span>}
+                          {isMatched && <span className="ml-1 text-[9px] bg-green-200 text-green-700 px-1 rounded">MT</span>}
+                        </td>
+                        <td className="py-2 px-1 text-center">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${TIER_BADGE_COLORS[s.tier]}`}>
+                            {s.tier}
+                          </span>
+                        </td>
+                        <td className="py-2 px-1">{renderScoreBar(s.totalScore, maxScore)}</td>
+                        <td className="py-2 px-1 text-center font-mono">{s.breakdown.tagMatchScore}</td>
+                        <td className="py-2 px-1 text-center font-mono">{s.breakdown.tierBonus}</td>
+                        <td className="py-2 px-1 text-center font-mono">{s.breakdown.ageMatchBonus}</td>
+                        <td className="py-2 px-1 text-center font-mono">{s.breakdown.categoryBreadth}</td>
+                        <td className="py-2 px-1 text-gray-500 text-[10px]">
+                          {s.breakdown.tagMatchDetails.length > 0 ? s.breakdown.tagMatchDetails.join(", ") : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

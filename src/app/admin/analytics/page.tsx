@@ -15,6 +15,7 @@ import {
   getSurveyForEvent, clearAnalytics,
 } from "@/lib/store";
 import { AnalyticsRecord, EventData, SurveyQuestion, InterestTag } from "@/lib/types";
+import { IS_DEMO_MODE } from "@/lib/demo";
 
 const COLORS = [
   "#6EC6FF", "#FF6B8A", "#50D9A0", "#FFB86C", "#BD93F9",
@@ -248,13 +249,15 @@ export default function AnalyticsPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <AdminHeader
-        title="アンケート分析ダッシュボード"
+        title={IS_DEMO_MODE ? "アンケート分析ダッシュボード (Demo)" : "アンケート分析ダッシュボード"}
         badge={`${summary.answered}件回答`}
         onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
         actions={
-          <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
-            データクリア
-          </button>
+          IS_DEMO_MODE ? undefined : (
+            <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
+              データクリア
+            </button>
+          )
         }
       />
 

@@ -1,0 +1,14 @@
+name = "vls-r2-lifecycle"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "vls-media"
+
+[triggers]
+crons = ["0 3 * * *"]   # Daily at 03:00 UTC
+
+[vars]
+COMPRESS_AFTER_DAYS = "30"
+DELETE_AFTER_DAYS = "365"

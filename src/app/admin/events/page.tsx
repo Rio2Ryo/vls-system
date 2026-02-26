@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { ADMIN_PASSWORD } from "@/lib/data";
 import { Company, EventData } from "@/lib/types";
+import { IS_DEMO_MODE } from "@/lib/demo";
 import {
   getStoredEvents, setStoredEvents,
   getStoredCompanies,
@@ -189,7 +190,7 @@ export default function EventsPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <AdminHeader
-        title="イベント管理"
+        title={IS_DEMO_MODE ? "イベント管理 (Demo)" : "イベント管理"}
         badge={`${events.length}件`}
         onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
       />
@@ -237,11 +238,11 @@ export default function EventsPage() {
         {/* New event button + form */}
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-800">イベント一覧</h2>
-          <Button size="sm" onClick={startNew}>+ 新規イベント作成</Button>
+          {!IS_DEMO_MODE && <Button size="sm" onClick={startNew}>+ 新規イベント作成</Button>}
         </div>
 
         <AnimatePresence>
-          {editing && (
+          {!IS_DEMO_MODE && editing && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -370,8 +371,8 @@ export default function EventsPage() {
 
                     <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                       <button onClick={() => setActiveEventId(evt.id)} className="text-xs text-[#6EC6FF] hover:underline">選択</button>
-                      <button onClick={() => startEdit(evt)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>
-                      <button onClick={() => remove(evt.id)} className="text-xs text-red-400 hover:underline">削除</button>
+                      {!IS_DEMO_MODE && <button onClick={() => startEdit(evt)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>}
+                      {!IS_DEMO_MODE && <button onClick={() => remove(evt.id)} className="text-xs text-red-400 hover:underline">削除</button>}
                     </div>
                   </div>
 

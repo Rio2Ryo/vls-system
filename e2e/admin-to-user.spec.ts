@@ -143,13 +143,14 @@ test.describe("Admin → User Integration", () => {
     const urlEl = page.getByTestId("event-url-evt-summer");
     await expect(urlEl).toBeVisible();
     const urlText = await urlEl.textContent();
-    expect(urlText).toContain("/?pw=SUMMER2026");
+    // URL may use slug (/e/summer2026) or password query (/?pw=SUMMER2026)
+    expect(urlText).toMatch(/\/e\/summer2026|\/\?pw=SUMMER2026/);
 
     // Copy button exists
     const copyBtn = page.getByTestId("event-copy-url-evt-summer");
     await expect(copyBtn).toContainText("URLコピー");
 
-    // Navigate to the shareable URL
+    // Navigate to the shareable URL (test password-based URL still works)
     await page.goto("/?pw=SUMMER2026");
 
     // Password should be auto-filled

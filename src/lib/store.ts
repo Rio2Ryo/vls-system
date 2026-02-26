@@ -1,5 +1,5 @@
-import { AnalyticsRecord, Company, EventData, SurveyQuestion, VideoPlayRecord } from "./types";
-import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY } from "./data";
+import { AnalyticsRecord, Company, EventData, InvoiceData, NotificationLog, Participant, SurveyQuestion, Tenant, VideoPlayRecord } from "./types";
+import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
 
 const KEYS = {
   events: "vls_admin_events",
@@ -7,6 +7,10 @@ const KEYS = {
   survey: "vls_admin_survey",
   analytics: "vls_analytics",
   videoPlays: "vls_video_plays",
+  tenants: "vls_admin_tenants",
+  participants: "vls_participants",
+  invoices: "vls_invoices",
+  notificationLog: "vls_notification_log",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -40,6 +44,11 @@ export function setStoredEvents(events: EventData[]): void {
 export function getEventByPassword(password: string): EventData | null {
   const events = getStoredEvents();
   return events.find((e) => e.password === password.toUpperCase()) || null;
+}
+
+export function getEventBySlug(slug: string): EventData | null {
+  const events = getStoredEvents();
+  return events.find((e) => e.slug === slug.toLowerCase()) || null;
 }
 
 // --- Companies ---
@@ -129,10 +138,59 @@ export function clearVideoPlays(): void {
   localStorage.removeItem(KEYS.videoPlays);
 }
 
+// --- Tenants ---
+export function getStoredTenants(): Tenant[] {
+  return safeGet(KEYS.tenants, DEFAULT_TENANTS);
+}
+
+export function setStoredTenants(tenants: Tenant[]): void {
+  safeSet(KEYS.tenants, tenants);
+}
+
+export function getTenantBySlug(slug: string): Tenant | null {
+  return getStoredTenants().find((t) => t.slug === slug.toLowerCase()) || null;
+}
+
+// --- Participants ---
+export function getStoredParticipants(): Participant[] {
+  return safeGet(KEYS.participants, []);
+}
+
+export function setStoredParticipants(participants: Participant[]): void {
+  safeSet(KEYS.participants, participants);
+}
+
+export function getParticipantsForEvent(eventId: string): Participant[] {
+  return getStoredParticipants().filter((p) => p.eventId === eventId);
+}
+
+// --- Invoices ---
+export function getStoredInvoices(): InvoiceData[] {
+  return safeGet(KEYS.invoices, []);
+}
+
+export function setStoredInvoices(invoices: InvoiceData[]): void {
+  safeSet(KEYS.invoices, invoices);
+}
+
+// --- Notification Log ---
+export function getStoredNotificationLog(): NotificationLog[] {
+  return safeGet(KEYS.notificationLog, []);
+}
+
+export function addNotificationLog(entry: NotificationLog): void {
+  const log = getStoredNotificationLog();
+  log.push(entry);
+  // Keep last 200 entries
+  if (log.length > 200) log.splice(0, log.length - 200);
+  safeSet(KEYS.notificationLog, log);
+}
+
 // --- Reset to defaults ---
 export function resetToDefaults(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(KEYS.events);
   localStorage.removeItem(KEYS.companies);
   localStorage.removeItem(KEYS.survey);
+  localStorage.removeItem(KEYS.tenants);
 }

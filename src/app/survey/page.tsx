@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import TagSelector from "@/components/ui/TagSelector";
 import { getSurveyForEvent, getStoredSurvey, updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
+import { sendNotification } from "@/lib/notify";
 
 export default function SurveyPage() {
   const router = useRouter();
@@ -85,6 +86,14 @@ export default function SurveyPage() {
             photosViewed: false,
             downloaded: false,
           },
+        });
+      }
+
+      // Send registration notification
+      const eventId = sessionStorage.getItem("eventId");
+      if (eventId) {
+        sendNotification(eventId, "registration", {
+          participantName: sessionStorage.getItem("respondentName") || undefined,
         });
       }
 

@@ -7,6 +7,7 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import { ADMIN_PASSWORD } from "@/lib/data";
 import { getStoredCompanies, getStoredEvents, getStoredVideoPlays, clearVideoPlays } from "@/lib/store";
 import { Company, EventData, VideoPlayRecord } from "@/lib/types";
+import { IS_DEMO_MODE } from "@/lib/demo";
 
 export default function StatsPage() {
   const [authed, setAuthed] = useState(false);
@@ -190,13 +191,15 @@ export default function StatsPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <AdminHeader
-        title="CM統計ダッシュボード"
+        title={IS_DEMO_MODE ? "CM統計ダッシュボード (Demo)" : "CM統計ダッシュボード"}
         badge={`${filtered.length}再生`}
         onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
         actions={
-          <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
-            データクリア
-          </button>
+          IS_DEMO_MODE ? undefined : (
+            <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
+              データクリア
+            </button>
+          )
         }
       />
 

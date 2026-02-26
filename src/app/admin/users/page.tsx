@@ -13,6 +13,7 @@ import {
   AnalyticsRecord, EventData, Company, VideoPlayRecord,
   SurveyQuestion, InterestTag,
 } from "@/lib/types";
+import { IS_DEMO_MODE } from "@/lib/demo";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
 
@@ -240,7 +241,7 @@ export default function UsersPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <AdminHeader
-        title="ユーザー管理"
+        title={IS_DEMO_MODE ? "ユーザー管理 (Demo)" : "ユーザー管理"}
         badge={`${stats.total}件`}
         onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
       />

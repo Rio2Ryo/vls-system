@@ -11,6 +11,7 @@ import Card from "@/components/ui/Card";
 import { getCMMatch } from "@/lib/matching";
 import { updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
+import { sendNotification } from "@/lib/notify";
 
 const TOTAL_SECONDS = 45;
 
@@ -106,6 +107,14 @@ export default function ProcessingPage() {
           photosViewed: false,
           downloaded: false,
         },
+      });
+    }
+    // Send CM completion notification
+    const eventId = sessionStorage.getItem("eventId");
+    if (eventId && cmMatch?.platinumCM) {
+      sendNotification(eventId, "cm_complete", {
+        participantName: sessionStorage.getItem("respondentName") || undefined,
+        companyName: cmMatch.platinumCM.name,
       });
     }
     router.push("/photos");

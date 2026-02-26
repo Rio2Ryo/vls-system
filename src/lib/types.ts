@@ -35,6 +35,9 @@ export interface EventData {
   photos: PhotoData[];
   companyIds?: string[];        // associated company IDs; undefined = all companies
   surveyQuestions?: SurveyQuestion[];  // per-event survey; undefined = use global default
+  slug?: string;                // custom URL path: /e/[slug] → auto-login
+  notifyEmail?: string;         // admin email for notifications
+  tenantId?: string;            // owning tenant ID (multi-tenant)
 }
 
 export interface PhotoData {
@@ -60,6 +63,33 @@ export interface SurveyAnswer {
 export interface CMMatch {
   platinumCM: Company | null;  // 15s fixed
   matchedCM: Company | null;   // 30s preview + 60s full
+}
+
+// Score breakdown for a single company match
+export interface MatchScoreBreakdown {
+  companyId: string;
+  companyName: string;
+  tier: CompanyTier;
+  totalScore: number;
+  breakdown: {
+    tagMatchScore: number;
+    tagMatchCount: number;
+    tagMatchDetails: string[];
+    tierBonus: number;
+    ageMatchBonus: number;
+    categoryBreadth: number;
+  };
+}
+
+// Extended match result with debug info
+export interface CMMatchResult extends CMMatch {
+  debug?: {
+    allScores: MatchScoreBreakdown[];
+    platinumScores: MatchScoreBreakdown[];
+    userTags: InterestTag[];
+    selectedCompanyIds?: string[];
+    reason: string;
+  };
 }
 
 // Video play record for CM tracking
@@ -92,4 +122,68 @@ export interface AnalyticsRecord {
   };
   matchedCompanyId?: string;
   platinumCompanyId?: string;
+}
+
+// Tenant (multi-tenant organization)
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  adminPassword: string;
+  plan: "free" | "basic" | "premium" | "enterprise";
+  contactEmail: string;
+  contactName: string;
+  logoUrl?: string;
+  billingAddress?: string;
+  invoicePrefix?: string;
+  createdAt: number;
+}
+
+// Pre-registered participant (bulk import)
+export interface Participant {
+  id: string;
+  eventId: string;
+  tenantId?: string;
+  name: string;
+  email?: string;
+  tags?: InterestTag[];
+  registeredAt: number;
+  checkedIn: boolean;
+  checkedInAt?: number;
+}
+
+// Invoice
+export interface InvoiceData {
+  id: string;
+  tenantId: string;
+  eventIds: string[];
+  issueDate: string;
+  dueDate: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  grandTotal: number;
+  status: "draft" | "issued" | "paid";
+  notes?: string;
+  createdAt: number;
+}
+
+export interface InvoiceItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+// Notification log entry
+export interface NotificationLog {
+  id: string;
+  eventId: string;
+  type: "registration" | "cm_complete";
+  to: string;
+  subject: string;
+  status: "sent" | "failed" | "logged";
+  method?: string;
+  timestamp: number;
 }
