@@ -12,6 +12,7 @@ export const runtime = "nodejs";
  *   - type: "photos" | "thumbs" | "videos" (default: "photos")
  *   - path: (optional) custom key path, overrides auto-generated key
  * Requires x-admin-password header for auth.
+ * Optional x-tenant-id header to scope uploads under tenant prefix.
  */
 export async function POST(request: NextRequest) {
   const adminPassword = request.headers.get("x-admin-password");
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
     const eventId = formData.get("eventId") as string | null;
     const type = (formData.get("type") as string) || "photos";
     const customPath = formData.get("path") as string | null;
+    const tenantId = request.headers.get("x-tenant-id") || null;
 
     if (!file) {
       return NextResponse.json(
@@ -42,11 +44,12 @@ export async function POST(request: NextRequest) {
 
     const timestamp = Date.now();
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const tenantPrefix = tenantId ? `${tenantId}/` : "";
     const key = customPath
-      ? customPath
+      ? `${tenantPrefix}${customPath}`
       : eventId
-        ? `${type}/${eventId}/${timestamp}-${sanitizedName}`
-        : `${type}/${timestamp}-${sanitizedName}`;
+        ? `${tenantPrefix}${type}/${eventId}/${timestamp}-${sanitizedName}`
+        : `${tenantPrefix}${type}/${timestamp}-${sanitizedName}`;
 
     const arrayBuffer = await file.arrayBuffer();
     await r2Put(key, arrayBuffer, file.type);
@@ -56,6 +59,7 @@ export async function POST(request: NextRequest) {
       url: `/api/media/${key}`,
       size: arrayBuffer.byteLength,
       contentType: file.type,
+      tenantId: tenantId || undefined,
     });
   } catch (error) {
     console.error("Upload error:", error);

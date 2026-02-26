@@ -10,6 +10,7 @@ interface NotifyPayload {
   companyName?: string;
   daysLeft?: number;
   tenantName?: string;
+  tenantId?: string;
   licenseEnd?: string;
 }
 

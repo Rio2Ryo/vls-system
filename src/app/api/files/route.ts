@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 /**
  * GET /api/files?prefix=photos/&limit=200
  * List files in R2 bucket with optional prefix filter.
+ * Optional x-tenant-id header to scope listing under tenant prefix.
  * Requires x-admin-password header.
  */
 export async function GET(request: NextRequest) {
@@ -24,8 +25,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const prefix = searchParams.get("prefix") || undefined;
+    const rawPrefix = searchParams.get("prefix") || undefined;
     const limit = parseInt(searchParams.get("limit") || "200", 10);
+    const tenantId = request.headers.get("x-tenant-id") || null;
+
+    // Scope prefix under tenant directory if tenant context is provided
+    const prefix = tenantId
+      ? rawPrefix ? `${tenantId}/${rawPrefix}` : `${tenantId}/`
+      : rawPrefix;
 
     const result = await r2List(prefix, limit);
 
@@ -33,6 +40,7 @@ export async function GET(request: NextRequest) {
       objects: result.objects,
       prefixes: result.prefixes,
       count: result.objects.length,
+      tenantId: tenantId || undefined,
     });
   } catch (error) {
     console.error("List error:", error);
@@ -47,6 +55,7 @@ export async function GET(request: NextRequest) {
  * DELETE /api/files
  * Delete a file from R2.
  * Body: { key: string }
+ * Optional x-tenant-id header — if set, validates key belongs to tenant.
  * Requires x-admin-password header.
  */
 export async function DELETE(request: NextRequest) {
@@ -66,6 +75,12 @@ export async function DELETE(request: NextRequest) {
     const { key } = await request.json();
     if (!key) {
       return NextResponse.json({ error: "key is required" }, { status: 400 });
+    }
+
+    // Prevent tenant from deleting other tenants' files
+    const tenantId = request.headers.get("x-tenant-id") || null;
+    if (tenantId && !key.startsWith(`${tenantId}/`)) {
+      return NextResponse.json({ error: "Access denied: file does not belong to this tenant" }, { status: 403 });
     }
 
     const ok = await r2Delete(key);

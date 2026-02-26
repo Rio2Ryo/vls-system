@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { getStoredTenants } from "@/lib/store";
+import { Tenant } from "@/lib/types";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Admin" },
@@ -8,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/admin/analytics", label: "アンケート" },
   { href: "/admin/stats", label: "CM統計" },
   { href: "/admin/users", label: "ユーザー" },
+  { href: "/admin/import", label: "インポート" },
 ];
 
 interface AdminHeaderProps {
@@ -19,6 +23,33 @@ interface AdminHeaderProps {
 
 export default function AdminHeader({ title, badge, onLogout, actions }: AdminHeaderProps) {
   const pathname = usePathname();
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    const tid = sessionStorage.getItem("adminTenantId") || null;
+    setCurrentTenantId(tid);
+    setIsSuperAdmin(!tid && sessionStorage.getItem("adminAuthed") === "true");
+    if (!tid) {
+      setTenants(getStoredTenants());
+    }
+  }, []);
+
+  const handleTenantSwitch = (tenantId: string) => {
+    if (tenantId === "__super__") {
+      sessionStorage.removeItem("adminTenantId");
+      setCurrentTenantId(null);
+    } else {
+      sessionStorage.setItem("adminTenantId", tenantId);
+      setCurrentTenantId(tenantId);
+    }
+    window.location.reload();
+  };
+
+  const currentTenantName = currentTenantId
+    ? tenants.find((t) => t.id === currentTenantId)?.name
+    : null;
 
   return (
     <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3">
@@ -31,8 +62,27 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
                 {badge}
               </span>
             )}
+            {currentTenantId && currentTenantName && (
+              <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full hidden sm:inline">
+                {currentTenantName}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Super admin tenant switcher */}
+            {isSuperAdmin && tenants.length > 0 && (
+              <select
+                value={currentTenantId || "__super__"}
+                onChange={(e) => handleTenantSwitch(e.target.value)}
+                className="text-xs px-2 py-1 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF] bg-white"
+                title="テナント切り替え"
+              >
+                <option value="__super__">全テナント (Super)</option>
+                {tenants.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            )}
             {actions}
             <button
               onClick={onLogout}
