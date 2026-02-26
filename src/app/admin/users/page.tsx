@@ -7,7 +7,7 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import { ADMIN_PASSWORD } from "@/lib/data";
 import {
   getStoredAnalytics, getStoredEvents, getStoredCompanies,
-  getStoredVideoPlays, getStoredSurvey, getSurveyForEvent,
+  getStoredVideoPlays, getStoredSurvey, getSurveyForEvent, getStoredTenants,
 } from "@/lib/store";
 import {
   AnalyticsRecord, EventData, Company, VideoPlayRecord,
@@ -87,8 +87,17 @@ export default function UsersPage() {
     if (pw === ADMIN_PASSWORD) {
       setAuthed(true);
       sessionStorage.setItem("adminAuthed", "true");
+      sessionStorage.removeItem("adminTenantId");
     } else {
-      setPwError("パスワードが違います");
+      const tenants = getStoredTenants();
+      const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
+      if (tenant) {
+        setAuthed(true);
+        sessionStorage.setItem("adminAuthed", "true");
+        sessionStorage.setItem("adminTenantId", tenant.id);
+      } else {
+        setPwError("パスワードが違います");
+      }
     }
   };
 

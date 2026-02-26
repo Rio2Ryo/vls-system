@@ -33,103 +33,85 @@ function formatYen(n: number): string {
 }
 
 function generateInvoicePdf(invoice: InvoiceData, tenant: Tenant | undefined) {
+  // Build an HTML invoice, render via jsPDF.html() which uses browser canvas
+  // and natively supports Japanese text rendering.
+  const itemRows = invoice.items.map((item) => `
+    <tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;">${item.description}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${formatYen(item.unitPrice)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${formatYen(item.amount)}</td>
+    </tr>
+  `).join("");
+
+  const html = `
+    <div style="font-family:'Hiragino Sans','Meiryo','Noto Sans JP',sans-serif;max-width:680px;margin:0 auto;padding:32px;color:#333;">
+      <h1 style="text-align:center;font-size:28px;letter-spacing:4px;margin-bottom:24px;color:#222;">請求書</h1>
+      <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <p style="font-size:11px;color:#888;margin:0;">請求書番号: ${invoice.id}</p>
+          <p style="font-size:11px;color:#888;margin:2px 0;">ステータス: ${invoice.status === "draft" ? "下書き" : invoice.status === "issued" ? "発行済" : "支払済"}</p>
+        </div>
+        <div style="text-align:right;">
+          <p style="font-size:11px;color:#888;margin:0;">発行日: ${invoice.issueDate}</p>
+          <p style="font-size:11px;color:#888;margin:2px 0;">支払期限: ${invoice.dueDate}</p>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:24px;padding:12px;background:#f8f8fc;border-radius:8px;">
+        <div>
+          <p style="font-size:10px;color:#999;margin:0 0 4px;">差出人</p>
+          <p style="font-size:12px;font-weight:bold;margin:0;">VLS System</p>
+          <p style="font-size:11px;color:#666;margin:2px 0;">Event Photo Service</p>
+        </div>
+        <div style="text-align:right;">
+          <p style="font-size:10px;color:#999;margin:0 0 4px;">請求先</p>
+          <p style="font-size:12px;font-weight:bold;margin:0;">${tenant?.name || "N/A"}</p>
+          <p style="font-size:11px;color:#666;margin:2px 0;">${tenant?.contactName || ""} ${tenant?.contactEmail ? `(${tenant.contactEmail})` : ""}</p>
+          ${tenant?.billingAddress ? `<p style="font-size:11px;color:#666;margin:2px 0;">${tenant.billingAddress}</p>` : ""}
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
+        <thead>
+          <tr style="background:#f0f0f5;">
+            <th style="padding:8px;text-align:left;">明細</th>
+            <th style="padding:8px;text-align:center;width:60px;">数量</th>
+            <th style="padding:8px;text-align:right;width:100px;">単価</th>
+            <th style="padding:8px;text-align:right;width:100px;">金額</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+      <div style="text-align:right;margin-top:8px;">
+        <p style="font-size:12px;color:#666;margin:4px 0;">小計: ${formatYen(invoice.subtotal)}</p>
+        <p style="font-size:12px;color:#666;margin:4px 0;">消費税 (${invoice.taxRate}%): ${formatYen(invoice.taxAmount)}</p>
+        <p style="font-size:18px;font-weight:bold;margin:8px 0;color:#222;">合計: ${formatYen(invoice.grandTotal)}</p>
+      </div>
+      ${invoice.notes ? `<div style="margin-top:16px;padding:8px 12px;background:#fffbe6;border-radius:6px;font-size:11px;color:#666;">備考: ${invoice.notes}</div>` : ""}
+      <p style="text-align:center;font-size:9px;color:#bbb;margin-top:32px;">VLS System - Event Photo Service</p>
+    </div>
+  `;
+
+  // Create offscreen container
+  const container = document.createElement("div");
+  container.style.position = "absolute";
+  container.style.left = "-9999px";
+  container.style.top = "0";
+  container.style.width = "210mm";
+  container.innerHTML = html;
+  document.body.appendChild(container);
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const w = 210;
-  let y = 20;
-
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.text("INVOICE", w / 2, y, { align: "center" });
-  y += 12;
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Invoice #: ${invoice.id}`, 15, y);
-  doc.text(`Date: ${invoice.issueDate}`, w - 15, y, { align: "right" });
-  y += 5;
-  doc.text(`Status: ${invoice.status.toUpperCase()}`, 15, y);
-  doc.text(`Due: ${invoice.dueDate}`, w - 15, y, { align: "right" });
-  y += 10;
-
-  // From
-  doc.setFont("helvetica", "bold");
-  doc.text("From:", 15, y);
-  doc.setFont("helvetica", "normal");
-  doc.text("VLS System - Event Photo Service", 30, y);
-  y += 5;
-  doc.text("noreply@vls-system.vercel.app", 30, y);
-  y += 10;
-
-  // To
-  doc.setFont("helvetica", "bold");
-  doc.text("Bill To:", 15, y);
-  doc.setFont("helvetica", "normal");
-  doc.text(tenant?.name || "N/A", 35, y);
-  y += 5;
-  doc.text(tenant?.contactName || "", 35, y);
-  y += 5;
-  doc.text(tenant?.contactEmail || "", 35, y);
-  y += 5;
-  if (tenant?.billingAddress) {
-    doc.text(tenant.billingAddress, 35, y);
-    y += 5;
-  }
-  y += 8;
-
-  // Table header
-  doc.setFillColor(240, 240, 245);
-  doc.rect(15, y - 3, w - 30, 8, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("Description", 18, y + 2);
-  doc.text("Qty", 115, y + 2, { align: "center" });
-  doc.text("Unit Price", 145, y + 2, { align: "right" });
-  doc.text("Amount", w - 18, y + 2, { align: "right" });
-  y += 10;
-
-  // Table rows
-  doc.setFont("helvetica", "normal");
-  for (const item of invoice.items) {
-    if (y > 260) {
-      doc.addPage();
-      y = 20;
-    }
-    doc.text(item.description.slice(0, 50), 18, y);
-    doc.text(String(item.quantity), 115, y, { align: "center" });
-    doc.text(formatYen(item.unitPrice), 145, y, { align: "right" });
-    doc.text(formatYen(item.amount), w - 18, y, { align: "right" });
-    y += 6;
-  }
-
-  y += 4;
-  doc.line(15, y, w - 15, y);
-  y += 8;
-
-  // Totals
-  doc.setFontSize(10);
-  doc.text("Subtotal:", 135, y, { align: "right" });
-  doc.text(formatYen(invoice.subtotal), w - 18, y, { align: "right" });
-  y += 6;
-  doc.text(`Tax (${invoice.taxRate}%):`, 135, y, { align: "right" });
-  doc.text(formatYen(invoice.taxAmount), w - 18, y, { align: "right" });
-  y += 8;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text("TOTAL:", 135, y, { align: "right" });
-  doc.text(formatYen(invoice.grandTotal), w - 18, y, { align: "right" });
-  y += 12;
-
-  if (invoice.notes) {
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text("Notes: " + invoice.notes, 15, y);
-  }
-
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.text("Generated by VLS System - Event Photo Service", w / 2, 285, { align: "center" });
-
-  doc.save(`Invoice_${invoice.id}.pdf`);
+  doc.html(container, {
+    callback: (pdf) => {
+      document.body.removeChild(container);
+      pdf.save(`Invoice_${invoice.id}.pdf`);
+    },
+    x: 0,
+    y: 0,
+    width: 210,
+    windowWidth: 794, // A4 at 96 DPI
+    html2canvas: { scale: 0.264 }, // mm to px ratio
+  });
 }
 
 export default function InvoiceGenerator({ onSave }: { onSave: (msg: string) => void }) {

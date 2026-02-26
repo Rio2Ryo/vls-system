@@ -5,7 +5,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { ADMIN_PASSWORD } from "@/lib/data";
-import { getStoredCompanies, getStoredEvents, getStoredVideoPlays, clearVideoPlays } from "@/lib/store";
+import { getStoredCompanies, getStoredEvents, getStoredVideoPlays, clearVideoPlays, getStoredTenants } from "@/lib/store";
 import { Company, EventData, VideoPlayRecord } from "@/lib/types";
 import { IS_DEMO_MODE } from "@/lib/demo";
 
@@ -34,8 +34,17 @@ export default function StatsPage() {
     if (pw === ADMIN_PASSWORD) {
       setAuthed(true);
       sessionStorage.setItem("adminAuthed", "true");
+      sessionStorage.removeItem("adminTenantId");
     } else {
-      setPwError("パスワードが違います");
+      const tenants = getStoredTenants();
+      const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
+      if (tenant) {
+        setAuthed(true);
+        sessionStorage.setItem("adminAuthed", "true");
+        sessionStorage.setItem("adminTenantId", tenant.id);
+      } else {
+        setPwError("パスワードが違います");
+      }
     }
   };
 

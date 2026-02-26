@@ -1,6 +1,6 @@
 import { Company, EventData, SurveyQuestion, Tenant } from "./types";
 
-// --- Demo Companies (12 companies, diverse sectors) ---
+// --- Demo Companies (22 companies, diverse sectors) ---
 export const COMPANIES: Company[] = [
   // === Platinum (2) ===
   {
@@ -130,6 +130,121 @@ export const COMPANIES: Company[] = [
     videos: { cm15: "dQw4w9WgXcQ", cm30: "9bZkp7q19f0", cm60: "jNQXAC9IVRw" },
     offerText: "スポーツ栄養バーお試しパック無料",
     offerUrl: "https://example.com/genki-snack",
+  },
+  // === 追加スポンサー10社 ===
+  // Platinum追加 (2社)
+  {
+    id: "co-platinum-3",
+    name: "美肌コスメ株式会社",
+    logoUrl: "https://ui-avatars.com/api/?name=BC&background=FF6B9D&color=fff&size=80&rounded=true",
+    tier: "platinum",
+    tags: ["art", "other", "age_13_plus"],
+    videos: { cm15: "eUVl-R_SuOU", cm30: "iDhlJZqCk28", cm60: "2AA9zshhrMU" },
+    offerText: "新作コスメ初回20%OFFクーポン",
+    offerUrl: "https://example.com/bihada-cosme",
+    couponCode: "VLSCOSME2026",
+  },
+  {
+    id: "co-platinum-4",
+    name: "みらいアセット証券",
+    logoUrl: "https://ui-avatars.com/api/?name=MA&background=1E40AF&color=fff&size=80&rounded=true",
+    tier: "platinum",
+    tags: ["insurance", "education", "other", "age_13_plus"],
+    videos: { cm15: "aACMtrMXjuM", cm30: "2NHBNb8BX2c", cm60: "7FsLww6TtE4" },
+    offerText: "口座開設で5,000円プレゼント！",
+    offerUrl: "https://example.com/mirai-asset",
+    couponCode: "VLSINVEST2026",
+  },
+  // Gold追加 (3社)
+  {
+    id: "co-gold-4",
+    name: "スマートドライブ自動車",
+    logoUrl: "https://ui-avatars.com/api/?name=SD&background=374151&color=fff&size=80&rounded=true",
+    tier: "gold",
+    tags: ["technology", "travel", "other", "age_13_plus"],
+    videos: { cm15: "dAOScp8Ljcg", cm30: "6mA19DjMdhE", cm60: "BvD2c2EjF9I" },
+    offerText: "試乗予約でAmazonギフト券3,000円分",
+    offerUrl: "https://example.com/smart-drive",
+    couponCode: "VLSCAR2026",
+  },
+  {
+    id: "co-gold-5",
+    name: "ひかりモバイル",
+    logoUrl: "https://ui-avatars.com/api/?name=HM&background=0EA5E9&color=fff&size=80&rounded=true",
+    tier: "gold",
+    tags: ["smartphone", "technology", "age_10_12", "age_13_plus"],
+    videos: { cm15: "9O-ehg2blqo", cm30: "cVslxe2jxFw", cm60: "aIfCcD0fMto" },
+    offerText: "乗り換えで月額2ヶ月無料！",
+    offerUrl: "https://example.com/hikari-mobile",
+    couponCode: "VLSMOBILE2026",
+  },
+  {
+    id: "co-gold-6",
+    name: "ゲームキングダム",
+    logoUrl: "https://ui-avatars.com/api/?name=GK&background=7C3AED&color=fff&size=80&rounded=true",
+    tier: "gold",
+    tags: ["technology", "other", "age_7_9", "age_10_12", "age_13_plus"],
+    videos: { cm15: "ALIsJoUwi2Y", cm30: "G0jg422FM6M", cm60: "F7A0KosIxYg" },
+    offerText: "新作ゲームダウンロード30%OFF",
+    offerUrl: "https://example.com/game-kingdom",
+    couponCode: "VLSGAME2026",
+  },
+  // Silver追加 (3社)
+  {
+    id: "co-silver-5",
+    name: "げんきドリンクラボ",
+    logoUrl: "https://ui-avatars.com/api/?name=GD&background=F59E0B&color=fff&size=80&rounded=true",
+    tier: "silver",
+    tags: ["food", "food_product", "sports", "age_10_12", "age_13_plus"],
+    videos: { cm15: "5NwyXpsP-Tc", cm30: "58NVqUWnz-o", cm60: "ai3Q28xurjk" },
+    offerText: "スポーツドリンク12本セット半額",
+    offerUrl: "https://example.com/genki-drink",
+    couponCode: "VLSDRINK2026",
+  },
+  {
+    id: "co-silver-6",
+    name: "フィットネスプラス",
+    logoUrl: "https://ui-avatars.com/api/?name=FP&background=10B981&color=fff&size=80&rounded=true",
+    tier: "silver",
+    tags: ["sports", "lessons", "other", "age_13_plus"],
+    videos: { cm15: "aeMgS7gueFk", cm30: "7JwWH3zUcl8", cm60: "dKbAaBq4MVo" },
+    offerText: "ジム入会金無料＋初月半額！",
+    offerUrl: "https://example.com/fitness-plus",
+    couponCode: "VLSFIT2026",
+  },
+  {
+    id: "co-silver-7",
+    name: "ドリームランドトイズ",
+    logoUrl: "https://ui-avatars.com/api/?name=DT&background=F97316&color=fff&size=80&rounded=true",
+    tier: "silver",
+    tags: ["age_0_3", "age_4_6", "age_7_9", "art", "education"],
+    videos: { cm15: "IJOfKHI4dSU", cm30: "C4J8XHnhhhs", cm60: "b724mcFGaq4" },
+    offerText: "おもちゃセット1,500円OFFクーポン",
+    offerUrl: "https://example.com/dreamland-toys",
+    couponCode: "VLSTOY2026",
+  },
+  // Bronze追加 (2社)
+  {
+    id: "co-bronze-4",
+    name: "リゾートステイホテルズ",
+    logoUrl: "https://ui-avatars.com/api/?name=RS&background=0891B2&color=fff&size=80&rounded=true",
+    tier: "bronze",
+    tags: ["travel", "travel_service", "food", "nature", "age_13_plus"],
+    videos: { cm15: "cXwdMI6eps8", cm30: "b1m9dEANSgc", cm60: "Dib_n9NCbU0" },
+    offerText: "宿泊予約で朝食無料サービス",
+    offerUrl: "https://example.com/resort-stay",
+    couponCode: "VLSHOTEL2026",
+  },
+  {
+    id: "co-bronze-5",
+    name: "サクサクフードデリバリー",
+    logoUrl: "https://ui-avatars.com/api/?name=SF&background=EF4444&color=fff&size=80&rounded=true",
+    tier: "bronze",
+    tags: ["food", "food_product", "technology", "other"],
+    videos: { cm15: "D8gYV2DW5Yg", cm30: "22ccVra914E", cm60: "3IfdCBKyops" },
+    offerText: "初回注文送料無料＋300円OFF",
+    offerUrl: "https://example.com/sakusaku-food",
+    couponCode: "VLSFOOD2026",
   },
 ];
 

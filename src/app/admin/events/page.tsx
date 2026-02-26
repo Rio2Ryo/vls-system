@@ -12,7 +12,7 @@ import { IS_DEMO_MODE } from "@/lib/demo";
 import {
   getStoredEvents, setStoredEvents,
   getStoredCompanies,
-  getStoredAnalytics,
+  getStoredAnalytics, getStoredTenants,
 } from "@/lib/store";
 import { AnalyticsRecord } from "@/lib/types";
 
@@ -34,7 +34,7 @@ export default function EventsPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsRecord[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] as string[] });
+  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] as string[], notifyEmail: "" });
   const [toast, setToast] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [qrEventId, setQrEventId] = useState<string | null>(null);
@@ -66,8 +66,17 @@ export default function EventsPage() {
     if (pw === ADMIN_PASSWORD) {
       setAuthed(true);
       sessionStorage.setItem("adminAuthed", "true");
+      sessionStorage.removeItem("adminTenantId");
     } else {
-      setPwError("パスワードが違います");
+      const tenants = getStoredTenants();
+      const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
+      if (tenant) {
+        setAuthed(true);
+        sessionStorage.setItem("adminAuthed", "true");
+        sessionStorage.setItem("adminTenantId", tenant.id);
+      } else {
+        setPwError("パスワードが違います");
+      }
     }
   };
 
@@ -127,12 +136,12 @@ export default function EventsPage() {
   // --- CRUD ---
   const startNew = () => {
     setEditing("__new__");
-    setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] });
+    setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [], notifyEmail: "" });
   };
 
   const startEdit = (evt: EventData) => {
     setEditing(evt.id);
-    setForm({ name: evt.name, date: evt.date, venue: evt.venue || "", description: evt.description, password: evt.password, companyIds: evt.companyIds || [] });
+    setForm({ name: evt.name, date: evt.date, venue: evt.venue || "", description: evt.description, password: evt.password, companyIds: evt.companyIds || [], notifyEmail: evt.notifyEmail || "" });
   };
 
   const toggleCompany = (companyId: string) => {
@@ -146,6 +155,7 @@ export default function EventsPage() {
 
   const save = () => {
     if (!form.name || !form.password) return;
+    const emailVal = form.notifyEmail.trim() || undefined;
     let updated: EventData[];
     if (editing === "__new__") {
       const newEvt: EventData = {
@@ -157,12 +167,13 @@ export default function EventsPage() {
         password: form.password.toUpperCase(),
         photos: [],
         companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
+        notifyEmail: emailVal,
       };
       updated = [...events, newEvt];
     } else {
       updated = events.map((e) =>
         e.id === editing
-          ? { ...e, name: form.name, date: form.date, venue: form.venue || undefined, description: form.description, password: form.password.toUpperCase(), companyIds: form.companyIds.length > 0 ? form.companyIds : undefined }
+          ? { ...e, name: form.name, date: form.date, venue: form.venue || undefined, description: form.description, password: form.password.toUpperCase(), companyIds: form.companyIds.length > 0 ? form.companyIds : undefined, notifyEmail: emailVal }
           : e
       );
     }
@@ -270,9 +281,13 @@ export default function EventsPage() {
                     <label className="text-xs text-gray-500 font-medium mb-1 block">パスワード *</label>
                     <input className={inputCls + " font-mono uppercase"} placeholder="例: SUMMER2026" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} data-testid="event-password-input" />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="text-xs text-gray-500 font-medium mb-1 block">説明</label>
                     <input className={inputCls} placeholder="イベントの説明" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 font-medium mb-1 block">通知メール</label>
+                    <input className={inputCls} type="email" placeholder="admin@example.com" value={form.notifyEmail} onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })} />
                   </div>
                 </div>
 
