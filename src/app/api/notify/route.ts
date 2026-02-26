@@ -5,9 +5,12 @@ export const runtime = "edge";
 interface NotifyPayload {
   to: string;
   eventName: string;
-  type: "registration" | "cm_complete";
+  type: "registration" | "cm_complete" | "license_expiry";
   participantName?: string;
   companyName?: string;
+  daysLeft?: number;
+  tenantName?: string;
+  licenseEnd?: string;
 }
 
 /**
@@ -18,7 +21,7 @@ interface NotifyPayload {
 export async function POST(request: NextRequest) {
   try {
     const body: NotifyPayload = await request.json();
-    const { to, eventName, type, participantName, companyName } = body;
+    const { to, eventName, type, participantName, companyName, daysLeft, tenantName, licenseEnd } = body;
 
     if (!to || !eventName || !type) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -26,7 +29,9 @@ export async function POST(request: NextRequest) {
 
     const subject = type === "registration"
       ? `[VLS] ${eventName} - 新規参加者: ${participantName || "匿名"}`
-      : `[VLS] ${eventName} - CM視聴完了: ${participantName || "匿名"}`;
+      : type === "license_expiry"
+        ? `[VLS] ライセンス期限通知: ${tenantName || eventName} (残り${daysLeft || 0}日)`
+        : `[VLS] ${eventName} - CM視聴完了: ${participantName || "匿名"}`;
 
     const htmlContent = type === "registration"
       ? `
@@ -40,7 +45,20 @@ export async function POST(request: NextRequest) {
           </table>
           <p style="color: #888; font-size: 12px; margin-top: 20px;">VLS System - Event Photo Service</p>
         </div>`
-      : `
+      : type === "license_expiry"
+        ? `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #F59E0B;">VLS ライセンス期限通知</h2>
+          <p>「<b>${tenantName || eventName}</b>」のライセンスがまもなく期限を迎えます。</p>
+          <table style="border-collapse: collapse; width: 100%;">
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; color: #888;">組織名</td><td style="padding: 8px; border-bottom: 1px solid #eee;"><b>${tenantName || eventName}</b></td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; color: #888;">ライセンス期限</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${licenseEnd || "—"}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; color: #888;">残り日数</td><td style="padding: 8px; border-bottom: 1px solid #eee;"><b style="color: #EF4444;">${daysLeft || 0}日</b></td></tr>
+          </table>
+          <p style="margin-top: 16px;">ライセンスの更新手続きをお願いいたします。</p>
+          <p style="color: #888; font-size: 12px; margin-top: 20px;">VLS System - Event Photo Service</p>
+        </div>`
+        : `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #6EC6FF;">VLS CM視聴完了通知</h2>
           <p>イベント「<b>${eventName}</b>」で参加者がCM視聴を完了しました。</p>

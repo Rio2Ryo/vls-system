@@ -24,8 +24,11 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import TenantManager from "@/components/admin/TenantManager";
 import BulkImport from "@/components/admin/BulkImport";
 import InvoiceGenerator from "@/components/admin/InvoiceGenerator";
+import ChartJsAnalytics from "@/components/admin/ChartJsAnalytics";
+import LicenseBulkImport from "@/components/admin/LicenseBulkImport";
+// checkLicenseExpiry is used in TenantManager component
 
-type Tab = "events" | "photos" | "companies" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices";
+type Tab = "events" | "photos" | "companies" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "chartjs" | "licenses";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -136,6 +139,8 @@ export default function AdminPage() {
     { key: "import", label: "参加者管理", icon: "👥" },
     { key: "invoices", label: "請求書", icon: "🧾" },
     { key: "funnel", label: "完了率分析", icon: "📉" },
+    { key: "chartjs", label: "Chart.js分析", icon: "📈" },
+    { key: "licenses", label: "ライセンス管理", icon: "🔑", superOnly: true },
     { key: "tenants", label: "テナント管理", icon: "🏫", superOnly: true },
     { key: "storage", label: "R2ストレージ", icon: "☁️", demoHidden: true, superOnly: true },
     { key: "matching", label: "マッチングテスト", icon: "🎯", demoHidden: true },
@@ -239,6 +244,8 @@ export default function AdminPage() {
             {tab === "import" && <BulkImport onSave={showToast} />}
             {tab === "invoices" && <InvoiceGenerator onSave={showToast} />}
             {tab === "funnel" && <FunnelAnalysisTab />}
+            {tab === "chartjs" && <ChartJsAnalytics tenantId={adminTenantId} />}
+            {tab === "licenses" && <LicenseBulkImport onSave={showToast} />}
             {tab === "tenants" && <TenantManager onSave={showToast} />}
             {tab === "storage" && <StorageTab onSave={showToast} />}
             {tab === "matching" && <MatchingDebugTab />}

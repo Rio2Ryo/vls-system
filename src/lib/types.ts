@@ -137,6 +137,11 @@ export interface Tenant {
   billingAddress?: string;
   invoicePrefix?: string;
   createdAt: number;
+  // License management
+  licenseStart?: string;   // ISO date "2026-01-01"
+  licenseEnd?: string;     // ISO date "2026-12-31"
+  maxEvents?: number;      // max events allowed under license
+  isActive?: boolean;      // manually toggle active/inactive
 }
 
 // Pre-registered participant (bulk import)
@@ -180,7 +185,7 @@ export interface InvoiceItem {
 export interface NotificationLog {
   id: string;
   eventId: string;
-  type: "registration" | "cm_complete";
+  type: "registration" | "cm_complete" | "license_expiry";
   to: string;
   subject: string;
   status: "sent" | "failed" | "logged";

@@ -9,6 +9,7 @@ import {
   getStoredEvents, getStoredAnalytics,
 } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
+import { checkLicenseExpiry } from "@/lib/notify";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
 
@@ -25,7 +26,9 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
   const [form, setForm] = useState({
     name: "", slug: "", adminPassword: "", plan: "basic" as Tenant["plan"],
     contactEmail: "", contactName: "", billingAddress: "", invoicePrefix: "",
+    licenseStart: "", licenseEnd: "", maxEvents: "",
   });
+  const [expiryResult, setExpiryResult] = useState<string | null>(null);
 
   useEffect(() => { setTenants(getStoredTenants()); }, []);
 
@@ -34,7 +37,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
 
   const startNew = () => {
     setEditing("__new__");
-    setForm({ name: "", slug: "", adminPassword: "", plan: "basic", contactEmail: "", contactName: "", billingAddress: "", invoicePrefix: "" });
+    setForm({ name: "", slug: "", adminPassword: "", plan: "basic", contactEmail: "", contactName: "", billingAddress: "", invoicePrefix: "", licenseStart: "", licenseEnd: "", maxEvents: "" });
   };
 
   const startEdit = (t: Tenant) => {
@@ -43,6 +46,8 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
       name: t.name, slug: t.slug, adminPassword: t.adminPassword, plan: t.plan,
       contactEmail: t.contactEmail, contactName: t.contactName,
       billingAddress: t.billingAddress || "", invoicePrefix: t.invoicePrefix || "",
+      licenseStart: t.licenseStart || "", licenseEnd: t.licenseEnd || "",
+      maxEvents: t.maxEvents != null ? String(t.maxEvents) : "",
     });
   };
 
@@ -50,6 +55,12 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
     if (!form.name || !form.slug || !form.adminPassword) return;
     const slugVal = form.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
     let updated: Tenant[];
+    const licenseFields = {
+      licenseStart: form.licenseStart || undefined,
+      licenseEnd: form.licenseEnd || undefined,
+      maxEvents: form.maxEvents ? parseInt(form.maxEvents) : undefined,
+      isActive: true,
+    };
     if (editing === "__new__") {
       updated = [...tenants, {
         id: `tenant-${Date.now()}`,
@@ -62,6 +73,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
         billingAddress: form.billingAddress || undefined,
         invoicePrefix: form.invoicePrefix || undefined,
         createdAt: Date.now(),
+        ...licenseFields,
       }];
     } else {
       updated = tenants.map((t) =>
@@ -75,6 +87,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
           contactName: form.contactName,
           billingAddress: form.billingAddress || undefined,
           invoicePrefix: form.invoicePrefix || undefined,
+          ...licenseFields,
         } : t
       );
     }
@@ -95,8 +108,32 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
     <div className="space-y-4" data-testid="admin-tenants">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold text-gray-800">テナント管理（マルチテナント）</h2>
-        {!IS_DEMO_MODE && <Button size="sm" onClick={startNew}>+ 新規テナント</Button>}
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              const expiring = checkLicenseExpiry(30);
+              setExpiryResult(
+                expiring.length > 0
+                  ? `${expiring.length}件のライセンスが30日以内に期限切れ: ${expiring.map((t) => t.name).join(", ")}`
+                  : "期限切れ間近のライセンスはありません"
+              );
+            }}
+            className="text-xs px-3 py-1.5 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 font-medium"
+          >
+            期限チェック
+          </button>
+          {!IS_DEMO_MODE && <Button size="sm" onClick={startNew}>+ 新規テナント</Button>}
+        </div>
       </div>
+
+      {expiryResult && (
+        <Card>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-600">{expiryResult}</p>
+            <button onClick={() => setExpiryResult(null)} className="text-xs text-gray-400 hover:text-gray-600">×</button>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <p className="text-xs text-gray-400">
@@ -148,6 +185,18 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
               <label className="text-xs text-gray-500 block mb-1">請求書接頭辞</label>
               <input className={inputCls} value={form.invoicePrefix} onChange={(e) => setForm({ ...form, invoicePrefix: e.target.value })} placeholder="INV-SAKURA" />
             </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">ライセンス開始日</label>
+              <input className={inputCls} type="date" value={form.licenseStart} onChange={(e) => setForm({ ...form, licenseStart: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">ライセンス終了日</label>
+              <input className={inputCls} type="date" value={form.licenseEnd} onChange={(e) => setForm({ ...form, licenseEnd: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">上限イベント数</label>
+              <input className={inputCls} type="number" value={form.maxEvents} onChange={(e) => setForm({ ...form, maxEvents: e.target.value })} placeholder="10" />
+            </div>
           </div>
           <div className="flex gap-2 mt-4">
             <Button size="sm" onClick={save}>保存</Button>
@@ -173,10 +222,22 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
                 </p>
                 <p className="text-[10px] text-gray-300 font-mono mt-0.5">PW: {t.adminPassword}</p>
                 <div className="flex gap-4 mt-2 text-xs">
-                  <span className="text-blue-500">イベント: <b>{tenantEvents.length}</b>件</span>
+                  <span className="text-blue-500">イベント: <b>{tenantEvents.length}</b>{t.maxEvents ? `/${t.maxEvents}` : ""}件</span>
                   <span className="text-green-500">アクセス: <b>{tenantAnalytics.length}</b>件</span>
                   <span className="text-purple-500">DL完了: <b>{tenantAnalytics.filter((a) => a.stepsCompleted.downloaded).length}</b>件</span>
                 </div>
+                {(t.licenseStart || t.licenseEnd) && (
+                  <div className="flex gap-3 mt-1 text-[10px] text-gray-400">
+                    {t.licenseStart && <span>開始: {t.licenseStart}</span>}
+                    {t.licenseEnd && <span>終了: {t.licenseEnd}</span>}
+                    {t.licenseEnd && (() => {
+                      const daysLeft = Math.ceil((new Date(t.licenseEnd + "T23:59:59").getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                      if (daysLeft < 0) return <span className="text-red-500 font-bold">期限切れ</span>;
+                      if (daysLeft <= 30) return <span className="text-yellow-600 font-bold">残{daysLeft}日</span>;
+                      return <span className="text-green-500">有効</span>;
+                    })()}
+                  </div>
+                )}
               </div>
               {!IS_DEMO_MODE && (
                 <div className="flex gap-2">

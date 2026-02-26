@@ -186,6 +186,29 @@ export function addNotificationLog(entry: NotificationLog): void {
   safeSet(KEYS.notificationLog, log);
 }
 
+// --- Tenant-scoped data access ---
+export function getEventsForTenant(tenantId: string): EventData[] {
+  return getStoredEvents().filter((e) => e.tenantId === tenantId);
+}
+
+export function getAnalyticsForTenant(tenantId: string): AnalyticsRecord[] {
+  const tenantEventIds = new Set(getEventsForTenant(tenantId).map((e) => e.id));
+  return getStoredAnalytics().filter((a) => tenantEventIds.has(a.eventId));
+}
+
+export function getVideoPlaysForTenant(tenantId: string): VideoPlayRecord[] {
+  const tenantEventIds = new Set(getEventsForTenant(tenantId).map((e) => e.id));
+  return getStoredVideoPlays().filter((v) => tenantEventIds.has(v.eventId));
+}
+
+export function getInvoicesForTenant(tenantId: string): InvoiceData[] {
+  return getStoredInvoices().filter((i) => i.tenantId === tenantId);
+}
+
+export function getParticipantsForTenant(tenantId: string): Participant[] {
+  return getStoredParticipants().filter((p) => p.tenantId === tenantId);
+}
+
 // --- Reset to defaults ---
 export function resetToDefaults(): void {
   if (typeof window === "undefined") return;

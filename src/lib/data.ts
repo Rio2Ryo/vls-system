@@ -374,6 +374,10 @@ export const TENANTS: Tenant[] = [
     billingAddress: "東京都渋谷区桜丘1-2-3",
     invoicePrefix: "INV-SAKURA",
     createdAt: 1700000000000,
+    licenseStart: "2026-01-01",
+    licenseEnd: "2026-12-31",
+    maxEvents: 10,
+    isActive: true,
   },
   {
     id: "tenant-school-b",
@@ -386,6 +390,10 @@ export const TENANTS: Tenant[] = [
     billingAddress: "大阪府大阪市北区梅田4-5-6",
     invoicePrefix: "INV-HIMAWARI",
     createdAt: 1700000000000,
+    licenseStart: "2026-04-01",
+    licenseEnd: "2026-09-30",
+    maxEvents: 3,
+    isActive: true,
   },
   {
     id: "tenant-corp-a",
@@ -398,6 +406,10 @@ export const TENANTS: Tenant[] = [
     billingAddress: "東京都千代田区丸の内7-8-9",
     invoicePrefix: "INV-EP",
     createdAt: 1700000000000,
+    licenseStart: "2025-10-01",
+    licenseEnd: "2027-03-31",
+    maxEvents: 50,
+    isActive: true,
   },
 ];
 
