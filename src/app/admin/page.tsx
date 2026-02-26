@@ -740,30 +740,55 @@ function DashboardTab() {
         )}
       </Card>
 
-      {/* CM view stats */}
+      {/* CM view stats — grouped by tier */}
       <Card>
-        <h3 className="font-bold text-gray-700 mb-3">CM表示回数（企業別）</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-gray-700">CM表示回数（企業別）</h3>
+          <div className="flex gap-2 text-[10px]">
+            {(["platinum", "gold", "silver", "bronze"] as const).map((t) => {
+              const count = companies.filter((c) => c.tier === t).length;
+              const tierColors: Record<string, string> = { platinum: "bg-blue-100 text-blue-700", gold: "bg-yellow-100 text-yellow-700", silver: "bg-gray-100 text-gray-600", bronze: "bg-orange-100 text-orange-700" };
+              return <span key={t} className={`px-2 py-0.5 rounded-full font-bold uppercase ${tierColors[t]}`}>{t} ({count})</span>;
+            })}
+          </div>
+        </div>
         {companies.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">企業が登録されていません</p>
         ) : (
-          <div className="space-y-3">
-            {companies.map((c) => {
-              const views = cmViewCounts[c.id] || { matched: 0, platinum: 0 };
-              const total = views.matched + views.platinum;
+          <div className="space-y-4">
+            {(["platinum", "gold", "silver", "bronze"] as CompanyTier[]).map((tier) => {
+              const tierCompanies = companies
+                .filter((c) => c.tier === tier)
+                .sort((a, b) => {
+                  const aTotal = (cmViewCounts[a.id]?.matched || 0) + (cmViewCounts[a.id]?.platinum || 0);
+                  const bTotal = (cmViewCounts[b.id]?.matched || 0) + (cmViewCounts[b.id]?.platinum || 0);
+                  return bTotal - aTotal;
+                });
+              if (tierCompanies.length === 0) return null;
+              const tierLabels: Record<string, string> = { platinum: "Platinum", gold: "Gold", silver: "Silver", bronze: "Bronze" };
+              const tierBg: Record<string, string> = { platinum: "border-l-blue-400", gold: "border-l-yellow-400", silver: "border-l-gray-400", bronze: "border-l-orange-400" };
               return (
-                <div key={c.id} className="flex items-center gap-3" data-testid={`cm-stats-${c.id}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={c.logoUrl} alt={c.name} className="w-8 h-8 rounded-full flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-sm text-gray-600 truncate">{c.name}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase flex-shrink-0">{c.tier}</span>
-                    </div>
-                    <div className="flex gap-3 text-xs">
-                      <span className="text-blue-500">提供CM: <b>{views.platinum}</b>回</span>
-                      <span className="text-green-500">マッチCM: <b>{views.matched}</b>回</span>
-                      <span className="text-gray-400">合計: <b>{total}</b>回</span>
-                    </div>
+                <div key={tier} className={`border-l-4 ${tierBg[tier]} pl-3`}>
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-2">{tierLabels[tier]} ({tierCompanies.length}社)</p>
+                  <div className="space-y-2">
+                    {tierCompanies.map((c) => {
+                      const views = cmViewCounts[c.id] || { matched: 0, platinum: 0 };
+                      const total = views.matched + views.platinum;
+                      return (
+                        <div key={c.id} className="flex items-center gap-3" data-testid={`cm-stats-${c.id}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={c.logoUrl} alt={c.name} className="w-8 h-8 rounded-full flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm text-gray-600 truncate block">{c.name}</span>
+                            <div className="flex gap-3 text-xs">
+                              <span className="text-blue-500">提供CM: <b>{views.platinum}</b></span>
+                              <span className="text-green-500">マッチCM: <b>{views.matched}</b></span>
+                              <span className="text-gray-400">計: <b>{total}</b></span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -1628,6 +1653,19 @@ function CompaniesTab({ onSave }: { onSave: (msg: string) => void }) {
           </div>
         </Card>
       )}
+
+      {/* Tier summary */}
+      <div className="grid grid-cols-4 gap-2">
+        {(["platinum", "gold", "silver", "bronze"] as const).map((t) => {
+          const count = companies.filter((c) => c.tier === t).length;
+          return (
+            <div key={t} className={`text-center py-2 rounded-xl ${TIER_COLORS[t]} bg-opacity-50`}>
+              <p className="text-lg font-bold">{count}</p>
+              <p className="text-[10px] uppercase font-bold">{t}</p>
+            </div>
+          );
+        })}
+      </div>
 
       {companies.map((c) => (
         <Card key={c.id}>

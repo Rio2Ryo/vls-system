@@ -270,7 +270,7 @@ export const EVENTS: EventData[] = [
     photos: generateDemoPhotos("sports", 9),
     slug: "sports2026",
     tenantId: "tenant-school-a",
-    companyIds: ["co-platinum-1", "co-gold-2", "co-silver-1", "co-silver-2", "co-bronze-3"],
+    companyIds: ["co-platinum-1", "co-gold-2", "co-silver-1", "co-silver-2", "co-bronze-3", "co-silver-5", "co-silver-6"],
   },
   {
     id: "evt-graduation",
@@ -281,7 +281,23 @@ export const EVENTS: EventData[] = [
     photos: generateDemoPhotos("graduation", 15),
     slug: "graduation2026",
     tenantId: "tenant-school-b",
-    companyIds: ["co-platinum-1", "co-platinum-2", "co-gold-3", "co-silver-1", "co-silver-3", "co-bronze-2"],
+    companyIds: ["co-platinum-1", "co-platinum-2", "co-gold-3", "co-silver-1", "co-silver-3", "co-bronze-2", "co-platinum-3", "co-silver-7", "co-bronze-4"],
+  },
+  {
+    id: "evt-techfes",
+    name: "テクノロジーフェス 2026",
+    date: "2026-11-23",
+    description: "最新テクノロジー体験イベント",
+    password: "TECHFES2026",
+    photos: generateDemoPhotos("techfes", 10),
+    slug: "techfes2026",
+    tenantId: "tenant-corp-a",
+    companyIds: [
+      "co-platinum-3", "co-platinum-4",
+      "co-gold-4", "co-gold-5", "co-gold-6",
+      "co-silver-4", "co-silver-5", "co-silver-6",
+      "co-bronze-4", "co-bronze-5",
+    ],
   },
 ];
 
