@@ -18,11 +18,22 @@ export default function StatsPage() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [filterEvent, setFilterEvent] = useState("all");
   const [filterCmType, setFilterCmType] = useState("all");
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
-    setPlays(getStoredVideoPlays());
+    const tid = sessionStorage.getItem("adminTenantId") || null;
+    setTenantId(tid);
+    if (tid) {
+      const tenantEventIds = new Set(
+        getStoredEvents().filter((e) => e.tenantId === tid).map((e) => e.id)
+      );
+      setEvents(getStoredEvents().filter((e) => e.tenantId === tid));
+      setPlays(getStoredVideoPlays().filter((v) => tenantEventIds.has(v.eventId)));
+    } else {
+      setEvents(getStoredEvents());
+      setPlays(getStoredVideoPlays());
+    }
     setCompanies(getStoredCompanies());
-    setEvents(getStoredEvents());
   }, []);
 
   useEffect(() => {
@@ -39,9 +50,18 @@ export default function StatsPage() {
       const tenants = getStoredTenants();
       const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
       if (tenant) {
+        if (tenant.isActive === false) {
+          setPwError("このテナントは無効化されています");
+          return;
+        }
+        if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) {
+          setPwError("ライセンスが期限切れです");
+          return;
+        }
         setAuthed(true);
         sessionStorage.setItem("adminAuthed", "true");
         sessionStorage.setItem("adminTenantId", tenant.id);
+        setTenantId(tenant.id);
       } else {
         setPwError("パスワードが違います");
       }
@@ -204,7 +224,7 @@ export default function StatsPage() {
         badge={`${filtered.length}再生`}
         onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
         actions={
-          IS_DEMO_MODE ? undefined : (
+          IS_DEMO_MODE || tenantId ? undefined : (
             <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
               データクリア
             </button>

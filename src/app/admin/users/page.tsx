@@ -69,10 +69,19 @@ export default function UsersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const reload = useCallback(() => {
-    setAnalytics(getStoredAnalytics());
-    setEvents(getStoredEvents());
+    const tid = typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") || null : null;
+    if (tid) {
+      const tenantEvents = getStoredEvents().filter((e) => e.tenantId === tid);
+      const tenantEventIds = new Set(tenantEvents.map((e) => e.id));
+      setEvents(tenantEvents);
+      setAnalytics(getStoredAnalytics().filter((a) => tenantEventIds.has(a.eventId)));
+      setVideoPlays(getStoredVideoPlays().filter((v) => tenantEventIds.has(v.eventId)));
+    } else {
+      setAnalytics(getStoredAnalytics());
+      setEvents(getStoredEvents());
+      setVideoPlays(getStoredVideoPlays());
+    }
     setCompanies(getStoredCompanies());
-    setVideoPlays(getStoredVideoPlays());
     setGlobalSurvey(getStoredSurvey());
   }, []);
 
@@ -92,6 +101,14 @@ export default function UsersPage() {
       const tenants = getStoredTenants();
       const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
       if (tenant) {
+        if (tenant.isActive === false) {
+          setPwError("このテナントは無効化されています");
+          return;
+        }
+        if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) {
+          setPwError("ライセンスが期限切れです");
+          return;
+        }
         setAuthed(true);
         sessionStorage.setItem("adminAuthed", "true");
         sessionStorage.setItem("adminTenantId", tenant.id);

@@ -33,10 +33,20 @@ export default function AnalyticsPage() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [survey, setSurvey] = useState<SurveyQuestion[]>([]);
   const [filterEvent, setFilterEvent] = useState("all");
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   const reload = useCallback(() => {
-    setAnalytics(getStoredAnalytics());
-    setEvents(getStoredEvents());
+    const tid = typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") || null : null;
+    setTenantId(tid);
+    if (tid) {
+      const tenantEvents = getStoredEvents().filter((e) => e.tenantId === tid);
+      const tenantEventIds = new Set(tenantEvents.map((e) => e.id));
+      setEvents(tenantEvents);
+      setAnalytics(getStoredAnalytics().filter((a) => tenantEventIds.has(a.eventId)));
+    } else {
+      setAnalytics(getStoredAnalytics());
+      setEvents(getStoredEvents());
+    }
     setSurvey(getStoredSurvey());
   }, []);
 
@@ -65,9 +75,18 @@ export default function AnalyticsPage() {
       const tenants = getStoredTenants();
       const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
       if (tenant) {
+        if (tenant.isActive === false) {
+          setPwError("このテナントは無効化されています");
+          return;
+        }
+        if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) {
+          setPwError("ライセンスが期限切れです");
+          return;
+        }
         setAuthed(true);
         sessionStorage.setItem("adminAuthed", "true");
         sessionStorage.setItem("adminTenantId", tenant.id);
+        setTenantId(tenant.id);
       } else {
         setPwError("パスワードが違います");
       }
@@ -262,7 +281,7 @@ export default function AnalyticsPage() {
         badge={`${summary.answered}件回答`}
         onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
         actions={
-          IS_DEMO_MODE ? undefined : (
+          IS_DEMO_MODE || tenantId ? undefined : (
             <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
               データクリア
             </button>

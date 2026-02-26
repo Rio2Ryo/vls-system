@@ -40,6 +40,7 @@ export default function EventsPage() {
   const [qrEventId, setQrEventId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [activeEventId, setActiveEventId] = useState<string>("");
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const showToast = useCallback((msg: string) => {
@@ -49,10 +50,14 @@ export default function EventsPage() {
 
   useEffect(() => {
     if (!authed) return;
-    const evts = getStoredEvents();
+    const tid = sessionStorage.getItem("adminTenantId") || null;
+    setTenantId(tid);
+    const allEvts = getStoredEvents();
+    const evts = tid ? allEvts.filter((e) => e.tenantId === tid) : allEvts;
     setEvents(evts);
     setCompanies(getStoredCompanies());
-    setAnalytics(getStoredAnalytics());
+    const tenantEventIds = new Set(evts.map((e) => e.id));
+    setAnalytics(tid ? getStoredAnalytics().filter((a) => tenantEventIds.has(a.eventId)) : getStoredAnalytics());
     if (evts.length > 0 && !activeEventId) setActiveEventId(evts[0].id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed]);
@@ -71,9 +76,18 @@ export default function EventsPage() {
       const tenants = getStoredTenants();
       const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
       if (tenant) {
+        if (tenant.isActive === false) {
+          setPwError("このテナントは無効化されています");
+          return;
+        }
+        if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) {
+          setPwError("ライセンスが期限切れです");
+          return;
+        }
         setAuthed(true);
         sessionStorage.setItem("adminAuthed", "true");
         sessionStorage.setItem("adminTenantId", tenant.id);
+        setTenantId(tenant.id);
       } else {
         setPwError("パスワードが違います");
       }
@@ -156,7 +170,9 @@ export default function EventsPage() {
   const save = () => {
     if (!form.name || !form.password) return;
     const emailVal = form.notifyEmail.trim() || undefined;
-    let updated: EventData[];
+    // Merge with global store to avoid overwriting other tenants' data
+    const allEvents = getStoredEvents();
+    let updatedAll: EventData[];
     if (editing === "__new__") {
       const newEvt: EventData = {
         id: `evt-${Date.now()}`,
@@ -168,25 +184,27 @@ export default function EventsPage() {
         photos: [],
         companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
         notifyEmail: emailVal,
+        tenantId: tenantId || undefined,
       };
-      updated = [...events, newEvt];
+      updatedAll = [...allEvents, newEvt];
     } else {
-      updated = events.map((e) =>
+      updatedAll = allEvents.map((e) =>
         e.id === editing
           ? { ...e, name: form.name, date: form.date, venue: form.venue || undefined, description: form.description, password: form.password.toUpperCase(), companyIds: form.companyIds.length > 0 ? form.companyIds : undefined, notifyEmail: emailVal }
           : e
       );
     }
-    setStoredEvents(updated);
-    setEvents(updated);
+    setStoredEvents(updatedAll);
+    setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
     setEditing(null);
     showToast("イベントを保存しました");
   };
 
   const remove = (id: string) => {
-    const updated = events.filter((e) => e.id !== id);
-    setStoredEvents(updated);
-    setEvents(updated);
+    const allEvents = getStoredEvents();
+    const updatedAll = allEvents.filter((e) => e.id !== id);
+    setStoredEvents(updatedAll);
+    setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
     showToast("イベントを削除しました");
   };
 
