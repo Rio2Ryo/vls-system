@@ -15,6 +15,21 @@ export function sendNotification(
     const event = events.find((e) => e.id === eventId);
     if (!event?.notifyEmail) return;
 
+    const subject = type === "registration"
+      ? `新規参加者: ${extra?.participantName || "匿名"} — ${event.name}`
+      : `CM視聴完了: ${extra?.participantName || "匿名"} (${extra?.companyName || "—"}) — ${event.name}`;
+
+    addNotificationLog({
+      id: `nl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      eventId,
+      type,
+      to: event.notifyEmail,
+      subject,
+      status: "logged",
+      method: "api",
+      timestamp: Date.now(),
+    });
+
     fetch("/api/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -208,9 +208,11 @@ export default function InvoiceGenerator({ onSave, tenantId }: { onSave: (msg: s
       createdAt: Date.now(),
     };
 
-    const updated = [...invoices, invoice];
-    setStoredInvoices(updated);
-    setInvoices(updated);
+    // Merge with global store to avoid overwriting other tenants' data
+    const allInvoices = getStoredInvoices();
+    const updatedAll = [...allInvoices, invoice];
+    setStoredInvoices(updatedAll);
+    setInvoices(tenantId ? updatedAll.filter((i) => i.tenantId === tenantId) : updatedAll);
     setCreating(false);
     onSave("請求書を作成しました");
   };
@@ -221,16 +223,18 @@ export default function InvoiceGenerator({ onSave, tenantId }: { onSave: (msg: s
   };
 
   const updateStatus = (id: string, status: InvoiceData["status"]) => {
-    const updated = invoices.map((inv) => inv.id === id ? { ...inv, status } : inv);
-    setStoredInvoices(updated);
-    setInvoices(updated);
+    const allInvoices = getStoredInvoices();
+    const updatedAll = allInvoices.map((inv) => inv.id === id ? { ...inv, status } : inv);
+    setStoredInvoices(updatedAll);
+    setInvoices(tenantId ? updatedAll.filter((i) => i.tenantId === tenantId) : updatedAll);
     onSave(`ステータスを${status}に更新しました`);
   };
 
   const deleteInvoice = (id: string) => {
-    const updated = invoices.filter((inv) => inv.id !== id);
-    setStoredInvoices(updated);
-    setInvoices(updated);
+    const allInvoices = getStoredInvoices();
+    const updatedAll = allInvoices.filter((inv) => inv.id !== id);
+    setStoredInvoices(updatedAll);
+    setInvoices(tenantId ? updatedAll.filter((i) => i.tenantId === tenantId) : updatedAll);
     onSave("請求書を削除しました");
   };
 

@@ -148,11 +148,11 @@ export default function ChartJsAnalytics({ tenantId }: Props) {
     };
   }, [events, analytics]);
 
-  // --- Daily trend line ---
+  // --- Daily trend line (filtered by selected event) ---
   const trendData = useMemo(() => {
-    if (analytics.length === 0) return null;
+    if (filtered.length === 0) return null;
     const dayMap: Record<string, { access: number; dl: number }> = {};
-    for (const a of analytics) {
+    for (const a of filtered) {
       const day = new Date(a.timestamp).toLocaleDateString("ja", {
         month: "short",
         day: "numeric",
@@ -183,18 +183,26 @@ export default function ChartJsAnalytics({ tenantId }: Props) {
         },
       ],
     };
-  }, [analytics]);
+  }, [filtered]);
 
-  // --- CM completion rate per event ---
+  // --- CM completion rate (filtered by selected event) ---
+  const filteredVideoPlays = useMemo(
+    () =>
+      selectedEventId === "all"
+        ? videoPlays
+        : videoPlays.filter((v) => v.eventId === selectedEventId),
+    [videoPlays, selectedEventId]
+  );
+
   const cmStats = useMemo(() => {
-    const completed = videoPlays.filter((v) => v.completed).length;
-    const cmTotal = videoPlays.length;
+    const completed = filteredVideoPlays.filter((v) => v.completed).length;
+    const cmTotal = filteredVideoPlays.length;
     return {
       total: cmTotal,
       completed,
       rate: cmTotal > 0 ? Math.round((completed / cmTotal) * 100) : 0,
     };
-  }, [videoPlays]);
+  }, [filteredVideoPlays]);
 
   return (
     <div className="space-y-6" data-testid="chartjs-analytics">

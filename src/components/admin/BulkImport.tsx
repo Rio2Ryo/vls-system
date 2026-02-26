@@ -67,34 +67,38 @@ export default function BulkImport({ onSave, tenantId }: { onSave: (msg: string)
     if (!parsed || !selectedEventId) return;
     const validRows = parsed.filter((r) => r.valid);
     if (validRows.length === 0) return;
-    const tenantId = typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") || undefined : undefined;
+    const tid = tenantId || undefined;
     const newParticipants: Participant[] = validRows.map((row) => ({
       id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       eventId: selectedEventId,
-      tenantId,
+      tenantId: tid,
       name: row.name,
       email: row.email || undefined,
       tags: row.tags ? row.tags.split(/[;|]/).map((t) => t.trim()).filter(Boolean) as InterestTag[] : undefined,
       registeredAt: Date.now(),
       checkedIn: false,
     }));
-    const updated = [...participants, ...newParticipants];
-    setStoredParticipants(updated);
-    setParticipants(updated);
+    // Merge with global store to avoid overwriting other tenants' data
+    const allParticipants = getStoredParticipants();
+    const updatedAll = [...allParticipants, ...newParticipants];
+    setStoredParticipants(updatedAll);
+    setParticipants(tenantId ? updatedAll.filter((p) => p.tenantId === tenantId) : updatedAll);
     setParsed(null);
     onSave(`${newParticipants.length}名の参加者をインポートしました`);
   };
 
   const handleDelete = (id: string) => {
-    const updated = participants.filter((p) => p.id !== id);
-    setStoredParticipants(updated);
-    setParticipants(updated);
+    const allParticipants = getStoredParticipants();
+    const updatedAll = allParticipants.filter((p) => p.id !== id);
+    setStoredParticipants(updatedAll);
+    setParticipants(tenantId ? updatedAll.filter((p) => p.tenantId === tenantId) : updatedAll);
   };
 
   const handleClearEvent = (eventId: string) => {
-    const updated = participants.filter((p) => p.eventId !== eventId);
-    setStoredParticipants(updated);
-    setParticipants(updated);
+    const allParticipants = getStoredParticipants();
+    const updatedAll = allParticipants.filter((p) => p.eventId !== eventId);
+    setStoredParticipants(updatedAll);
+    setParticipants(tenantId ? updatedAll.filter((p) => p.tenantId === tenantId) : updatedAll);
     onSave("イベントの参加者をクリアしました");
   };
 
