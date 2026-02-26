@@ -8,6 +8,8 @@ import { InvoiceData, InvoiceItem, Tenant } from "@/lib/types";
 import {
   getStoredTenants, getStoredEvents, getStoredAnalytics,
   getStoredInvoices, setStoredInvoices,
+  getEventsForTenant, getAnalyticsForTenant,
+  getInvoicesForTenant,
 } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
 
@@ -114,7 +116,7 @@ function generateInvoicePdf(invoice: InvoiceData, tenant: Tenant | undefined) {
   });
 }
 
-export default function InvoiceGenerator({ onSave }: { onSave: (msg: string) => void }) {
+export default function InvoiceGenerator({ onSave, tenantId }: { onSave: (msg: string) => void; tenantId?: string | null }) {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [creating, setCreating] = useState(false);
@@ -125,12 +127,12 @@ export default function InvoiceGenerator({ onSave }: { onSave: (msg: string) => 
   const priceRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setInvoices(getStoredInvoices());
+    setInvoices(tenantId ? getInvoicesForTenant(tenantId) : getStoredInvoices());
     setTenants(getStoredTenants());
-  }, []);
+  }, [tenantId]);
 
-  const events = getStoredEvents();
-  const analytics = getStoredAnalytics();
+  const events = tenantId ? getEventsForTenant(tenantId) : getStoredEvents();
+  const analytics = tenantId ? getAnalyticsForTenant(tenantId) : getStoredAnalytics();
 
   const startCreate = () => {
     setCreating(true);

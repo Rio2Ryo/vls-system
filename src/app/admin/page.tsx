@@ -17,6 +17,9 @@ import {
   getStoredVideoPlays,
   getStoredTenants,
   resetToDefaults,
+  getEventsForTenant,
+  getAnalyticsForTenant,
+  getVideoPlaysForTenant,
 } from "@/lib/store";
 import { getCMMatch } from "@/lib/matching";
 import { IS_DEMO_MODE } from "@/lib/demo";
@@ -236,14 +239,14 @@ export default function AdminPage() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
-            {tab === "dashboard" && <DashboardTab />}
-            {tab === "events" && <EventsTab onSave={(msg) => { showToast(msg); refreshEvents(); }} />}
-            {tab === "photos" && <PhotosTab onSave={(msg) => { showToast(msg); refreshEvents(); }} activeEventId={activeEventId} />}
+            {tab === "dashboard" && <DashboardTab tenantId={adminTenantId} />}
+            {tab === "events" && <EventsTab onSave={(msg) => { showToast(msg); refreshEvents(); }} tenantId={adminTenantId} />}
+            {tab === "photos" && <PhotosTab onSave={(msg) => { showToast(msg); refreshEvents(); }} activeEventId={activeEventId} tenantId={adminTenantId} />}
             {tab === "companies" && <CompaniesTab onSave={showToast} />}
-            {tab === "survey" && <SurveyTab onSave={showToast} activeEventId={activeEventId} activeEvent={activeEvent} />}
-            {tab === "import" && <BulkImport onSave={showToast} />}
-            {tab === "invoices" && <InvoiceGenerator onSave={showToast} />}
-            {tab === "funnel" && <FunnelAnalysisTab />}
+            {tab === "survey" && <SurveyTab onSave={showToast} activeEventId={activeEventId} activeEvent={activeEvent} tenantId={adminTenantId} />}
+            {tab === "import" && <BulkImport onSave={showToast} tenantId={adminTenantId} />}
+            {tab === "invoices" && <InvoiceGenerator onSave={showToast} tenantId={adminTenantId} />}
+            {tab === "funnel" && <FunnelAnalysisTab tenantId={adminTenantId} />}
             {tab === "chartjs" && <ChartJsAnalytics tenantId={adminTenantId} />}
             {tab === "licenses" && <LicenseBulkImport onSave={showToast} />}
             {tab === "tenants" && <TenantManager onSave={showToast} />}
@@ -444,7 +447,7 @@ function exportEventStatsCsv(
 }
 
 // ===== Dashboard =====
-function DashboardTab() {
+function DashboardTab({ tenantId }: { tenantId?: string | null }) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsRecord[]>([]);
@@ -452,11 +455,11 @@ function DashboardTab() {
   const [selectedEventFilter, setSelectedEventFilter] = useState<string>("all");
 
   useEffect(() => {
-    setEvents(getStoredEvents());
+    setEvents(tenantId ? getEventsForTenant(tenantId) : getStoredEvents());
     setCompanies(getStoredCompanies());
-    setAnalytics(getStoredAnalytics());
-    setVideoPlays(getStoredVideoPlays());
-  }, []);
+    setAnalytics(tenantId ? getAnalyticsForTenant(tenantId) : getStoredAnalytics());
+    setVideoPlays(tenantId ? getVideoPlaysForTenant(tenantId) : getStoredVideoPlays());
+  }, [tenantId]);
 
   const filteredAnalytics = selectedEventFilter === "all"
     ? analytics
@@ -606,7 +609,7 @@ function DashboardTab() {
                 <option key={evt.id} value={evt.id}>{evt.name}</option>
               ))}
             </select>
-            {!IS_DEMO_MODE && (
+            {!IS_DEMO_MODE && !tenantId && (
               <button
                 onClick={handleClearAnalytics}
                 className="text-[10px] text-red-400 hover:text-red-600"
@@ -810,7 +813,7 @@ function DashboardTab() {
 // ===== Events =====
 type EventSortKey = "default" | "date-desc" | "date-asc" | "name-asc" | "name-desc" | "photos-desc";
 
-function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
+function EventsTab({ onSave, tenantId }: { onSave: (msg: string) => void; tenantId?: string | null }) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
@@ -871,9 +874,9 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
   };
 
   useEffect(() => {
-    setEvents(getStoredEvents());
+    setEvents(tenantId ? getEventsForTenant(tenantId) : getStoredEvents());
     setCompanies(getStoredCompanies());
-  }, []);
+  }, [tenantId]);
 
   const startNew = () => {
     setEditing("__new__");
@@ -898,10 +901,12 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
     if (!form.name || !form.password) return;
     const slugVal = form.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") || undefined;
     const emailVal = form.notifyEmail.trim() || undefined;
-    let updated: EventData[];
+    const allEvents = getStoredEvents();
+    let newEvt: EventData | null = null;
+    let updatedAll: EventData[];
     if (editing === "__new__") {
-      const tenantId = typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") || undefined : undefined;
-      const newEvt: EventData = {
+      const tid = tenantId || undefined;
+      newEvt = {
         id: `evt-${Date.now()}`,
         name: form.name,
         date: form.date,
@@ -912,11 +917,11 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
         companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
         slug: slugVal,
         notifyEmail: emailVal,
-        tenantId,
+        tenantId: tid,
       };
-      updated = [...events, newEvt];
+      updatedAll = [...allEvents, newEvt];
     } else {
-      updated = events.map((e) =>
+      updatedAll = allEvents.map((e) =>
         e.id === editing
           ? {
               ...e,
@@ -932,16 +937,17 @@ function EventsTab({ onSave }: { onSave: (msg: string) => void }) {
           : e
       );
     }
-    setStoredEvents(updated);
-    setEvents(updated);
+    setStoredEvents(updatedAll);
+    setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
     setEditing(null);
     onSave("イベントを保存しました");
   };
 
   const remove = (id: string) => {
-    const updated = events.filter((e) => e.id !== id);
-    setStoredEvents(updated);
-    setEvents(updated);
+    const allEvents = getStoredEvents();
+    const updatedAll = allEvents.filter((e) => e.id !== id);
+    setStoredEvents(updatedAll);
+    setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
     onSave("イベントを削除しました");
   };
 
@@ -1345,7 +1351,7 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-function PhotosTab({ onSave, activeEventId }: { onSave: (msg: string) => void; activeEventId: string }) {
+function PhotosTab({ onSave, activeEventId, tenantId }: { onSave: (msg: string) => void; activeEventId: string; tenantId?: string | null }) {
   const [events, setEvts] = useState<EventData[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -1353,7 +1359,7 @@ function PhotosTab({ onSave, activeEventId }: { onSave: (msg: string) => void; a
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
-    const evts = getStoredEvents();
+    const evts = tenantId ? getEventsForTenant(tenantId) : getStoredEvents();
     setEvts(evts);
     // Use the global active event context
     if (activeEventId && evts.find((e) => e.id === activeEventId)) {
@@ -1361,7 +1367,7 @@ function PhotosTab({ onSave, activeEventId }: { onSave: (msg: string) => void; a
     } else if (evts.length > 0) {
       setSelectedEventId(evts[0].id);
     }
-  }, [activeEventId]);
+  }, [activeEventId, tenantId]);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
@@ -1720,7 +1726,7 @@ function CompaniesTab({ onSave }: { onSave: (msg: string) => void }) {
 }
 
 // ===== Survey =====
-function SurveyTab({ onSave, activeEventId, activeEvent }: { onSave: (msg: string) => void; activeEventId: string; activeEvent?: EventData }) {
+function SurveyTab({ onSave, activeEventId, activeEvent }: { onSave: (msg: string) => void; activeEventId: string; activeEvent?: EventData; tenantId?: string | null }) {
   const [survey, setSurvey] = useState<SurveyQuestion[]>([]);
   const [mode, setMode] = useState<"event" | "global">("event");
 
@@ -2582,15 +2588,15 @@ const TIER_BADGE_COLORS: Record<string, string> = {
 };
 
 // ===== Funnel Analysis =====
-function FunnelAnalysisTab() {
+function FunnelAnalysisTab({ tenantId }: { tenantId?: string | null }) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsRecord[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>("all");
 
   useEffect(() => {
-    setEvents(getStoredEvents());
-    setAnalytics(getStoredAnalytics());
-  }, []);
+    setEvents(tenantId ? getEventsForTenant(tenantId) : getStoredEvents());
+    setAnalytics(tenantId ? getAnalyticsForTenant(tenantId) : getStoredAnalytics());
+  }, [tenantId]);
 
   const filtered = selectedEventId === "all"
     ? analytics

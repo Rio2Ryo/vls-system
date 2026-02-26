@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { EventData, Participant, InterestTag } from "@/lib/types";
-import { getStoredEvents, getStoredParticipants, setStoredParticipants } from "@/lib/store";
+import { getStoredEvents, getStoredParticipants, setStoredParticipants, getEventsForTenant, getParticipantsForTenant } from "@/lib/store";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
 
@@ -40,7 +40,7 @@ function parseCSV(text: string): ParsedRow[] {
   });
 }
 
-export default function BulkImport({ onSave }: { onSave: (msg: string) => void }) {
+export default function BulkImport({ onSave, tenantId }: { onSave: (msg: string) => void; tenantId?: string | null }) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
@@ -48,9 +48,9 @@ export default function BulkImport({ onSave }: { onSave: (msg: string) => void }
   const [filterEvent, setFilterEvent] = useState("all");
 
   useEffect(() => {
-    setEvents(getStoredEvents());
-    setParticipants(getStoredParticipants());
-  }, []);
+    setEvents(tenantId ? getEventsForTenant(tenantId) : getStoredEvents());
+    setParticipants(tenantId ? getParticipantsForTenant(tenantId) : getStoredParticipants());
+  }, [tenantId]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
