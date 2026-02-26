@@ -136,7 +136,7 @@ export default function InvoiceGenerator({ onSave, tenantId }: { onSave: (msg: s
 
   const startCreate = () => {
     setCreating(true);
-    setForm({ tenantId: "", notes: "", taxRate: 10 });
+    setForm({ tenantId: tenantId || "", notes: "", taxRate: 10 });
     setItems([]);
   };
 
@@ -251,12 +251,16 @@ export default function InvoiceGenerator({ onSave, tenantId }: { onSave: (msg: s
           <div className="space-y-3">
             <div>
               <label className="text-xs text-gray-500 block mb-1">請求先テナント</label>
-              <select className={inputCls} value={form.tenantId} onChange={(e) => setForm({ ...form, tenantId: e.target.value })} data-testid="invoice-tenant-select">
-                <option value="">テナントを選択...</option>
-                {tenants.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.plan})</option>
-                ))}
-              </select>
+              {tenantId ? (
+                <input className={inputCls} value={tenants.find((t) => t.id === tenantId)?.name || tenantId} disabled />
+              ) : (
+                <select className={inputCls} value={form.tenantId} onChange={(e) => setForm({ ...form, tenantId: e.target.value })} data-testid="invoice-tenant-select">
+                  <option value="">テナントを選択...</option>
+                  {tenants.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.plan})</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {form.tenantId && (

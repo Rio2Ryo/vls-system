@@ -16,11 +16,13 @@ import {
   getStoredAnalytics, clearAnalytics,
   getStoredVideoPlays,
   getStoredTenants,
+  getStoredNotificationLog,
   resetToDefaults,
   getEventsForTenant,
   getAnalyticsForTenant,
   getVideoPlaysForTenant,
 } from "@/lib/store";
+import { NotificationLog } from "@/lib/types";
 import { getCMMatch } from "@/lib/matching";
 import { IS_DEMO_MODE } from "@/lib/demo";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -31,7 +33,7 @@ import ChartJsAnalytics from "@/components/admin/ChartJsAnalytics";
 import LicenseBulkImport from "@/components/admin/LicenseBulkImport";
 // checkLicenseExpiry is used in TenantManager component
 
-type Tab = "events" | "photos" | "companies" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "chartjs" | "licenses";
+type Tab = "events" | "photos" | "companies" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "chartjs" | "licenses" | "notifications";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -96,11 +98,17 @@ export default function AdminPage() {
       const tenants = getStoredTenants();
       const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
       if (tenant) {
-        setAuthed(true);
-        setAdminTenantId(tenant.id);
-        setAdminTenantName(tenant.name);
-        sessionStorage.setItem("adminAuthed", "true");
-        sessionStorage.setItem("adminTenantId", tenant.id);
+        if (tenant.isActive === false) {
+          setPwError("このテナントは無効化されています");
+        } else if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) {
+          setPwError("ライセンスが期限切れです。管理者にお問い合わせください");
+        } else {
+          setAuthed(true);
+          setAdminTenantId(tenant.id);
+          setAdminTenantName(tenant.name);
+          sessionStorage.setItem("adminAuthed", "true");
+          sessionStorage.setItem("adminTenantId", tenant.id);
+        }
       } else {
         setPwError("パスワードが違います");
       }
@@ -145,6 +153,7 @@ export default function AdminPage() {
     { key: "chartjs", label: "Chart.js分析", icon: "📈" },
     { key: "licenses", label: "ライセンス管理", icon: "🔑", superOnly: true },
     { key: "tenants", label: "テナント管理", icon: "🏫", superOnly: true },
+    { key: "notifications", label: "通知ログ", icon: "🔔", superOnly: true },
     { key: "storage", label: "R2ストレージ", icon: "☁️", demoHidden: true, superOnly: true },
     { key: "matching", label: "マッチングテスト", icon: "🎯", demoHidden: true },
   ];
@@ -250,6 +259,7 @@ export default function AdminPage() {
             {tab === "chartjs" && <ChartJsAnalytics tenantId={adminTenantId} />}
             {tab === "licenses" && <LicenseBulkImport onSave={showToast} />}
             {tab === "tenants" && <TenantManager onSave={showToast} />}
+            {tab === "notifications" && <NotificationLogTab />}
             {tab === "storage" && <StorageTab onSave={showToast} />}
             {tab === "matching" && <MatchingDebugTab />}
           </motion.div>
@@ -878,7 +888,12 @@ function EventsTab({ onSave, tenantId }: { onSave: (msg: string) => void; tenant
     setCompanies(getStoredCompanies());
   }, [tenantId]);
 
+  // maxEvents enforcement for tenant
+  const tenantInfo = tenantId ? getStoredTenants().find((t) => t.id === tenantId) : null;
+  const maxEventsReached = tenantInfo?.maxEvents ? events.length >= tenantInfo.maxEvents : false;
+
   const startNew = () => {
+    if (maxEventsReached) return;
     setEditing("__new__");
     setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [], slug: "", notifyEmail: "" });
   };
@@ -1058,9 +1073,21 @@ function EventsTab({ onSave, tenantId }: { onSave: (msg: string) => void; tenant
           >
             {pdfGenerating ? "PDF生成中..." : `QR一括PDF (${events.length}件)`}
           </button>
-          {!IS_DEMO_MODE && <Button size="sm" onClick={startNew}>+ 新規作成</Button>}
+          {!IS_DEMO_MODE && (
+            <Button size="sm" onClick={startNew} disabled={maxEventsReached}>
+              + 新規作成{maxEventsReached ? ` (上限${tenantInfo?.maxEvents}件)` : ""}
+            </Button>
+          )}
         </div>
       </div>
+
+      {maxEventsReached && (
+        <Card>
+          <p className="text-xs text-yellow-600 text-center">
+            イベント上限（{tenantInfo?.maxEvents}件）に達しています。プランのアップグレードをご検討ください。
+          </p>
+        </Card>
+      )}
 
       {/* Sort & Filter bar */}
       <Card>
@@ -3033,6 +3060,115 @@ function MatchingDebugTab() {
             </div>
           </Card>
         </>
+      )}
+    </div>
+  );
+}
+
+// ===== Notification Log =====
+const NOTIF_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  registration: { label: "参加通知", color: "bg-blue-100 text-blue-700" },
+  cm_complete: { label: "CM完了", color: "bg-green-100 text-green-700" },
+  license_expiry: { label: "期限通知", color: "bg-yellow-100 text-yellow-700" },
+};
+
+const NOTIF_STATUS_COLORS: Record<string, string> = {
+  sent: "text-green-600",
+  failed: "text-red-600",
+  logged: "text-gray-500",
+};
+
+function NotificationLogTab() {
+  const [logs, setLogs] = useState<NotificationLog[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+
+  useEffect(() => {
+    setLogs(getStoredNotificationLog());
+  }, []);
+
+  const filtered = typeFilter === "all" ? logs : logs.filter((l) => l.type === typeFilter);
+  const sorted = [...filtered].sort((a, b) => b.timestamp - a.timestamp);
+
+  const typeCounts = {
+    registration: logs.filter((l) => l.type === "registration").length,
+    cm_complete: logs.filter((l) => l.type === "cm_complete").length,
+    license_expiry: logs.filter((l) => l.type === "license_expiry").length,
+  };
+
+  return (
+    <div className="space-y-4" data-testid="admin-notifications">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold text-gray-800">通知ログ</h2>
+        <div className="flex items-center gap-2">
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF]"
+          >
+            <option value="all">全タイプ ({logs.length}件)</option>
+            <option value="registration">参加通知 ({typeCounts.registration})</option>
+            <option value="cm_complete">CM完了 ({typeCounts.cm_complete})</option>
+            <option value="license_expiry">期限通知 ({typeCounts.license_expiry})</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-3">
+        {Object.entries(typeCounts).map(([type, count]) => {
+          const info = NOTIF_TYPE_LABELS[type] || { label: type, color: "bg-gray-100 text-gray-600" };
+          return (
+            <Card key={type} className="text-center">
+              <p className="text-2xl font-bold text-gray-800">{count}</p>
+              <p className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-1 ${info.color}`}>{info.label}</p>
+            </Card>
+          );
+        })}
+      </div>
+
+      {sorted.length === 0 ? (
+        <Card>
+          <p className="text-sm text-gray-400 text-center py-6">通知ログがありません</p>
+        </Card>
+      ) : (
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs" data-testid="notification-log-table">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="p-2 text-left">日時</th>
+                  <th className="p-2 text-center">タイプ</th>
+                  <th className="p-2 text-left">宛先</th>
+                  <th className="p-2 text-left">件名</th>
+                  <th className="p-2 text-center">状態</th>
+                  <th className="p-2 text-center">送信方法</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((log) => {
+                  const typeInfo = NOTIF_TYPE_LABELS[log.type] || { label: log.type, color: "bg-gray-100 text-gray-600" };
+                  const dt = new Date(log.timestamp);
+                  const dateStr = `${dt.getFullYear()}/${String(dt.getMonth() + 1).padStart(2, "0")}/${String(dt.getDate()).padStart(2, "0")} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+                  return (
+                    <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                      <td className="p-2 text-gray-500 font-mono whitespace-nowrap">{dateStr}</td>
+                      <td className="p-2 text-center">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${typeInfo.color}`}>{typeInfo.label}</span>
+                      </td>
+                      <td className="p-2 text-gray-600 max-w-[160px] truncate">{log.to}</td>
+                      <td className="p-2 text-gray-700 max-w-[240px] truncate" title={log.subject}>{log.subject}</td>
+                      <td className={`p-2 text-center font-bold ${NOTIF_STATUS_COLORS[log.status] || "text-gray-500"}`}>
+                        {log.status === "sent" ? "送信済" : log.status === "failed" ? "失敗" : "記録済"}
+                      </td>
+                      <td className="p-2 text-center text-gray-400">{log.method || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-gray-300 mt-2 text-right">最新200件を表示</p>
+        </Card>
       )}
     </div>
   );
