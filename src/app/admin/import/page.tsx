@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import AdminHeader from "@/components/admin/AdminHeader";
-import { ADMIN_PASSWORD } from "@/lib/data";
 import {
   getStoredEvents, setStoredEvents, getStoredParticipants, setStoredParticipants,
-  getStoredTenants, getEventsForTenant, getParticipantsForTenant,
+  getEventsForTenant, getParticipantsForTenant,
+  getStoredCompanies, setStoredCompanies,
 } from "@/lib/store";
-import { EventData, Participant, InterestTag } from "@/lib/types";
+import { EventData, Participant, InterestTag, Company, CompanyTier } from "@/lib/types";
 import { IS_DEMO_MODE } from "@/lib/demo";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
@@ -80,13 +81,50 @@ function parseEventCSV(text: string): ParsedEventRow[] {
   });
 }
 
-type ImportMode = "participants" | "events";
+// --- Company CSV ---
+const VALID_TIERS = ["platinum", "gold", "silver", "bronze"] as const;
+
+interface ParsedCompanyRow {
+  name: string;
+  tier: string;
+  tags: string;
+  cm15: string;
+  cm30: string;
+  cm60: string;
+  offerText: string;
+  offerUrl: string;
+  couponCode: string;
+  valid: boolean;
+  error?: string;
+}
+
+function parseCompanyCSV(text: string): ParsedCompanyRow[] {
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return [];
+  return lines.slice(1).map((line) => {
+    const cols = parseCSVLine(line);
+    const name = cols[0] || "";
+    const tier = cols[1] || "";
+    const tags = cols[2] || "";
+    const cm15 = cols[3] || "";
+    const cm30 = cols[4] || "";
+    const cm60 = cols[5] || "";
+    const offerText = cols[6] || "";
+    const offerUrl = cols[7] || "";
+    const couponCode = cols[8] || "";
+    const base = { name, tier, tags, cm15, cm30, cm60, offerText, offerUrl, couponCode };
+    if (!name) return { ...base, valid: false, error: "企業名が空です" };
+    if (!VALID_TIERS.includes(tier as CompanyTier))
+      return { ...base, valid: false, error: "tierはplatinum/gold/silver/bronzeのいずれか" };
+    if (!offerText) return { ...base, valid: false, error: "offerTextが空です" };
+    return { ...base, valid: true };
+  });
+}
+
+type ImportMode = "participants" | "events" | "companies";
 
 export default function ImportPage() {
-  const [authed, setAuthed] = useState(false);
-  const [pw, setPw] = useState("");
-  const [pwError, setPwError] = useState("");
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const { data: session, status } = useSession();
   const [toast, setToast] = useState("");
 
   const [mode, setMode] = useState<ImportMode>("participants");
@@ -100,7 +138,13 @@ export default function ImportPage() {
   // Event import state
   const [parsedEvents, setParsedEvents] = useState<ParsedEventRow[] | null>(null);
 
+  // Company import state
+  const [parsedCompanies, setParsedCompanies] = useState<ParsedCompanyRow[] | null>(null);
+  const [companies, setLocalCompanies] = useState<Company[]>([]);
+
   const [filterEvent, setFilterEvent] = useState("all");
+
+  const tenantId = session?.user?.tenantId ?? (typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") : null) ?? null;
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -108,41 +152,12 @@ export default function ImportPage() {
   }, []);
 
   const reload = useCallback(() => {
-    const tid = typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") || null : null;
-    setTenantId(tid);
-    setEvents(tid ? getEventsForTenant(tid) : getStoredEvents());
-    setParticipants(tid ? getParticipantsForTenant(tid) : getStoredParticipants());
-  }, []);
+    setEvents(tenantId ? getEventsForTenant(tenantId) : getStoredEvents());
+    setParticipants(tenantId ? getParticipantsForTenant(tenantId) : getStoredParticipants());
+    setLocalCompanies(getStoredCompanies());
+  }, [tenantId]);
 
-  useEffect(() => { reload(); }, [reload]);
-
-  useEffect(() => {
-    if (sessionStorage.getItem("adminAuthed") === "true") setAuthed(true);
-  }, []);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pw === ADMIN_PASSWORD) {
-      setAuthed(true);
-      sessionStorage.setItem("adminAuthed", "true");
-      sessionStorage.removeItem("adminTenantId");
-    } else {
-      const tenants = getStoredTenants();
-      const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
-      if (tenant) {
-        if (tenant.isActive === false) { setPwError("このテナントは無効化されています"); return; }
-        if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) {
-          setPwError("ライセンスが期限切れです"); return;
-        }
-        setAuthed(true);
-        sessionStorage.setItem("adminAuthed", "true");
-        sessionStorage.setItem("adminTenantId", tenant.id);
-        setTenantId(tenant.id);
-      } else {
-        setPwError("パスワードが違います");
-      }
-    }
-  };
+  useEffect(() => { if (status === "authenticated") reload(); }, [status, reload]);
 
   // --- Participant file upload ---
   const handleParticipantFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,6 +223,42 @@ export default function ImportPage() {
     showToast(`${newEvents.length}件のイベントをインポートしました`);
   };
 
+  // --- Company file upload ---
+  const handleCompanyFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setParsedCompanies(parseCompanyCSV(ev.target?.result as string));
+    reader.readAsText(file);
+  };
+
+  const handleImportCompanies = () => {
+    if (!parsedCompanies) return;
+    const validRows = parsedCompanies.filter((r) => r.valid);
+    if (validRows.length === 0) return;
+    const newCompanies: Company[] = validRows.map((row) => ({
+      id: `co-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: row.name,
+      logoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(row.name.slice(0, 2))}&background=6EC6FF&color=fff&size=80&rounded=true`,
+      tier: row.tier as CompanyTier,
+      tags: row.tags ? row.tags.split(";").map((t) => t.trim()).filter(Boolean) as InterestTag[] : [],
+      videos: {
+        cm15: row.cm15,
+        cm30: row.cm30,
+        cm60: row.cm60,
+      },
+      offerText: row.offerText,
+      offerUrl: row.offerUrl,
+      couponCode: row.couponCode || undefined,
+    }));
+    const allCompanies = getStoredCompanies();
+    const updatedAll = [...allCompanies, ...newCompanies];
+    setStoredCompanies(updatedAll);
+    setLocalCompanies(updatedAll);
+    setParsedCompanies(null);
+    showToast(`${newCompanies.length}社の企業をインポートしました`);
+  };
+
   // --- Delete handlers ---
   const handleDeleteParticipant = (id: string) => {
     const allP = getStoredParticipants();
@@ -227,6 +278,13 @@ export default function ImportPage() {
     downloadCSV(csv, "events_template.csv");
   };
 
+  const exportCompanyTemplate = () => {
+    const csv = "\uFEFFname,tier,tags,cm15,cm30,cm60,offerText,offerUrl,couponCode\n" +
+      "サンプル企業A,gold,education;sports,dQw4w9WgXcQ,dQw4w9WgXcQ,dQw4w9WgXcQ,特別割引10%OFF,https://example.com,SAMPLE10\n" +
+      "サンプル企業B,silver,technology;art,,,,,https://example.com,\n";
+    downloadCSV(csv, "companies_template.csv");
+  };
+
   const exportParticipants = () => {
     const target = filterEvent === "all" ? participants : participants.filter((p) => p.eventId === filterEvent);
     if (target.length === 0) return;
@@ -243,21 +301,21 @@ export default function ImportPage() {
     ? participants
     : participants.filter((p) => p.eventId === filterEvent);
 
-  // --- Login screen ---
-  if (!authed) {
+  if (status === "loading") {
     return (
       <main className="min-h-screen flex items-center justify-center p-6">
-        <Card className="w-full max-w-sm">
-          <h1 className="text-xl font-bold text-gray-800 text-center mb-4">CSVインポート</h1>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input type="password" value={pw} onChange={(e) => setPw(e.target.value)}
-              placeholder="管理パスワード"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-center"
-              data-testid="import-password" />
-            {pwError && <p className="text-red-400 text-sm text-center">{pwError}</p>}
-            <Button type="submit" size="md" className="w-full">ログイン</Button>
-          </form>
-        </Card>
+        <div className="text-center">
+          <div className="inline-flex items-center gap-1.5 mb-3">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-2.5 h-2.5 rounded-full bg-[#6EC6FF] animate-bounce"
+                style={{ animationDelay: `${i * 0.15}s` }}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-gray-400">インポート画面を読み込み中...</p>
+        </div>
       </main>
     );
   }
@@ -267,7 +325,7 @@ export default function ImportPage() {
       <AdminHeader
         title={IS_DEMO_MODE ? "CSVインポート (Demo)" : "CSVインポート"}
         badge={`${participants.length}名登録済`}
-        onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
+        onLogout={() => { sessionStorage.removeItem("adminTenantId"); signOut({ redirect: false }); }}
       />
 
       {/* Toast */}
@@ -295,6 +353,14 @@ export default function ImportPage() {
             }`}
           >
             イベントインポート
+          </button>
+          <button
+            onClick={() => setMode("companies")}
+            className={`text-sm px-4 py-2 rounded-xl font-medium transition-colors ${
+              mode === "companies" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            企業インポート
           </button>
         </div>
 
@@ -535,6 +601,125 @@ export default function ImportPage() {
               )}
             </div>
           </Card>
+        )}
+        {/* === Company Import === */}
+        {mode === "companies" && (
+          <>
+            <Card>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-gray-700">企業CSVインポート</h3>
+                <button onClick={exportCompanyTemplate} className="text-xs px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium">
+                  CSVテンプレート
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mb-3">CSV形式: name,tier,tags,cm15,cm30,cm60,offerText,offerUrl,couponCode (tagsはセミコロン区切り)</p>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">CSVファイル</label>
+                <input type="file" accept=".csv" onChange={handleCompanyFile} className="text-sm" />
+              </div>
+
+              {/* Preview table */}
+              {parsedCompanies && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-bold text-gray-600">
+                      プレビュー: {parsedCompanies.filter((r) => r.valid).length}/{parsedCompanies.length} 件有効
+                    </p>
+                    {parsedCompanies.some((r) => !r.valid) && (
+                      <span className="text-xs text-red-500 font-bold">
+                        {parsedCompanies.filter((r) => !r.valid).length}件エラー
+                      </span>
+                    )}
+                  </div>
+                  <div className="max-h-60 overflow-y-auto border rounded-lg">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-gray-50 border-b sticky top-0">
+                          <th className="p-2 text-left text-gray-500">行</th>
+                          <th className="p-2 text-left text-gray-500">企業名</th>
+                          <th className="p-2 text-left text-gray-500">ティア</th>
+                          <th className="p-2 text-left text-gray-500">タグ</th>
+                          <th className="p-2 text-left text-gray-500">offerText</th>
+                          <th className="p-2 text-center text-gray-500">状態</th>
+                          <th className="p-2 text-left text-gray-500">エラー</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parsedCompanies.map((row, i) => (
+                          <tr key={i} className={`border-b ${row.valid ? "hover:bg-gray-50" : "bg-red-50 border-red-100"}`}>
+                            <td className="p-2 text-gray-400">{i + 2}</td>
+                            <td className={`p-2 ${row.valid ? "" : "text-red-600 font-bold"}`}>{row.name || "—"}</td>
+                            <td className="p-2 text-gray-500">{row.tier || "—"}</td>
+                            <td className="p-2 text-gray-500">{row.tags || "—"}</td>
+                            <td className="p-2 text-gray-500">{row.offerText || "—"}</td>
+                            <td className="p-2 text-center">
+                              {row.valid
+                                ? <span className="text-green-500 font-bold">OK</span>
+                                : <span className="text-red-500 font-bold">NG</span>}
+                            </td>
+                            <td className="p-2 text-red-400 text-[10px]">{row.error || ""}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <Button size="sm" onClick={handleImportCompanies}
+                      disabled={!parsedCompanies.some((r) => r.valid)}>
+                      {parsedCompanies.filter((r) => r.valid).length}社をインポート
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setParsedCompanies(null)}>キャンセル</Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Existing companies list */}
+            <Card>
+              <h3 className="font-bold text-gray-700 mb-3">登録済み企業 ({companies.length}社)</h3>
+              {companies.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">企業がありません</p>
+              ) : (
+                <div className="max-h-80 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50 sticky top-0">
+                        <th className="p-2 text-left">企業名</th>
+                        <th className="p-2 text-center">ティア</th>
+                        <th className="p-2 text-center">タグ数</th>
+                        <th className="p-2 text-center">CM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {companies.map((co) => (
+                        <tr key={co.id} className="border-b border-gray-50 hover:bg-gray-50">
+                          <td className="p-2 font-medium">{co.name}</td>
+                          <td className="p-2 text-center">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                              co.tier === "platinum" ? "bg-purple-50 text-purple-600" :
+                              co.tier === "gold" ? "bg-yellow-50 text-yellow-600" :
+                              co.tier === "silver" ? "bg-gray-100 text-gray-600" :
+                              "bg-orange-50 text-orange-600"
+                            }`}>{co.tier}</span>
+                          </td>
+                          <td className="p-2 text-center">
+                            {co.tags.length > 0
+                              ? <span className="text-[10px] bg-blue-50 text-blue-500 px-1 rounded">{co.tags.length}</span>
+                              : "—"}
+                          </td>
+                          <td className="p-2 text-center">
+                            {co.videos.cm15 || co.videos.cm30 || co.videos.cm60
+                              ? <span className="text-green-500 text-[10px] font-bold">設定済</span>
+                              : <span className="text-gray-400 text-[10px]">未設定</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </>
         )}
       </div>
     </main>
