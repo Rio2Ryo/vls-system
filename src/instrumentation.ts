@@ -1,4 +1,9 @@
 export async function register() {
-  // Lightweight error logging — no external SDK needed.
-  // Errors are captured via captureError() → /api/errors → D1.
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("../sentry.server.config");
+  }
+
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("../sentry.edge.config");
+  }
 }

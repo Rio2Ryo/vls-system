@@ -229,6 +229,35 @@
 
 ---
 
+## 7. Sentryエラー監視 (完了)
+
+### インストール
+- `@sentry/nextjs` v10.40 — `npm install @sentry/nextjs`
+
+### 新規ファイル
+| ファイル | 内容 |
+|----------|------|
+| `sentry.client.config.ts` | Sentry.init (DSN, tracesSampleRate: 0.1, replaysOnErrorSampleRate: 1.0) |
+| `sentry.server.config.ts` | Sentry.init (DSN, tracesSampleRate: 0.1) |
+| `sentry.edge.config.ts` | Sentry.init (DSN, tracesSampleRate: 0.1) |
+
+### 既存ファイル変更
+| ファイル | 変更内容 |
+|----------|----------|
+| `next.config.mjs` | `withSentryConfig` ラッパー、`/monitoring` tunnel route、source map非公開 |
+| `src/instrumentation.ts` | `NEXT_RUNTIME` 別に sentry.server / sentry.edge を動的import |
+| `src/app/error.tsx` | `Sentry.captureException(error)` 追加 (既存D1ログと併用) |
+| `src/app/global-error.tsx` | `Sentry.captureException(error)` 追加 (既存D1ログと併用) |
+
+### 設計方針
+- **DSN未設定時**: `if (dsn)` ガードで自動無効化 → バンドルは含まれるがSentry通信なし
+- **D1エラーログと併用**: Sentry=外部通知+パフォーマンス監視、D1=管理画面内エラー閲覧
+- **Source map**: `SENTRY_AUTH_TOKEN` 未設定時はWebpackプラグイン無効化 (ビルドエラー回避)
+- **バンドル影響**: First Load JS +74KB (88→162KB)、Middleware +60KB (47→107KB)
+- **要対応**: 本番有効化には `vercel env add NEXT_PUBLIC_SENTRY_DSN` が必要
+
+---
+
 ## Priority Improvements — 進捗トラッカー
 
 ### HIGH — 本番ブロッカー
@@ -248,14 +277,15 @@
 - [x] L2. アクセシビリティ (ARIA属性, focus-visible, キーボードナビ, SkipToContent, sr-only)
 - [ ] L3. 実CM動画 — YouTube IDがハードコード（Rick Astley等）。実スポンサーCM動画への差替え
 - [ ] L4. 実企業ロゴ — 全ロゴが ui-avatars.com テキストアイコン。実ロゴ画像への差替え
-- [ ] **L5. Sentryエラー監視 (次タスク)**
-  1. `npm install @sentry/nextjs`
-  2. `sentry.client.config.ts` 作成 (Sentry.init with DSN, tracesSampleRate)
-  3. `sentry.server.config.ts` / `sentry.edge.config.ts` 作成
-  4. `next.config.mjs` に `withSentryConfig` ラッパー追加
-  5. `SENTRY_DSN` 環境変数を `vercel env add` で設定
-  6. `error.tsx` / `global-error.tsx` に `Sentry.captureException()` 追加
-  7. 既存D1エラーログ (`captureError()`) と併用 — Sentry=外部通知、D1=管理画面内閲覧
+- [x] **L5. Sentryエラー監視**
+  - `@sentry/nextjs` v10 インストール
+  - `sentry.client.config.ts` / `sentry.server.config.ts` / `sentry.edge.config.ts` 作成
+  - `next.config.mjs` に `withSentryConfig` ラッパー + `/monitoring` tunnel route
+  - `instrumentation.ts` でランタイム別初期化 (nodejs / edge)
+  - `error.tsx` / `global-error.tsx` に `Sentry.captureException()` 追加
+  - 既存D1エラーログ (`captureError()`) と併用 — Sentry=外部通知、D1=管理画面内閲覧
+  - DSN未設定時は自動無効化 (`if (dsn)` ガード)
+  - **要対応**: `NEXT_PUBLIC_SENTRY_DSN` を `vercel env add` で設定
 
 ### LONG-TERM — アーキテクチャ
 - [x] A1. DB移行 → Cloudflare D1 (localStorage + D1永続化)
