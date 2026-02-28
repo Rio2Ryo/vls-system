@@ -3,6 +3,34 @@ import { getCsrfToken } from "@/lib/csrf";
 
 export const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
 
+/**
+ * Extract YouTube video ID from a URL or return the input as-is if it's already an ID.
+ * Supports: youtube.com/watch?v=, youtu.be/, youtube.com/embed/, youtube.com/shorts/
+ */
+export function extractYouTubeId(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  // Already an 11-char ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    // youtube.com/watch?v=xxx
+    if (url.hostname.includes("youtube.com") && url.searchParams.has("v")) {
+      return url.searchParams.get("v") || trimmed;
+    }
+    // youtu.be/xxx
+    if (url.hostname === "youtu.be" && url.pathname.length > 1) {
+      return url.pathname.slice(1).split("/")[0];
+    }
+    // youtube.com/embed/xxx or youtube.com/shorts/xxx
+    const embedMatch = url.pathname.match(/^\/(embed|shorts)\/([a-zA-Z0-9_-]{11})/);
+    if (embedMatch) return embedMatch[2];
+  } catch {
+    // Not a URL — return as-is for downstream validation
+  }
+  return trimmed;
+}
+
 export const TIER_COLORS: Record<string, string> = {
   platinum: "bg-blue-100 text-blue-700",
   gold: "bg-yellow-100 text-yellow-700",

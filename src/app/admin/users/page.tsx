@@ -263,6 +263,7 @@ export default function UsersPage() {
                 placeholder="名前・イベントで検索"
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
+                aria-label="ユーザーを名前またはイベントで検索"
                 data-testid="users-filter-text"
               />
               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm pointer-events-none">
@@ -272,7 +273,8 @@ export default function UsersPage() {
             <select
               value={filterEvent}
               onChange={(e) => setFilterEvent(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200"
+              aria-label="イベントフィルター"
+              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] text-xs text-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200"
               data-testid="users-event-filter"
             >
               <option value="all">全イベント</option>
@@ -283,7 +285,8 @@ export default function UsersPage() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200"
+              aria-label="並び替え"
+              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] text-xs text-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200"
               data-testid="users-sort-select"
             >
               <option value="date-desc">日付: 新しい順</option>
@@ -294,7 +297,8 @@ export default function UsersPage() {
             </select>
             <button
               onClick={exportCsv}
-              className="text-xs px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium"
+              aria-label="ユーザーデータをCSVエクスポート"
+              className="text-xs px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
             >
               CSVエクスポート
             </button>
@@ -328,7 +332,9 @@ export default function UsersPage() {
                   {/* Header row */}
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                    className="w-full text-left"
+                    aria-expanded={isExpanded}
+                    aria-label={`${r.respondentName || "匿名ユーザー"}の詳細を${isExpanded ? "閉じる" : "開く"}`}
+                    className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded-xl"
                   >
                     <div className="flex items-center gap-3">
                       {/* Avatar */}

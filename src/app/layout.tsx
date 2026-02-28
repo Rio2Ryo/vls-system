@@ -3,6 +3,7 @@ import AuthProvider from "@/components/providers/SessionProvider";
 import DbSyncProvider from "@/components/providers/DbSyncProvider";
 import TenantBrandingProvider from "@/components/providers/TenantBrandingProvider";
 import DarkModeProvider from "@/components/providers/DarkModeProvider";
+import SkipToContent from "@/components/ui/SkipToContent";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -49,10 +50,11 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className="min-h-screen antialiased">
+        <SkipToContent />
         <AuthProvider>
           <DbSyncProvider>
             <DarkModeProvider>
-              <TenantBrandingProvider>{children}</TenantBrandingProvider>
+              <TenantBrandingProvider><div id="main-content">{children}</div></TenantBrandingProvider>
             </DarkModeProvider>
           </DbSyncProvider>
         </AuthProvider>

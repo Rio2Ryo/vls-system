@@ -6,7 +6,7 @@ import Card from "@/components/ui/Card";
 import { Company, CompanyTier, InterestTag } from "@/lib/types";
 import { getStoredCompanies, setStoredCompanies } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
-import { inputCls, TIER_COLORS, uploadFileToR2, readAsDataUrl } from "./adminUtils";
+import { inputCls, TIER_COLORS, uploadFileToR2, readAsDataUrl, extractYouTubeId } from "./adminUtils";
 
 interface Props {
   onSave: (msg: string) => void;
@@ -166,9 +166,9 @@ export default function CompaniesTab({ onSave }: Props) {
             <input className={inputCls} placeholder="タグ（カンマ区切り: education, sports）" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} data-testid="company-tags-input" />
             <div className="border border-gray-100 rounded-xl p-3 space-y-2">
               <p className="text-xs font-bold text-gray-500">CM動画 YouTube ID</p>
-              <input className={inputCls + " font-mono"} placeholder="15秒CM（例: dQw4w9WgXcQ）" value={form.cm15} onChange={(e) => setForm({ ...form, cm15: e.target.value })} data-testid="company-cm15-input" />
-              <input className={inputCls + " font-mono"} placeholder="30秒CM" value={form.cm30} onChange={(e) => setForm({ ...form, cm30: e.target.value })} data-testid="company-cm30-input" />
-              <input className={inputCls + " font-mono"} placeholder="60秒CM" value={form.cm60} onChange={(e) => setForm({ ...form, cm60: e.target.value })} data-testid="company-cm60-input" />
+              <input className={inputCls + " font-mono"} placeholder="15秒CM（YouTube URLまたはID）" value={form.cm15} onChange={(e) => setForm({ ...form, cm15: extractYouTubeId(e.target.value) })} data-testid="company-cm15-input" />
+              <input className={inputCls + " font-mono"} placeholder="30秒CM（YouTube URLまたはID）" value={form.cm30} onChange={(e) => setForm({ ...form, cm30: extractYouTubeId(e.target.value) })} data-testid="company-cm30-input" />
+              <input className={inputCls + " font-mono"} placeholder="60秒CM（YouTube URLまたはID）" value={form.cm60} onChange={(e) => setForm({ ...form, cm60: extractYouTubeId(e.target.value) })} data-testid="company-cm60-input" />
             </div>
             <input className={inputCls} placeholder="オファーテキスト" value={form.offerText} onChange={(e) => setForm({ ...form, offerText: e.target.value })} />
             <input className={inputCls} placeholder="オファーURL" value={form.offerUrl} onChange={(e) => setForm({ ...form, offerUrl: e.target.value })} />

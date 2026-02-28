@@ -191,12 +191,14 @@ export default function EventsPage() {
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 border-b border-blue-100 dark:border-gray-700 px-6 py-2">
           <div className="max-w-6xl mx-auto flex items-center gap-3">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">操作対象:</span>
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5" role="radiogroup" aria-label="操作対象イベント">
               {events.map((evt) => (
                 <button
                   key={evt.id}
+                  role="radio"
+                  aria-checked={activeEventId === evt.id}
                   onClick={() => setActiveEventId(evt.id)}
-                  className={`text-xs px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition-colors ${
+                  className={`text-xs px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
                     activeEventId === evt.id
                       ? "bg-[#6EC6FF] text-white shadow-sm"
                       : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
@@ -220,6 +222,8 @@ export default function EventsPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               className="px-4 py-2 rounded-xl bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm text-center"
+              role="status"
+              aria-live="polite"
             >
               {toast}
             </motion.div>
@@ -365,9 +369,9 @@ export default function EventsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                      <button onClick={() => setActiveEventId(evt.id)} className="text-xs text-[#6EC6FF] hover:underline">選択</button>
-                      {!IS_DEMO_MODE && <button onClick={() => startEdit(evt)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>}
-                      {!IS_DEMO_MODE && <button onClick={() => remove(evt.id)} className="text-xs text-red-400 hover:underline">削除</button>}
+                      <button onClick={() => setActiveEventId(evt.id)} aria-label={`${evt.name}を操作対象に選択`} className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">選択</button>
+                      {!IS_DEMO_MODE && <button onClick={() => startEdit(evt)} aria-label={`${evt.name}を編集`} className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">編集</button>}
+                      {!IS_DEMO_MODE && <button onClick={() => remove(evt.id)} aria-label={`${evt.name}を削除`} className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">削除</button>}
                     </div>
                   </div>
 
@@ -380,7 +384,8 @@ export default function EventsPage() {
                       </code>
                       <button
                         onClick={() => copyUrl(evt)}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                        aria-label={`${evt.name}の共有URLをコピー`}
+                        className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
                           copiedId === evt.id
                             ? "bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800"
                             : "bg-[#6EC6FF] text-white hover:bg-blue-400"
@@ -390,7 +395,8 @@ export default function EventsPage() {
                       </button>
                       <button
                         onClick={() => toggleQr(evt)}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                        aria-label={qrEventId === evt.id ? `${evt.name}のQRコードを閉じる` : `${evt.name}のQRコードを表示`}
+                        className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
                           qrEventId === evt.id ? "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                         }`}
                       >
@@ -414,7 +420,8 @@ export default function EventsPage() {
                             <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">{getShareUrl(evt.password)}</p>
                             <button
                               onClick={() => downloadQr(evt.name)}
-                              className="text-xs px-4 py-2 rounded-lg bg-[#6EC6FF] text-white hover:bg-blue-400 font-medium transition-colors"
+                              aria-label={`${evt.name}のQRコードをダウンロード`}
+                              className="text-xs px-4 py-2 rounded-lg bg-[#6EC6FF] text-white hover:bg-blue-400 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
                             >
                               QRコードをダウンロード
                             </button>

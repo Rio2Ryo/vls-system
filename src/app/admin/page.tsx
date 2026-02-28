@@ -184,7 +184,8 @@ export default function AdminPage() {
           IS_DEMO_MODE ? undefined : (
             <button
               onClick={() => { resetToDefaults(); showToast("デフォルトに戻しました"); refreshEvents(); }}
-              className="text-xs text-gray-400 hover:text-red-500"
+              aria-label="データをデフォルトにリセット"
+              className="text-xs text-gray-400 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
               data-testid="admin-reset"
             >
               リセット

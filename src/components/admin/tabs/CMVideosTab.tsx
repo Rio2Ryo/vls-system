@@ -5,7 +5,8 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { Company, CompanyTier } from "@/lib/types";
 import { getStoredCompanies, setStoredCompanies } from "@/lib/store";
-import { inputCls, TIER_COLORS } from "./adminUtils";
+import { inputCls, TIER_COLORS, extractYouTubeId } from "./adminUtils";
+import { COMPANIES } from "@/lib/data";
 
 interface Props {
   onSave: (msg: string) => void;
@@ -37,10 +38,22 @@ export default function CMVideosTab({ onSave }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [form, setForm] = useState({ cm15: "", cm30: "", cm60: "" });
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [thumbErrors, setThumbErrors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setCompanies(getStoredCompanies());
   }, []);
+
+  const resetToDefaults = () => {
+    const defaultMap = new Map(COMPANIES.map((c) => [c.id, c.videos]));
+    const updated = companies.map((c) => {
+      const def = defaultMap.get(c.id);
+      return def ? { ...c, videos: { ...def } } : c;
+    });
+    setStoredCompanies(updated);
+    setCompanies(updated);
+    onSave("全企業のCM動画をデフォルトにリセットしました");
+  };
 
   const sorted = useMemo(() => {
     return [...companies].sort(
@@ -152,6 +165,17 @@ export default function CMVideosTab({ onSave }: Props) {
           <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
             {filtered.length} / {companies.length} 社
           </span>
+          <button
+            onClick={() => {
+              if (window.confirm("全企業のCM動画をデフォルト値にリセットしますか？")) {
+                resetToDefaults();
+              }
+            }}
+            className="text-[10px] px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+            aria-label="CM動画をデフォルトにリセット"
+          >
+            デフォルトに戻す
+          </button>
         </div>
       </Card>
 
@@ -189,15 +213,21 @@ export default function CMVideosTab({ onSave }: Props) {
                     {(["cm15", "cm30", "cm60"] as const).map((key) => {
                       const vid = c.videos[key];
                       const label = key === "cm15" ? "15s" : key === "cm30" ? "30s" : "60s";
+                      const thumbKey = `${c.id}-${key}`;
                       return (
                         <div key={key} className="text-center">
-                          {vid ? (
+                          {vid && !thumbErrors.has(thumbKey) ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                               src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`}
                               alt={`${c.name} ${label}`}
                               className="w-24 h-14 rounded object-cover border border-gray-200 dark:border-gray-600"
+                              onError={() => setThumbErrors((prev) => new Set(prev).add(thumbKey))}
                             />
+                          ) : vid ? (
+                            <div className="w-24 h-14 rounded border border-dashed border-red-300 dark:border-red-600 flex items-center justify-center bg-red-50 dark:bg-red-900/20">
+                              <span className="text-[10px] text-red-400 dark:text-red-500">取得不可</span>
+                            </div>
                           ) : (
                             <div className="w-24 h-14 rounded border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-800">
                               <span className="text-[10px] text-gray-400 dark:text-gray-500">未設定</span>
@@ -233,9 +263,9 @@ export default function CMVideosTab({ onSave }: Props) {
                         <div className="flex-1">
                           <input
                             className={`${inputCls} font-mono dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${err ? "!border-red-400" : ""}`}
-                            placeholder="YouTube ID（例: dQw4w9WgXcQ）"
+                            placeholder="YouTube URLまたはID（例: dQw4w9WgXcQ）"
                             value={val}
-                            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                            onChange={(e) => setForm({ ...form, [key]: extractYouTubeId(e.target.value) })}
                           />
                           {err && <p className="text-[10px] text-red-500 mt-0.5">{err}</p>}
                         </div>
@@ -260,13 +290,18 @@ export default function CMVideosTab({ onSave }: Props) {
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                               allowFullScreen
                             />
-                          ) : (
+                          ) : !thumbErrors.has(`edit-${c.id}-${key}`) ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                               src={`https://img.youtube.com/vi/${val}/mqdefault.jpg`}
                               alt={`${label} サムネイル`}
                               className="w-32 h-18 rounded border border-gray-200 dark:border-gray-600 object-cover"
+                              onError={() => setThumbErrors((prev) => new Set(prev).add(`edit-${c.id}-${key}`))}
                             />
+                          ) : (
+                            <div className="w-32 h-18 rounded border border-dashed border-red-300 dark:border-red-600 flex items-center justify-center bg-red-50 dark:bg-red-900/20">
+                              <span className="text-[10px] text-red-400">サムネイル取得不可</span>
+                            </div>
                           )}
                         </div>
                       )}

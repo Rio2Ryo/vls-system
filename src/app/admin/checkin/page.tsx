@@ -225,7 +225,14 @@ export default function CheckinPage() {
 
         {/* Progress bar */}
         {totalCount > 0 && (
-          <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+          <div
+            className="bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden"
+            role="progressbar"
+            aria-valuenow={checkinRate}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`チェックイン進捗: ${checkinRate}%`}
+          >
             <motion.div
               className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full"
               initial={{ width: 0 }}

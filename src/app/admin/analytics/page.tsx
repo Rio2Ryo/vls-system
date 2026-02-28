@@ -294,7 +294,7 @@ export default function AnalyticsPage() {
         onLogout={() => { sessionStorage.removeItem("adminTenantId"); signOut({ redirect: false }); }}
         actions={
           IS_DEMO_MODE || tenantId ? undefined : (
-            <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">データクリア</button>
+            <button onClick={handleClear} aria-label="分析データをクリア" className="text-xs text-red-400 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">データクリア</button>
           )
         }
       />
@@ -325,7 +325,8 @@ export default function AnalyticsPage() {
               className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 focus:outline-none focus:border-[#6EC6FF] dark:bg-gray-700 dark:text-gray-100" />
             {(dateFrom || dateTo) && (
               <button onClick={() => { setDateFrom(""); setDateTo(""); }}
-                className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-red-500">クリア</button>
+                aria-label="日付フィルターをクリア"
+                className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">クリア</button>
             )}
           </div>
           <button onClick={exportCsv}

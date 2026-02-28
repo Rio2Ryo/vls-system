@@ -182,7 +182,7 @@ export default function StatsPage() {
         onLogout={() => { sessionStorage.removeItem("adminTenantId"); signOut({ redirect: false }); }}
         actions={
           IS_DEMO_MODE || tenantId ? undefined : (
-            <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
+            <button onClick={handleClear} aria-label="CM統計データをクリア" className="text-xs text-red-400 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">
               データクリア
             </button>
           )
@@ -195,7 +195,8 @@ export default function StatsPage() {
           <select
             value={filterEvent}
             onChange={(e) => setFilterEvent(e.target.value)}
-            className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:border-[#6EC6FF] dark:bg-gray-700 dark:text-gray-100"
+            aria-label="イベントフィルター"
+            className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] focus:border-[#6EC6FF] dark:bg-gray-700 dark:text-gray-100"
             data-testid="stats-event-filter"
           >
             <option value="all">全イベント</option>
@@ -206,7 +207,8 @@ export default function StatsPage() {
           <select
             value={filterCmType}
             onChange={(e) => setFilterCmType(e.target.value)}
-            className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:border-[#6EC6FF] dark:bg-gray-700 dark:text-gray-100"
+            aria-label="CMタイプフィルター"
+            className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] focus:border-[#6EC6FF] dark:bg-gray-700 dark:text-gray-100"
             data-testid="stats-cm-type-filter"
           >
             <option value="all">全CMタイプ</option>
