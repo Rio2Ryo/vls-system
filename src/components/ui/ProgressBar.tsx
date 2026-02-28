@@ -11,11 +11,11 @@ export default function ProgressBar({ progress, label }: ProgressBarProps) {
   const clamped = Math.min(100, Math.max(0, progress));
 
   return (
-    <div className="w-full" data-testid="progress-bar">
+    <div className="w-full" data-testid="progress-bar" role="progressbar" aria-valuenow={Math.round(clamped)} aria-valuemin={0} aria-valuemax={100} aria-label={label || "進行状況"}>
       {label && (
         <div className="flex justify-between mb-2 text-sm font-medium text-gray-500">
           <span>{label}</span>
-          <span>{Math.round(clamped)}%</span>
+          <span aria-hidden="true">{Math.round(clamped)}%</span>
         </div>
       )}
       <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">

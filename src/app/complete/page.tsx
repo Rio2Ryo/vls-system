@@ -238,7 +238,8 @@ export default function CompletePage() {
         >
           <button
             onClick={() => (window.location.href = "/")}
-            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="トップページに戻る"
+            className="text-sm text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
           >
             トップに戻る
           </button>

@@ -113,6 +113,8 @@ function TopPageInner() {
                 animate={{ opacity: 1, y: 0 }}
                 className="text-red-400 text-sm mt-2 text-center"
                 data-testid="error-message"
+                role="alert"
+                aria-live="assertive"
               >
                 {error}
               </motion.p>

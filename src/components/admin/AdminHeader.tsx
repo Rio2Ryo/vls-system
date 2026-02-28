@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { getStoredTenants } from "@/lib/store";
 import { Tenant } from "@/lib/types";
+import { useTenantBranding } from "@/components/providers/TenantBrandingProvider";
+import { useDarkMode } from "@/components/providers/DarkModeProvider";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Admin" },
@@ -12,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/admin/stats", label: "CM統計" },
   { href: "/admin/users", label: "ユーザー" },
   { href: "/admin/import", label: "インポート" },
+  { href: "/admin/checkin", label: "チェックイン" },
 ];
 
 interface AdminHeaderProps {
@@ -23,18 +27,21 @@ interface AdminHeaderProps {
 
 export default function AdminHeader({ title, badge, onLogout, actions }: AdminHeaderProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  const { logoUrl } = useTenantBranding();
+  const { isDark, toggle: toggleDark } = useDarkMode();
+  const isSuperAdmin = session?.user?.role === "super_admin";
 
   useEffect(() => {
     const tid = sessionStorage.getItem("adminTenantId") || null;
     setCurrentTenantId(tid);
-    setIsSuperAdmin(!tid && sessionStorage.getItem("adminAuthed") === "true");
-    if (!tid) {
+    if (isSuperAdmin) {
       setTenants(getStoredTenants());
     }
-  }, []);
+  }, [isSuperAdmin]);
 
   const handleTenantSwitch = (tenantId: string) => {
     if (tenantId === "__super__") {
@@ -52,18 +59,21 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
     : null;
 
   return (
-    <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3">
+    <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-3">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="font-bold text-gray-800 text-sm sm:text-base">{title}</h1>
+            {logoUrl && (
+              <img src={logoUrl} alt="tenant logo" className="w-7 h-7 rounded-full object-cover border border-gray-200 dark:border-gray-600" />
+            )}
+            <h1 className="font-bold text-gray-800 dark:text-gray-100 text-sm sm:text-base">{title}</h1>
             {badge && (
-              <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full hidden sm:inline">
+              <span className="text-xs bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full hidden sm:inline">
                 {badge}
               </span>
             )}
             {currentTenantId && currentTenantName && (
-              <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full hidden sm:inline">
+              <span className="text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full hidden sm:inline">
                 {currentTenantName}
               </span>
             )}
@@ -74,8 +84,10 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
               <select
                 value={currentTenantId || "__super__"}
                 onChange={(e) => handleTenantSwitch(e.target.value)}
-                className="text-xs px-2 py-1 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF] bg-white"
+                className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] bg-white dark:bg-gray-800 dark:text-gray-200"
+                style={{ "--tw-ring-color": "var(--primary)" } as React.CSSProperties}
                 title="テナント切り替え"
+                aria-label="テナント切り替え"
               >
                 <option value="__super__">全テナント (Super)</option>
                 {tenants.map((t) => (
@@ -85,32 +97,45 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
             )}
             {actions}
             <button
+              onClick={toggleDark}
+              className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
+              title={isDark ? "ライトモードに切替" : "ダークモードに切替"}
+              aria-label={isDark ? "ライトモードに切替" : "ダークモードに切替"}
+            >
+              {isDark ? "☀️" : "🌙"}
+            </button>
+            <button
               onClick={onLogout}
-              className="text-xs sm:text-sm text-gray-400 hover:text-gray-600 ml-2"
+              aria-label="ログアウト"
+              className="text-xs sm:text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
             >
               ログアウト
             </button>
           </div>
         </div>
         {/* Navigation */}
-        <div className="flex gap-1 mt-2 overflow-x-auto pb-0.5 -mx-1 px-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
-                  isActive
-                    ? "bg-[#6EC6FF] text-white"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {item.label}
-              </a>
-            );
-          })}
-        </div>
+        <nav aria-label="管理画面ナビゲーション">
+          <div className="flex gap-1 mt-2 overflow-x-auto pb-0.5 -mx-1 px-1">
+            {NAV_ITEMS.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`text-xs px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+                    isActive
+                      ? "text-white"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  }`}
+                  style={isActive ? { backgroundColor: "var(--primary)" } : undefined}
+                >
+                  {item.label}
+                </a>
+              );
+            })}
+          </div>
+        </nav>
       </div>
     </div>
   );

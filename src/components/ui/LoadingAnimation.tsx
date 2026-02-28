@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 
 export default function LoadingAnimation() {
   return (
-    <div className="flex flex-col items-center gap-4" data-testid="loading-animation">
+    <div className="flex flex-col items-center gap-4" data-testid="loading-animation" role="status" aria-label="読み込み中">
+      <span className="sr-only">読み込み中</span>
       {/* Floating bubbles */}
       <div className="relative w-24 h-24">
         {[0, 1, 2].map((i) => (

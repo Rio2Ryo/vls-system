@@ -164,10 +164,12 @@ export default function VideoPlayer({
         >
           <button
             onClick={toggleMute}
+            aria-label={muted ? "音声をオンにする" : "ミュートにする"}
+            aria-pressed={!muted}
             className="absolute bottom-3 left-3 flex items-center gap-1.5 px-3 py-1.5
                        rounded-full bg-black/60 text-white text-xs font-medium
                        hover:bg-black/80 transition-colors backdrop-blur-sm
-                       border border-white/20"
+                       border border-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             data-testid="video-mute-btn"
           >
             <span className="text-sm">{muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}</span>
@@ -175,7 +177,7 @@ export default function VideoPlayer({
           </button>
         </div>
       </div>
-      <div className="mt-2 text-center">
+      <div className="mt-2 text-center" aria-live="polite" aria-atomic="true">
         <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
           あと {timeLeft}秒
         </span>

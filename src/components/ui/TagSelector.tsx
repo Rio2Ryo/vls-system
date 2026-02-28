@@ -38,7 +38,7 @@ export default function TagSelector({
   maxSelections,
 }: TagSelectorProps) {
   return (
-    <div className="flex flex-wrap gap-2" data-testid="tag-selector">
+    <div className="flex flex-wrap gap-2" data-testid="tag-selector" role="group" aria-label="タグ選択">
       {options.map((opt, i) => {
         const isSelected = selected.includes(opt.value);
         const isDisabled = !isSelected && selected.length >= maxSelections;
@@ -48,11 +48,15 @@ export default function TagSelector({
           <motion.button
             key={opt.value}
             type="button"
+            role="checkbox"
+            aria-checked={isSelected}
+            aria-disabled={isDisabled}
+            aria-label={`${opt.label}${isSelected ? "（選択中）" : ""}`}
             whileHover={{ scale: isDisabled ? 1 : 1.05 }}
             whileTap={{ scale: isDisabled ? 1 : 0.95 }}
             onClick={() => !isDisabled && onToggle(opt.value)}
             className={`
-              px-4 py-2 rounded-full text-sm font-medium border-2 transition-all
+              px-4 py-2 rounded-full text-sm font-medium border-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] focus-visible:ring-offset-2
               ${isSelected ? SELECTED_COLORS[colorIdx] : TAG_COLORS[colorIdx]}
               ${isDisabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}
             `}

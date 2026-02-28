@@ -132,11 +132,14 @@ export default function SurveyPage() {
                 お名前を教えてください
               </h2>
 
+              <label htmlFor="respondent-name" className="sr-only">お名前</label>
               <input
+                id="respondent-name"
                 type="text"
                 value={respondentName}
                 onChange={(e) => setRespondentName(e.target.value)}
                 placeholder="例: 田中太郎"
+                aria-label="お名前"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200
                            focus:border-[#6EC6FF] focus:ring-2 focus:ring-blue-100
                            focus:outline-none text-center text-lg bg-gray-50/50"
@@ -168,8 +171,10 @@ export default function SurveyPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="flex gap-2 mb-8"
+        role="navigation"
+        aria-label={`アンケート進捗: ${currentQ + 1} / ${survey.length}`}
       >
-        <div className="w-3 h-3 rounded-full bg-[#98E4C1]" />
+        <div className="w-3 h-3 rounded-full bg-[#98E4C1]" aria-hidden="true" />
         {survey.map((_, i) => (
           <div
             key={i}
@@ -180,6 +185,7 @@ export default function SurveyPage() {
                   ? "bg-[#98E4C1]"
                   : "bg-gray-200"
             }`}
+            aria-hidden="true"
           />
         ))}
       </motion.div>

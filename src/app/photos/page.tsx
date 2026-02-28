@@ -91,7 +91,8 @@ export default function PhotosPage() {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={handleSelectAll}
-            className="text-sm text-[#6EC6FF] hover:underline"
+            aria-label={selectedIds.length === photos.length ? "すべての写真の選択を解除" : "すべての写真を選択"}
+            className="text-sm text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
             data-testid="select-all-btn"
           >
             {selectedIds.length === photos.length ? "選択解除" : "すべて選択"}
@@ -104,6 +105,8 @@ export default function PhotosPage() {
                 exit={{ opacity: 0, scale: 0.9 }}
                 className="text-sm font-bold text-[#6EC6FF] bg-blue-50 px-3 py-1 rounded-full"
                 data-testid="selection-count"
+                role="status"
+                aria-live="polite"
               >
                 {selectedIds.length}枚選択中
               </motion.span>

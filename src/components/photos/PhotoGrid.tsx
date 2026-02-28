@@ -75,12 +75,17 @@ export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPrevi
         return (
           <motion.div
             key={photo.id}
+            role="checkbox"
+            aria-checked={isSelected}
+            aria-label={`写真 ${i + 1}${isSelected ? "（選択中）" : ""}`}
+            tabIndex={0}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05, duration: 0.3 }}
             onClick={() => onToggleSelect(photo)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleSelect(photo); } }}
             className={`relative aspect-[4/3] rounded-2xl overflow-hidden bg-gray-100 cursor-pointer
-                       shadow-sm hover:shadow-md transition-all border-2 ${
+                       shadow-sm hover:shadow-md transition-all border-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] focus-visible:ring-offset-2 ${
                          isSelected ? "border-[#6EC6FF] ring-2 ring-blue-200" : "border-gray-100"
                        }`}
             data-testid={`photo-${photo.id}`}
@@ -94,6 +99,7 @@ export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPrevi
                   ? "bg-[#6EC6FF] text-white shadow-md"
                   : "bg-white/70 text-gray-400 border border-gray-300"
               }`}
+              aria-hidden="true"
               data-testid={`check-${photo.id}`}
             >
               {isSelected ? "✓" : ""}
@@ -102,8 +108,10 @@ export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPrevi
             {/* Preview button */}
             <button
               onClick={(e) => { e.stopPropagation(); onPreview(photo); }}
+              aria-label={`写真 ${i + 1} をプレビュー`}
               className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-black/40 text-white
-                         flex items-center justify-center text-xs hover:bg-black/60 transition-colors"
+                         flex items-center justify-center text-xs hover:bg-black/60 transition-colors
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
               data-testid={`preview-${photo.id}`}
             >
               🔍

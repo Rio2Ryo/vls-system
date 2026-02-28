@@ -10,6 +10,23 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
+    // Skip D1 sync in E2E tests + pre-set CSRF cookie for mutation requests
+    storageState: {
+      cookies: [{
+        name: "csrf_token",
+        value: "e2e-test-csrf-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Strict",
+        expires: -1,
+      }],
+      origins: [{
+        origin: "http://localhost:3000",
+        localStorage: [{ name: "__skip_d1_sync", value: "1" }],
+      }],
+    },
   },
   projects: [
     {
@@ -21,6 +38,6 @@ export default defineConfig({
     command: "npm run dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
-    timeout: 30000,
+    timeout: 60000,
   },
 });

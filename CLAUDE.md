@@ -1,3 +1,37 @@
+## 🤖 マルチエージェント【確定版・動作確認済み 2026-02-28】
+
+**kin で3エージェント並列実行を確認済み。必ずこのパターンを使うこと。**
+
+CLAUDE_BIN=/home/dai_opcbot/.npm-global/bin/claude
+
+並列起動パターン（env -u CLAUDECODE が必須）:
+  env -u CLAUDECODE $CLAUDE_BIN --dangerously-skip-permissions -p 'タスク1' > /tmp/agent1.log 2>&1 &
+  PID1=$!
+  env -u CLAUDECODE $CLAUDE_BIN --dangerously-skip-permissions -p 'タスク2' > /tmp/agent2.log 2>&1 &
+  PID2=$!
+  env -u CLAUDECODE $CLAUDE_BIN --dangerously-skip-permissions -p 'タスク3' > /tmp/agent3.log 2>&1 &
+  PID3=$!
+  wait $PID1 $PID2 $PID3
+  cat /tmp/agent1.log /tmp/agent2.log /tmp/agent3.log
+
+なぜenv -u CLAUDECODEが必要か:
+Claude CodeはCLAUDECODE環境変数をセットする。子プロセスに残るとネスト起動が拒否される。
+env -u CLAUDECODEでその変数を除去してから起動することで解決。
+
+タスク分解パターン:
+- agent1: フロントエンド（UIコンポーネント・ページ）
+- agent2: バックエンド（API・DB・ビジネスロジック）
+- agent3: テスト（ユニット・E2E）
+→ wait → 統合 → commit
+
+ルール:
+1. 複数ファイルにまたがる実装は必ず並列起動
+2. 単独実行は1ファイル以内の小修正のみ
+3. プロンプトは具体的に（ファイルパス・実装内容・コードスタイルを含める）
+4. 完了報告に「何エージェントで並列実行したか」を明記
+
+---
+
 # VLS System — Claude Code Project Guide
 
 ## Overview
@@ -12,7 +46,7 @@ VLS (Video Learning System) is a Next.js 14 App Router application for event pho
 - **PDF**: jsPDF (invoices, QR bulk export)
 - **QR**: qrcode library
 - **Storage**: Cloudflare R2 (REST API with HMAC-SHA256 presigned tokens)
-- **Testing**: Playwright E2E (63 tests, 10 spec files)
+- **Testing**: Playwright E2E (67 tests, 11 spec files)
 - **Deploy**: Vercel
 
 ## Architecture
@@ -25,7 +59,7 @@ VLS (Video Learning System) is a Next.js 14 App Router application for event pho
 5. **Complete** (`/complete`) — Photo download + sponsor offer/coupon display
 
 ### Admin Dashboard (`/admin`)
-14 tabs split into `src/components/admin/tabs/` (DashboardTab, EventsTab, PhotosTab, CompaniesTab, SurveyTab, StorageTab, FunnelAnalysisTab, MatchingDebugTab, NotificationLogTab) plus existing components (BulkImport, InvoiceGenerator, ChartJsAnalytics, LicenseBulkImport, TenantManager).
+15 tabs split into `src/components/admin/tabs/` (DashboardTab, EventsTab, PhotosTab, CompaniesTab, SurveyTab, StorageTab, FunnelAnalysisTab, MatchingDebugTab, NotificationLogTab, SettingsTab) plus existing components (BulkImport, InvoiceGenerator, ChartJsAnalytics, LicenseBulkImport, TenantManager).
 
 ### Admin Sub-Pages
 - `/admin/analytics` — Recharts analytics with date range filter, funnel, dropout analysis
@@ -51,7 +85,7 @@ VLS (Video Learning System) is a Next.js 14 App Router application for event pho
 
 ### Key Libraries
 - `src/lib/matching.ts` — Scoring algorithm (theme 15pt, service 20pt, age 25pt, tier 30pt, breadth 15pt)
-- `src/lib/notify.ts` — Email: SendGrid → MailChannels → console.log (3-tier fallback)
+- `src/lib/notify.ts` — Email: Resend → SendGrid → console.log (3-tier fallback)
 - `src/lib/r2.ts` — Cloudflare R2 PUT/GET/LIST/DELETE + presigned tokens
 - `src/lib/d1.ts` — Cloudflare D1 HTTP API client (d1Query, d1Get, d1Set, d1GetAll)
 - `src/lib/demo.ts` — `IS_DEMO_MODE` flag from env
@@ -81,7 +115,7 @@ NEXT_PUBLIC_DEMO_MODE=true  # (optional) Demo mode flag
 
 ## Current Status
 
-### Completed (11 features)
+### Completed (15 features)
 1. User flow (5 steps with animations)
 2. Scoring-based CM matching (22 companies, 4 events)
 3. CM video tracking (YouTube iframe, 15s/30s/60s)
@@ -93,6 +127,10 @@ NEXT_PUBLIC_DEMO_MODE=true  # (optional) Demo mode flag
 9. Notification system (3-tier email fallback + log viewer)
 10. R2 file storage (upload/list/delete, tenant-scoped directories)
 11. Event check-in UI (`/admin/checkin` — search, sort, bulk actions, progress bar)
+12. Tenant branding (per-tenant primaryColor + logoUrl, CSS variable theming, Settings tab)
+13. SEO/OGP (metadataBase, title template, og:image, Twitter Card, per-page metadata via layout.tsx)
+14. Sentry SDK (error monitoring with client/server/edge configs, global-error.tsx, auto-disable when no DSN)
+15. QR check-in E2E tests (4 tests: QR generation, QR scan login, check-in flow, full integration)
 
 ### Priority Improvements Needed
 
@@ -106,17 +144,17 @@ NEXT_PUBLIC_DEMO_MODE=true  # (optional) Demo mode flag
 - **M1. Mobile optimization** — Admin tables need horizontal scroll. Touch interactions not optimized.
 - **M2. Company CSV import** — ✅ Added company CSV import tab to `/admin/import` with template DL, validation, preview, and import.
 - **M3. Check-in UI** — ✅ Implemented `/admin/checkin` page with event selector, search, sort, one-click check-in, bulk actions, progress bar, stats.
-- **M4. Tenant branding** — logoUrl field exists but no display. No color theme per tenant.
-- **M5. Delete cascade** — Tenant deletion orphans child records.
+- **M4. Tenant branding** — ✅ Tenant型にprimaryColor追加。TenantBrandingProviderでCSS変数切り替え。AdminHeader/タブにロゴ表示+テナントカラー反映。設定タブでブランディング編集可能。
+- **M5. Delete cascade** — ✅ `deleteTenantCascade()` deletes all child records (events, participants, invoices, analytics, video plays, notification logs). Confirmation dialog shows impact summary before deletion.
 
 #### LOW — Nice to Have
-- **L1. Dark mode** — Light mode only. Tailwind dark: classes unused.
-- **L2. Accessibility** — aria attributes mostly missing. Keyboard navigation incomplete.
+- **L1. Dark mode** — ✅ Implemented. `darkMode: "class"` enabled in tailwind.config.ts. DarkModeProvider with localStorage persistence. Toggle button in AdminHeader. All admin pages (main dashboard, analytics, events, stats, users, import, checkin) and shared UI components (Card, Button) support dark: classes.
+- **L2. Accessibility** — ✅ Implemented. ARIA labels/roles on all interactive elements (buttons, inputs, selects, modals, tabs, progress bars). `focus-visible:ring` keyboard focus indicators. `aria-live` regions for toasts/errors. Modal Escape key + auto-focus. Photo grid keyboard navigation (Tab/Enter/Space). Screen reader support via `sr-only` text and `aria-hidden` decorative icons.
 - **L3. Real CM videos** — YouTube IDs are public videos (Rick Astley etc). Need real sponsor CMs.
 - **L4. Real company logos** — All logos are ui-avatars.com text icons.
-- **L5. Error monitoring** — No Sentry or equivalent.
+- **L5. Error monitoring** — ✅ Sentry SDK導入済み。`@sentry/nextjs` with client/server/edge configs. `global-error.tsx` + 既存 `error.tsx` で `Sentry.captureException()`. DSN未設定時は自動無効化。`/monitoring` tunnel route. instrumentation.ts でランタイム別初期化。
 
 #### LONG-TERM — Architecture
 - **A1. Database migration** — ✅ Migrated to Cloudflare D1 (localStorage cache + D1 persistence).
 - **A2. Authentication** — Password string comparison only. Needs NextAuth/Clerk for sessions/RBAC.
-- **A3. Email configuration** — SENDGRID_API_KEY not set. MailChannels doesn't work on Vercel Edge.
+- **A3. Email configuration** — ✅ Resend API integrated as primary provider, SendGrid as fallback. MailChannels removed. `/api/notify` GET endpoint returns provider config status. Placeholder API key detection prevents wasted calls. Provider errors propagated to UI.

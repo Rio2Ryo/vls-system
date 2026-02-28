@@ -11,15 +11,16 @@ interface ButtonProps {
   variant?: "primary" | "secondary" | "ghost";
   size?: "sm" | "md" | "lg";
   className?: string;
+  "aria-label"?: string;
 }
 
 const VARIANTS = {
   primary:
-    "bg-gradient-to-r from-[#6EC6FF] to-[#A78BFA] text-white shadow-md shadow-blue-100",
+    "bg-gradient-to-r from-[#6EC6FF] to-[#A78BFA] text-white shadow-md shadow-blue-100 dark:shadow-none",
   secondary:
-    "bg-white text-gray-700 border border-gray-200 shadow-sm hover:bg-gray-50",
+    "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600",
   ghost:
-    "bg-transparent text-[#6EC6FF] hover:bg-blue-50",
+    "bg-transparent text-[#6EC6FF] hover:bg-blue-50 dark:hover:bg-gray-700",
 };
 
 const SIZES = {
@@ -36,16 +37,19 @@ export default function Button({
   variant = "primary",
   size = "md",
   className = "",
+  "aria-label": ariaLabel,
 }: ButtonProps) {
   return (
     <motion.button
       type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      aria-disabled={disabled}
       whileHover={{ scale: disabled ? 1 : 1.02, y: disabled ? 0 : -1 }}
       whileTap={{ scale: disabled ? 1 : 0.98 }}
       className={`
-        rounded-2xl font-bold transition-all
+        rounded-2xl font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] focus-visible:ring-offset-2
         ${VARIANTS[variant]}
         ${SIZES[size]}
         ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}

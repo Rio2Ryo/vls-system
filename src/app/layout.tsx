@@ -1,4 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import AuthProvider from "@/components/providers/SessionProvider";
+import DbSyncProvider from "@/components/providers/DbSyncProvider";
+import TenantBrandingProvider from "@/components/providers/TenantBrandingProvider";
+import DarkModeProvider from "@/components/providers/DarkModeProvider";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -10,17 +14,30 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "VLS - イベント写真サービス",
+  metadataBase: new URL("https://vls-system.vercel.app"),
+  title: {
+    default: "VLS - イベント写真サービス",
+    template: "%s | VLS",
+  },
   description: "イベント写真をCM付きで配信・ダウンロードできるサービス",
   openGraph: {
     title: "VLS - イベント写真サービス",
     description: "イベント写真をCM付きで配信・ダウンロードできるサービス",
     type: "website",
     locale: "ja_JP",
+    siteName: "VLS - イベント写真サービス",
+    url: "https://vls-system.vercel.app",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "VLS - イベント写真サービス" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "VLS - イベント写真サービス",
+    description: "イベント写真をCM付きで配信・ダウンロードできるサービス",
+    images: ["/og-image.png"],
   },
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
   },
 };
 
@@ -31,7 +48,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <AuthProvider>
+          <DbSyncProvider>
+            <DarkModeProvider>
+              <TenantBrandingProvider>{children}</TenantBrandingProvider>
+            </DarkModeProvider>
+          </DbSyncProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }

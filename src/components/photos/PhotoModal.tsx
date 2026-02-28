@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { PhotoData } from "@/lib/types";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 
 interface PhotoModalProps {
   photo: PhotoData | null;
@@ -47,6 +47,20 @@ function LargeWatermarkedImage({ src }: { src: string }) {
 }
 
 export default function PhotoModal({ photo, onClose, onDownload }: PhotoModalProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape") onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (photo) {
+      document.addEventListener("keydown", handleKeyDown);
+      closeButtonRef.current?.focus();
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [photo, handleKeyDown]);
+
   return (
     <AnimatePresence>
       {photo && (
@@ -58,9 +72,12 @@ export default function PhotoModal({ photo, onClose, onDownload }: PhotoModalPro
           onClick={onClose}
           onContextMenu={(e) => e.preventDefault()}
           data-testid="photo-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="写真プレビュー"
         >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
 
           {/* Content */}
           <motion.div
@@ -74,9 +91,12 @@ export default function PhotoModal({ photo, onClose, onDownload }: PhotoModalPro
             <LargeWatermarkedImage src={photo.originalUrl} />
 
             <button
+              ref={closeButtonRef}
               onClick={onClose}
+              aria-label="閉じる"
               className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-md
-                         flex items-center justify-center text-gray-500 hover:text-gray-800 text-lg"
+                         flex items-center justify-center text-gray-500 hover:text-gray-800 text-lg
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
               data-testid="modal-close"
             >
               ×
@@ -91,7 +111,8 @@ export default function PhotoModal({ photo, onClose, onDownload }: PhotoModalPro
                   onClick={() => onDownload(photo)}
                   className="block mx-auto mt-3 px-6 py-3 rounded-xl font-bold text-white
                              bg-gradient-to-r from-[#6EC6FF] to-[#a78bfa] shadow-lg
-                             hover:shadow-xl active:scale-95 transition-all text-sm"
+                             hover:shadow-xl active:scale-95 transition-all text-sm
+                             focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
                   data-testid="photo-download-btn"
                 >
                   この写真の高画質データを生成 →

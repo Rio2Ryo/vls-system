@@ -13,7 +13,7 @@ import {
 import { EventData, Participant, InterestTag, Company, CompanyTier } from "@/lib/types";
 import { IS_DEMO_MODE } from "@/lib/demo";
 
-const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
+const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100";
 
 // --- CSV parser with quoted field support ---
 function parseCSVLine(line: string): string[] {
@@ -314,14 +314,14 @@ export default function ImportPage() {
               />
             ))}
           </div>
-          <p className="text-sm text-gray-400">インポート画面を読み込み中...</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">インポート画面を読み込み中...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <AdminHeader
         title={IS_DEMO_MODE ? "CSVインポート (Demo)" : "CSVインポート"}
         badge={`${participants.length}名登録済`}
@@ -330,34 +330,40 @@ export default function ImportPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white text-sm px-4 py-2 rounded-xl shadow-lg">
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white text-sm px-4 py-2 rounded-xl shadow-lg" role="status" aria-live="polite">
           {toast}
         </div>
       )}
 
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         {/* Mode selector */}
-        <div className="flex gap-2">
+        <div className="flex gap-2" role="tablist" aria-label="インポートタイプ">
           <button
+            role="tab"
+            aria-selected={mode === "participants"}
             onClick={() => setMode("participants")}
-            className={`text-sm px-4 py-2 rounded-xl font-medium transition-colors ${
-              mode === "participants" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50"
+            className={`text-sm px-4 py-2 rounded-xl font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+              mode === "participants" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 dark:hover:bg-gray-700"
             }`}
           >
             参加者インポート
           </button>
           <button
+            role="tab"
+            aria-selected={mode === "events"}
             onClick={() => setMode("events")}
-            className={`text-sm px-4 py-2 rounded-xl font-medium transition-colors ${
-              mode === "events" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50"
+            className={`text-sm px-4 py-2 rounded-xl font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+              mode === "events" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 dark:hover:bg-gray-700"
             }`}
           >
             イベントインポート
           </button>
           <button
+            role="tab"
+            aria-selected={mode === "companies"}
             onClick={() => setMode("companies")}
-            className={`text-sm px-4 py-2 rounded-xl font-medium transition-colors ${
-              mode === "companies" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50"
+            className={`text-sm px-4 py-2 rounded-xl font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+              mode === "companies" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 dark:hover:bg-gray-700"
             }`}
           >
             企業インポート
@@ -369,7 +375,7 @@ export default function ImportPage() {
           <>
             <Card>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-gray-700">参加者CSVインポート</h3>
+                <h3 className="font-bold text-gray-700 dark:text-gray-200">参加者CSVインポート</h3>
                 <div className="flex gap-2">
                   <button onClick={exportParticipantTemplate} className="text-xs px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium">
                     CSVテンプレート
@@ -381,10 +387,10 @@ export default function ImportPage() {
                   )}
                 </div>
               </div>
-              <p className="text-xs text-gray-400 mb-3">CSV形式: 名前,メールアドレス,タグ (タグはセミコロン区切り)</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">CSV形式: 名前,メールアドレス,タグ (タグはセミコロン区切り)</p>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">対象イベント</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">対象イベント</label>
                   <select className={inputCls} value={selectedEventId} onChange={(e) => setSelectedEventId(e.target.value)}>
                     <option value="">イベントを選択...</option>
                     {events.map((evt) => (
@@ -393,7 +399,7 @@ export default function ImportPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">CSVファイル</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">CSVファイル</label>
                   <input type="file" accept=".csv" onChange={handleParticipantFile} className="text-sm" />
                 </div>
               </div>
@@ -402,7 +408,7 @@ export default function ImportPage() {
               {parsedParticipants && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold text-gray-600">
+                    <p className="text-xs font-bold text-gray-600 dark:text-gray-300">
                       プレビュー: {parsedParticipants.filter((r) => r.valid).length}/{parsedParticipants.length} 件有効
                     </p>
                     {parsedParticipants.some((r) => !r.valid) && (
@@ -411,25 +417,25 @@ export default function ImportPage() {
                       </span>
                     )}
                   </div>
-                  <div className="max-h-60 overflow-y-auto border rounded-lg">
+                  <div className="max-h-60 overflow-y-auto border dark:border-gray-700 rounded-lg">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="bg-gray-50 border-b sticky top-0">
-                          <th className="p-2 text-left text-gray-500">行</th>
-                          <th className="p-2 text-left text-gray-500">名前</th>
-                          <th className="p-2 text-left text-gray-500">メール</th>
-                          <th className="p-2 text-left text-gray-500">タグ</th>
-                          <th className="p-2 text-center text-gray-500">状態</th>
-                          <th className="p-2 text-left text-gray-500">エラー</th>
+                        <tr className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0">
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">行</th>
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">名前</th>
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">メール</th>
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">タグ</th>
+                          <th className="p-2 text-center text-gray-500 dark:text-gray-400">状態</th>
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">エラー</th>
                         </tr>
                       </thead>
                       <tbody>
                         {parsedParticipants.map((row, i) => (
-                          <tr key={i} className={`border-b ${row.valid ? "hover:bg-gray-50" : "bg-red-50 border-red-100"}`}>
-                            <td className="p-2 text-gray-400">{i + 2}</td>
+                          <tr key={i} className={`border-b dark:border-gray-700 ${row.valid ? "hover:bg-gray-50 dark:hover:bg-gray-700" : "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/50"}`}>
+                            <td className="p-2 text-gray-400 dark:text-gray-500">{i + 2}</td>
                             <td className={`p-2 ${row.valid ? "" : "text-red-600 font-bold"}`}>{row.name || "—"}</td>
-                            <td className="p-2 text-gray-500">{row.email || "—"}</td>
-                            <td className="p-2 text-gray-500">{row.tags || "—"}</td>
+                            <td className="p-2 text-gray-500 dark:text-gray-400">{row.email || "—"}</td>
+                            <td className="p-2 text-gray-500 dark:text-gray-400">{row.tags || "—"}</td>
                             <td className="p-2 text-center">
                               {row.valid
                                 ? <span className="text-green-500 font-bold">OK</span>
@@ -455,9 +461,9 @@ export default function ImportPage() {
             {/* Existing participants list */}
             <Card>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-gray-700">登録済み参加者 ({participants.length}名)</h3>
+                <h3 className="font-bold text-gray-700 dark:text-gray-200">登録済み参加者 ({participants.length}名)</h3>
                 <select
-                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none"
+                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:outline-none"
                   value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)}
                 >
                   <option value="all">全イベント</option>
@@ -470,12 +476,12 @@ export default function ImportPage() {
               </div>
 
               {filteredParticipants.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">参加者がいません</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">参加者がいません</p>
               ) : (
                 <div className="max-h-80 overflow-y-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50 sticky top-0">
+                      <tr className="border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 sticky top-0">
                         <th className="p-2 text-left">名前</th>
                         <th className="p-2 text-left">メール</th>
                         <th className="p-2 text-left">イベント</th>
@@ -488,18 +494,18 @@ export default function ImportPage() {
                       {filteredParticipants.map((p) => {
                         const evt = events.find((e) => e.id === p.eventId);
                         return (
-                          <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
+                          <tr key={p.id} className="border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                             <td className="p-2 font-medium">{p.name}</td>
-                            <td className="p-2 text-gray-500">{p.email || "—"}</td>
-                            <td className="p-2 text-gray-500">{evt?.name || p.eventId}</td>
+                            <td className="p-2 text-gray-500 dark:text-gray-400">{p.email || "—"}</td>
+                            <td className="p-2 text-gray-500 dark:text-gray-400">{evt?.name || p.eventId}</td>
                             <td className="p-2 text-center">
                               {p.tags?.length
-                                ? <span className="text-[10px] bg-blue-50 text-blue-500 px-1 rounded">{p.tags.length}</span>
+                                ? <span className="text-[10px] bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 px-1 rounded">{p.tags.length}</span>
                                 : "—"}
                             </td>
-                            <td className="p-2 text-gray-400 text-center">{new Date(p.registeredAt).toLocaleDateString("ja")}</td>
+                            <td className="p-2 text-gray-400 dark:text-gray-500 text-center">{new Date(p.registeredAt).toLocaleDateString("ja")}</td>
                             <td className="p-2 text-center">
-                              <button onClick={() => handleDeleteParticipant(p.id)} className="text-red-400 hover:text-red-600">x</button>
+                              <button onClick={() => handleDeleteParticipant(p.id)} aria-label={`${p.name}を削除`} className="text-red-400 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">x</button>
                             </td>
                           </tr>
                         );
@@ -516,14 +522,14 @@ export default function ImportPage() {
         {mode === "events" && (
           <Card>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-gray-700">イベントCSVインポート</h3>
+              <h3 className="font-bold text-gray-700 dark:text-gray-200">イベントCSVインポート</h3>
               <button onClick={exportEventTemplate} className="text-xs px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium">
                 CSVテンプレート
               </button>
             </div>
-            <p className="text-xs text-gray-400 mb-3">CSV形式: イベント名,日付(YYYY-MM-DD),会場,パスワード,説明</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">CSV形式: イベント名,日付(YYYY-MM-DD),会場,パスワード,説明</p>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">CSVファイル</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">CSVファイル</label>
               <input type="file" accept=".csv" onChange={handleEventFile} className="text-sm" />
             </div>
 
@@ -531,7 +537,7 @@ export default function ImportPage() {
             {parsedEvents && (
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-bold text-gray-600">
+                  <p className="text-xs font-bold text-gray-600 dark:text-gray-300">
                     プレビュー: {parsedEvents.filter((r) => r.valid).length}/{parsedEvents.length} 件有効
                   </p>
                   {parsedEvents.some((r) => !r.valid) && (
@@ -540,27 +546,27 @@ export default function ImportPage() {
                     </span>
                   )}
                 </div>
-                <div className="max-h-60 overflow-y-auto border rounded-lg">
+                <div className="max-h-60 overflow-y-auto border dark:border-gray-700 rounded-lg">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="bg-gray-50 border-b sticky top-0">
-                        <th className="p-2 text-left text-gray-500">行</th>
-                        <th className="p-2 text-left text-gray-500">名前</th>
-                        <th className="p-2 text-left text-gray-500">日付</th>
-                        <th className="p-2 text-left text-gray-500">会場</th>
-                        <th className="p-2 text-left text-gray-500">パスワード</th>
-                        <th className="p-2 text-center text-gray-500">状態</th>
-                        <th className="p-2 text-left text-gray-500">エラー</th>
+                      <tr className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0">
+                        <th className="p-2 text-left text-gray-500 dark:text-gray-400">行</th>
+                        <th className="p-2 text-left text-gray-500 dark:text-gray-400">名前</th>
+                        <th className="p-2 text-left text-gray-500 dark:text-gray-400">日付</th>
+                        <th className="p-2 text-left text-gray-500 dark:text-gray-400">会場</th>
+                        <th className="p-2 text-left text-gray-500 dark:text-gray-400">パスワード</th>
+                        <th className="p-2 text-center text-gray-500 dark:text-gray-400">状態</th>
+                        <th className="p-2 text-left text-gray-500 dark:text-gray-400">エラー</th>
                       </tr>
                     </thead>
                     <tbody>
                       {parsedEvents.map((row, i) => (
-                        <tr key={i} className={`border-b ${row.valid ? "hover:bg-gray-50" : "bg-red-50 border-red-100"}`}>
-                          <td className="p-2 text-gray-400">{i + 2}</td>
+                        <tr key={i} className={`border-b dark:border-gray-700 ${row.valid ? "hover:bg-gray-50 dark:hover:bg-gray-700" : "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/50"}`}>
+                          <td className="p-2 text-gray-400 dark:text-gray-500">{i + 2}</td>
                           <td className={`p-2 ${row.valid ? "" : "text-red-600 font-bold"}`}>{row.name || "—"}</td>
-                          <td className="p-2 text-gray-500">{row.date || "—"}</td>
-                          <td className="p-2 text-gray-500">{row.venue || "—"}</td>
-                          <td className="p-2 text-gray-500 font-mono">{row.password || "—"}</td>
+                          <td className="p-2 text-gray-500 dark:text-gray-400">{row.date || "—"}</td>
+                          <td className="p-2 text-gray-500 dark:text-gray-400">{row.venue || "—"}</td>
+                          <td className="p-2 text-gray-500 dark:text-gray-400 font-mono">{row.password || "—"}</td>
                           <td className="p-2 text-center">
                             {row.valid
                               ? <span className="text-green-500 font-bold">OK</span>
@@ -584,17 +590,17 @@ export default function ImportPage() {
 
             {/* Current events summary */}
             <div className="mt-6">
-              <h4 className="text-sm font-bold text-gray-600 mb-2">登録済みイベント ({events.length}件)</h4>
+              <h4 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-2">登録済みイベント ({events.length}件)</h4>
               {events.length === 0 ? (
-                <p className="text-xs text-gray-400">イベントがありません</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">イベントがありません</p>
               ) : (
                 <div className="space-y-1">
                   {events.map((evt) => (
-                    <div key={evt.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 text-xs">
-                      <span className="font-medium text-gray-700 flex-1">{evt.name}</span>
-                      <span className="text-gray-400">{evt.date}</span>
-                      <span className="text-gray-400">{evt.venue || "—"}</span>
-                      <span className="font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{evt.password}</span>
+                    <div key={evt.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-800 text-xs">
+                      <span className="font-medium text-gray-700 dark:text-gray-200 flex-1">{evt.name}</span>
+                      <span className="text-gray-400 dark:text-gray-500">{evt.date}</span>
+                      <span className="text-gray-400 dark:text-gray-500">{evt.venue || "—"}</span>
+                      <span className="font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{evt.password}</span>
                     </div>
                   ))}
                 </div>
@@ -607,14 +613,14 @@ export default function ImportPage() {
           <>
             <Card>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-gray-700">企業CSVインポート</h3>
+                <h3 className="font-bold text-gray-700 dark:text-gray-200">企業CSVインポート</h3>
                 <button onClick={exportCompanyTemplate} className="text-xs px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium">
                   CSVテンプレート
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mb-3">CSV形式: name,tier,tags,cm15,cm30,cm60,offerText,offerUrl,couponCode (tagsはセミコロン区切り)</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">CSV形式: name,tier,tags,cm15,cm30,cm60,offerText,offerUrl,couponCode (tagsはセミコロン区切り)</p>
               <div>
-                <label className="text-xs text-gray-500 block mb-1">CSVファイル</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">CSVファイル</label>
                 <input type="file" accept=".csv" onChange={handleCompanyFile} className="text-sm" />
               </div>
 
@@ -622,7 +628,7 @@ export default function ImportPage() {
               {parsedCompanies && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold text-gray-600">
+                    <p className="text-xs font-bold text-gray-600 dark:text-gray-300">
                       プレビュー: {parsedCompanies.filter((r) => r.valid).length}/{parsedCompanies.length} 件有効
                     </p>
                     {parsedCompanies.some((r) => !r.valid) && (
@@ -631,27 +637,27 @@ export default function ImportPage() {
                       </span>
                     )}
                   </div>
-                  <div className="max-h-60 overflow-y-auto border rounded-lg">
+                  <div className="max-h-60 overflow-y-auto border dark:border-gray-700 rounded-lg">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="bg-gray-50 border-b sticky top-0">
-                          <th className="p-2 text-left text-gray-500">行</th>
-                          <th className="p-2 text-left text-gray-500">企業名</th>
-                          <th className="p-2 text-left text-gray-500">ティア</th>
-                          <th className="p-2 text-left text-gray-500">タグ</th>
-                          <th className="p-2 text-left text-gray-500">offerText</th>
-                          <th className="p-2 text-center text-gray-500">状態</th>
-                          <th className="p-2 text-left text-gray-500">エラー</th>
+                        <tr className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0">
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">行</th>
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">企業名</th>
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">ティア</th>
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">タグ</th>
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">offerText</th>
+                          <th className="p-2 text-center text-gray-500 dark:text-gray-400">状態</th>
+                          <th className="p-2 text-left text-gray-500 dark:text-gray-400">エラー</th>
                         </tr>
                       </thead>
                       <tbody>
                         {parsedCompanies.map((row, i) => (
-                          <tr key={i} className={`border-b ${row.valid ? "hover:bg-gray-50" : "bg-red-50 border-red-100"}`}>
-                            <td className="p-2 text-gray-400">{i + 2}</td>
+                          <tr key={i} className={`border-b dark:border-gray-700 ${row.valid ? "hover:bg-gray-50 dark:hover:bg-gray-700" : "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/50"}`}>
+                            <td className="p-2 text-gray-400 dark:text-gray-500">{i + 2}</td>
                             <td className={`p-2 ${row.valid ? "" : "text-red-600 font-bold"}`}>{row.name || "—"}</td>
-                            <td className="p-2 text-gray-500">{row.tier || "—"}</td>
-                            <td className="p-2 text-gray-500">{row.tags || "—"}</td>
-                            <td className="p-2 text-gray-500">{row.offerText || "—"}</td>
+                            <td className="p-2 text-gray-500 dark:text-gray-400">{row.tier || "—"}</td>
+                            <td className="p-2 text-gray-500 dark:text-gray-400">{row.tags || "—"}</td>
+                            <td className="p-2 text-gray-500 dark:text-gray-400">{row.offerText || "—"}</td>
                             <td className="p-2 text-center">
                               {row.valid
                                 ? <span className="text-green-500 font-bold">OK</span>
@@ -676,14 +682,14 @@ export default function ImportPage() {
 
             {/* Existing companies list */}
             <Card>
-              <h3 className="font-bold text-gray-700 mb-3">登録済み企業 ({companies.length}社)</h3>
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">登録済み企業 ({companies.length}社)</h3>
               {companies.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">企業がありません</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">企業がありません</p>
               ) : (
                 <div className="max-h-80 overflow-y-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50 sticky top-0">
+                      <tr className="border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 sticky top-0">
                         <th className="p-2 text-left">企業名</th>
                         <th className="p-2 text-center">ティア</th>
                         <th className="p-2 text-center">タグ数</th>
@@ -692,25 +698,25 @@ export default function ImportPage() {
                     </thead>
                     <tbody>
                       {companies.map((co) => (
-                        <tr key={co.id} className="border-b border-gray-50 hover:bg-gray-50">
+                        <tr key={co.id} className="border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                           <td className="p-2 font-medium">{co.name}</td>
                           <td className="p-2 text-center">
                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                              co.tier === "platinum" ? "bg-purple-50 text-purple-600" :
-                              co.tier === "gold" ? "bg-yellow-50 text-yellow-600" :
-                              co.tier === "silver" ? "bg-gray-100 text-gray-600" :
-                              "bg-orange-50 text-orange-600"
+                              co.tier === "platinum" ? "bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400" :
+                              co.tier === "gold" ? "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400" :
+                              co.tier === "silver" ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" :
+                              "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
                             }`}>{co.tier}</span>
                           </td>
                           <td className="p-2 text-center">
                             {co.tags.length > 0
-                              ? <span className="text-[10px] bg-blue-50 text-blue-500 px-1 rounded">{co.tags.length}</span>
+                              ? <span className="text-[10px] bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 px-1 rounded">{co.tags.length}</span>
                               : "—"}
                           </td>
                           <td className="p-2 text-center">
                             {co.videos.cm15 || co.videos.cm30 || co.videos.cm60
                               ? <span className="text-green-500 text-[10px] font-bold">設定済</span>
-                              : <span className="text-gray-400 text-[10px]">未設定</span>}
+                              : <span className="text-gray-400 dark:text-gray-500 text-[10px]">未設定</span>}
                           </td>
                         </tr>
                       ))}
