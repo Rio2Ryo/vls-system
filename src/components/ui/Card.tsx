@@ -15,7 +15,7 @@ export default function Card({ children, className = "" }: CardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
       className={`
-        bg-white rounded-3xl shadow-sm border border-gray-100
+        bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700
         p-6 ${className}
       `}
     >

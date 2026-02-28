@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { r2Get, r2List, isR2Configured } from "@/lib/r2";
-import { ADMIN_PASSWORD } from "@/lib/data";
+import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface LifecycleResult {
   timestamp: string;
@@ -38,14 +39,9 @@ function daysSince(dateStr: string): number {
 /**
  * GET /api/lifecycle
  * Returns lifecycle status + storage stats.
- * Requires x-admin-password header.
+ * Auth: enforced by middleware (session or x-admin-password).
  */
-export async function GET(request: NextRequest) {
-  const adminPassword = request.headers.get("x-admin-password");
-  if (adminPassword !== ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function GET() {
   if (!isR2Configured()) {
     return NextResponse.json(
       { error: "R2 storage is not configured" },
@@ -147,7 +143,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Lifecycle status error:", error);
+    logError({ route: "/api/lifecycle", error });
     return NextResponse.json(
       { error: "Failed to get lifecycle status" },
       { status: 500 }

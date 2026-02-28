@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { r2List, r2Delete, isR2Configured } from "@/lib/r2";
-import { ADMIN_PASSWORD } from "@/lib/data";
+import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
 
 /**
  * GET /api/files?prefix=photos/&limit=200
  * List files in R2 bucket with optional prefix filter.
+ * Auth: enforced by middleware (session or x-admin-password).
  * Optional x-tenant-id header to scope listing under tenant prefix.
- * Requires x-admin-password header.
  */
 export async function GET(request: NextRequest) {
-  const adminPassword = request.headers.get("x-admin-password");
-  if (adminPassword !== ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   if (!isR2Configured()) {
     return NextResponse.json(
       { error: "R2 storage is not configured" },
@@ -43,7 +38,7 @@ export async function GET(request: NextRequest) {
       tenantId: tenantId || undefined,
     });
   } catch (error) {
-    console.error("List error:", error);
+    logError({ route: "/api/files GET", error });
     return NextResponse.json(
       { error: "Failed to list files" },
       { status: 500 }
@@ -55,15 +50,10 @@ export async function GET(request: NextRequest) {
  * DELETE /api/files
  * Delete a file from R2.
  * Body: { key: string }
+ * Auth: enforced by middleware (session or x-admin-password).
  * Optional x-tenant-id header — if set, validates key belongs to tenant.
- * Requires x-admin-password header.
  */
 export async function DELETE(request: NextRequest) {
-  const adminPassword = request.headers.get("x-admin-password");
-  if (adminPassword !== ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   if (!isR2Configured()) {
     return NextResponse.json(
       { error: "R2 storage is not configured" },
@@ -90,7 +80,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ deleted: key });
   } catch (error) {
-    console.error("Delete error:", error);
+    logError({ route: "/api/files DELETE", error });
     return NextResponse.json(
       { error: "Failed to delete file" },
       { status: 500 }

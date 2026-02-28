@@ -1,8 +1,10 @@
-import { getStoredEvents, getStoredTenants, addNotificationLog } from "./store";
+import { getStoredEvents, getStoredTenants, addNotificationLog, updateNotificationLog } from "./store";
+import { csrfHeaders } from "./csrf";
 import { Tenant } from "./types";
 
 /**
  * Send a notification email to the event admin (if notifyEmail is set).
+ * Logs optimistically, then updates status based on API response.
  * Fire-and-forget — never throws.
  */
 export function sendNotification(
@@ -19,20 +21,22 @@ export function sendNotification(
       ? `新規参加者: ${extra?.participantName || "匿名"} — ${event.name}`
       : `CM視聴完了: ${extra?.participantName || "匿名"} (${extra?.companyName || "—"}) — ${event.name}`;
 
+    const logId = `nl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
     addNotificationLog({
-      id: `nl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: logId,
       eventId,
       type,
       to: event.notifyEmail,
       subject,
       status: "logged",
-      method: "api",
+      method: "pending",
       timestamp: Date.now(),
     });
 
     fetch("/api/notify", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: csrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         to: event.notifyEmail,
         eventName: event.name,
@@ -40,9 +44,17 @@ export function sendNotification(
         participantName: extra?.participantName,
         companyName: extra?.companyName,
       }),
-    }).catch(() => {
-      // fire and forget
-    });
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        updateNotificationLog(logId, {
+          status: data.status === "sent" ? "sent" : data.status === "failed" ? "failed" : "logged",
+          method: data.method || "unknown",
+        });
+      })
+      .catch(() => {
+        updateNotificationLog(logId, { status: "failed", method: "error" });
+      });
   } catch {
     // never throw from notification code
   }
@@ -66,11 +78,24 @@ export function checkLicenseExpiry(thresholdDays = 30): Tenant[] {
       );
       if (daysLeft > 0 && daysLeft <= thresholdDays) {
         expiring.push(t);
-        // Send notification
+
         if (t.contactEmail) {
+          const logId = `nl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+          addNotificationLog({
+            id: logId,
+            eventId: t.id,
+            type: "license_expiry",
+            to: t.contactEmail,
+            subject: `ライセンス期限通知: ${t.name} (残り${daysLeft}日)`,
+            status: "logged",
+            method: "pending",
+            timestamp: Date.now(),
+          });
+
           fetch("/api/notify", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: csrfHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({
               to: t.contactEmail,
               eventName: t.name,
@@ -79,19 +104,17 @@ export function checkLicenseExpiry(thresholdDays = 30): Tenant[] {
               tenantName: t.name,
               licenseEnd: t.licenseEnd,
             }),
-          }).catch(() => {});
-
-          // Log the notification
-          addNotificationLog({
-            id: `nl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            eventId: t.id, // re-use eventId field for tenantId
-            type: "license_expiry",
-            to: t.contactEmail,
-            subject: `ライセンス期限通知: ${t.name} (残り${daysLeft}日)`,
-            status: "logged",
-            method: "api",
-            timestamp: Date.now(),
-          });
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              updateNotificationLog(logId, {
+                status: data.status === "sent" ? "sent" : data.status === "failed" ? "failed" : "logged",
+                method: data.method || "unknown",
+              });
+            })
+            .catch(() => {
+              updateNotificationLog(logId, { status: "failed", method: "error" });
+            });
         }
       }
     }

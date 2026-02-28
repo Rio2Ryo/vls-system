@@ -64,9 +64,13 @@ async function seedVideoPlays(page: import("@playwright/test").Page) {
   });
 }
 
-async function loginWithPassword(page: import("@playwright/test").Page) {
-  await page.locator("input[type='password']").fill("ADMIN_VLS_2026");
+/** Login at /admin and then navigate to the target sub-page */
+async function loginAndNavigate(page: import("@playwright/test").Page, targetPath: string) {
+  await page.goto("/admin");
+  await page.getByTestId("admin-password").fill("ADMIN_VLS_2026");
   await page.getByRole("button", { name: /ログイン/ }).click();
+  await expect(page.getByTestId("admin-dashboard")).toBeVisible();
+  await page.goto(targetPath);
 }
 
 // ===== /admin/analytics =====
@@ -76,48 +80,47 @@ test.describe("Admin Analytics Page (/admin/analytics)", () => {
   });
 
   test("shows login form and authenticates", async ({ page }) => {
+    // Unauthenticated access redirects to /admin login
     await page.goto("/admin/analytics");
-    await expect(page.getByText("アンケート分析")).toBeVisible();
-    await expect(page.getByTestId("analytics-password")).toBeVisible();
+    await expect(page.getByText("管理画面ログイン")).toBeVisible();
+    await expect(page.getByTestId("admin-password")).toBeVisible();
 
-    await page.getByTestId("analytics-password").fill("ADMIN_VLS_2026");
+    // Login and navigate to analytics
+    await page.getByTestId("admin-password").fill("ADMIN_VLS_2026");
     await page.getByRole("button", { name: /ログイン/ }).click();
+    await expect(page.getByTestId("admin-dashboard")).toBeVisible();
+    await page.goto("/admin/analytics");
     await expect(page.getByText("アンケート分析ダッシュボード")).toBeVisible();
   });
 
   test("shows summary cards with seeded data", async ({ page }) => {
-    await page.goto("/admin/analytics");
+    await page.goto("/admin");
     await seedAnalytics(page);
-    await page.getByTestId("analytics-password").fill("ADMIN_VLS_2026");
-    await page.getByRole("button", { name: /ログイン/ }).click();
+    await loginAndNavigate(page, "/admin/analytics");
 
     await expect(page.getByText("総アクセス")).toBeVisible();
-    await expect(page.getByText("アンケート回答")).toBeVisible();
+    await expect(page.getByText("アンケート回答", { exact: true })).toBeVisible();
   });
 
   test("event filter exists", async ({ page }) => {
-    await page.goto("/admin/analytics");
+    await page.goto("/admin");
     await seedAnalytics(page);
-    await page.getByTestId("analytics-password").fill("ADMIN_VLS_2026");
-    await page.getByRole("button", { name: /ログイン/ }).click();
+    await loginAndNavigate(page, "/admin/analytics");
 
     const filter = page.getByTestId("analytics-event-filter");
     await expect(filter).toBeVisible();
   });
 
   test("shows no-data message when empty", async ({ page }) => {
-    await page.goto("/admin/analytics");
+    await page.goto("/admin");
     await page.evaluate(() => localStorage.removeItem("vls_analytics"));
-    await page.getByTestId("analytics-password").fill("ADMIN_VLS_2026");
-    await page.getByRole("button", { name: /ログイン/ }).click();
+    await loginAndNavigate(page, "/admin/analytics");
 
     await expect(page.getByText("まだアンケート回答データがありません")).toBeVisible();
   });
 
   test("has consistent admin navigation", async ({ page }) => {
-    await page.goto("/admin/analytics");
-    await page.getByTestId("analytics-password").fill("ADMIN_VLS_2026");
-    await page.getByRole("button", { name: /ログイン/ }).click();
+    await loginAndNavigate(page, "/admin/analytics");
     // AdminHeader nav links
     await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
     await expect(page.getByRole("link", { name: "イベント" })).toBeVisible();
@@ -133,29 +136,31 @@ test.describe("Admin Stats Page (/admin/stats)", () => {
   });
 
   test("shows login form and authenticates", async ({ page }) => {
+    // Unauthenticated access redirects to /admin login
     await page.goto("/admin/stats");
-    await expect(page.getByText("CM統計")).toBeVisible();
-    await expect(page.getByTestId("stats-password")).toBeVisible();
+    await expect(page.getByText("管理画面ログイン")).toBeVisible();
+    await expect(page.getByTestId("admin-password")).toBeVisible();
 
-    await page.getByTestId("stats-password").fill("ADMIN_VLS_2026");
+    // Login and navigate to stats
+    await page.getByTestId("admin-password").fill("ADMIN_VLS_2026");
     await page.getByRole("button", { name: /ログイン/ }).click();
+    await expect(page.getByTestId("admin-dashboard")).toBeVisible();
+    await page.goto("/admin/stats");
     await expect(page.getByText("CM統計ダッシュボード")).toBeVisible();
   });
 
   test("shows no-data message when empty", async ({ page }) => {
-    await page.goto("/admin/stats");
+    await page.goto("/admin");
     await page.evaluate(() => localStorage.removeItem("vls_video_plays"));
-    await page.getByTestId("stats-password").fill("ADMIN_VLS_2026");
-    await page.getByRole("button", { name: /ログイン/ }).click();
+    await loginAndNavigate(page, "/admin/stats");
 
     await expect(page.getByText("まだ再生データがありません")).toBeVisible();
   });
 
   test("shows stats summary with seeded video plays", async ({ page }) => {
-    await page.goto("/admin/stats");
+    await page.goto("/admin");
     await seedVideoPlays(page);
-    await page.getByTestId("stats-password").fill("ADMIN_VLS_2026");
-    await page.getByRole("button", { name: /ログイン/ }).click();
+    await loginAndNavigate(page, "/admin/stats");
 
     await expect(page.getByText("総再生回数")).toBeVisible();
     await expect(page.getByText("視聴完了率")).toBeVisible();
@@ -163,10 +168,9 @@ test.describe("Admin Stats Page (/admin/stats)", () => {
   });
 
   test("event filter exists", async ({ page }) => {
-    await page.goto("/admin/stats");
+    await page.goto("/admin");
     await seedVideoPlays(page);
-    await page.getByTestId("stats-password").fill("ADMIN_VLS_2026");
-    await page.getByRole("button", { name: /ログイン/ }).click();
+    await loginAndNavigate(page, "/admin/stats");
 
     const eventFilter = page.getByTestId("stats-event-filter");
     await expect(eventFilter).toBeVisible();
@@ -183,29 +187,32 @@ test.describe("Admin Users Page (/admin/users)", () => {
   });
 
   test("shows login form and authenticates", async ({ page }) => {
+    // Unauthenticated access redirects to /admin login
     await page.goto("/admin/users");
-    await expect(page.getByText("ユーザー管理")).toBeVisible();
-    await loginWithPassword(page);
+    await expect(page.getByText("管理画面ログイン")).toBeVisible();
+
+    // Login and navigate to users page
+    await loginAndNavigate(page, "/admin/users");
     await expect(page.getByText("ユーザー管理")).toBeVisible();
   });
 
   test("shows user sessions with seeded data", async ({ page }) => {
-    await page.goto("/admin/users");
+    await page.goto("/admin");
     await seedAnalytics(page);
     await seedVideoPlays(page);
-    await loginWithPassword(page);
+    await loginAndNavigate(page, "/admin/users");
 
     await expect(page.getByText("テスト太郎")).toBeVisible();
     await expect(page.getByText("テスト花子")).toBeVisible();
   });
 
   test("shows empty state when no data", async ({ page }) => {
-    await page.goto("/admin/users");
+    await page.goto("/admin");
     await page.evaluate(() => {
       localStorage.removeItem("vls_analytics");
       localStorage.removeItem("vls_video_plays");
     });
-    await loginWithPassword(page);
+    await loginAndNavigate(page, "/admin/users");
 
     await expect(page.getByText("まだユーザーデータがありません")).toBeVisible();
   });
@@ -218,9 +225,12 @@ test.describe("Admin Events Page (/admin/events)", () => {
   });
 
   test("shows login form and authenticates", async ({ page }) => {
+    // Unauthenticated access redirects to /admin login
     await page.goto("/admin/events");
-    await expect(page.getByText("イベント管理")).toBeVisible();
-    await loginWithPassword(page);
+    await expect(page.getByText("管理画面ログイン")).toBeVisible();
+
+    // Login and navigate to events page
+    await loginAndNavigate(page, "/admin/events");
 
     // Should show event headings
     await expect(page.getByRole("heading", { name: "夏祭り 2026" })).toBeVisible();
@@ -229,8 +239,7 @@ test.describe("Admin Events Page (/admin/events)", () => {
   });
 
   test("can create new event", async ({ page }) => {
-    await page.goto("/admin/events");
-    await loginWithPassword(page);
+    await loginAndNavigate(page, "/admin/events");
 
     // Create new event
     await page.getByRole("button", { name: /新規イベント作成/ }).click();
@@ -244,8 +253,7 @@ test.describe("Admin Events Page (/admin/events)", () => {
   });
 
   test("shows QR code for event", async ({ page }) => {
-    await page.goto("/admin/events");
-    await loginWithPassword(page);
+    await loginAndNavigate(page, "/admin/events");
 
     // Click QR button (text-based since sub-page doesn't use data-testid)
     const qrBtn = page.locator("button", { hasText: "QRコード" }).first();
@@ -260,8 +268,7 @@ test.describe("Admin Events Page (/admin/events)", () => {
   });
 
   test("has consistent admin navigation", async ({ page }) => {
-    await page.goto("/admin/events");
-    await loginWithPassword(page);
+    await loginAndNavigate(page, "/admin/events");
 
     await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
     await expect(page.getByRole("link", { name: "アンケート" })).toBeVisible();

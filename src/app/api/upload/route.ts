@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { r2Put, isR2Configured } from "@/lib/r2";
-import { ADMIN_PASSWORD } from "@/lib/data";
+import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
 
@@ -11,15 +11,10 @@ export const runtime = "nodejs";
  *   - eventId: (optional) event ID for organizing into folders
  *   - type: "photos" | "thumbs" | "videos" (default: "photos")
  *   - path: (optional) custom key path, overrides auto-generated key
- * Requires x-admin-password header for auth.
+ * Auth: enforced by middleware (session or x-admin-password).
  * Optional x-tenant-id header to scope uploads under tenant prefix.
  */
 export async function POST(request: NextRequest) {
-  const adminPassword = request.headers.get("x-admin-password");
-  if (adminPassword !== ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   if (!isR2Configured()) {
     return NextResponse.json(
       { error: "R2 storage is not configured" },
@@ -62,7 +57,7 @@ export async function POST(request: NextRequest) {
       tenantId: tenantId || undefined,
     });
   } catch (error) {
-    console.error("Upload error:", error);
+    logError({ route: "/api/upload", error });
     return NextResponse.json(
       { error: "Upload failed" },
       { status: 500 }

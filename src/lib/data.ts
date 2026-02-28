@@ -413,4 +413,4 @@ export const TENANTS: Tenant[] = [
   },
 ];
 
-export const ADMIN_PASSWORD = "ADMIN_VLS_2026";
+export { ADMIN_PASSWORD } from "./constants";

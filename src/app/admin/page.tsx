@@ -30,9 +30,11 @@ import {
   SettingsTab,
   ExportTab,
   QRAnalyticsTab,
+  CMVideosTab,
+  ErrorLogTab,
 } from "@/components/admin/tabs";
 
-type Tab = "events" | "photos" | "companies" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "chartjs" | "licenses" | "notifications" | "export" | "qrAnalytics" | "settings";
+type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -151,6 +153,7 @@ export default function AdminPage() {
     { key: "events", label: "イベント管理", icon: "🎪" },
     { key: "photos", label: "写真管理", icon: "📷" },
     { key: "companies", label: "企業管理", icon: "🏢" },
+    { key: "cmVideos", label: "CM動画管理", icon: "🎬" },
     { key: "survey", label: "アンケート", icon: "📝" },
     { key: "import", label: "参加者管理", icon: "👥" },
     { key: "invoices", label: "請求書", icon: "🧾" },
@@ -160,6 +163,7 @@ export default function AdminPage() {
     { key: "licenses", label: "ライセンス管理", icon: "🔑", superOnly: true },
     { key: "tenants", label: "テナント管理", icon: "🏫", superOnly: true },
     { key: "notifications", label: "通知ログ", icon: "🔔", superOnly: true },
+    { key: "errorLog", label: "エラーログ", icon: "🐛", superOnly: true },
     { key: "storage", label: "R2ストレージ", icon: "☁️", demoHidden: true, superOnly: true },
     { key: "matching", label: "マッチングテスト", icon: "🎯", demoHidden: true },
     { key: "export", label: "CSVエクスポート", icon: "📤" },
@@ -272,6 +276,7 @@ export default function AdminPage() {
             {tab === "events" && <EventsTab onSave={(msg) => { showToast(msg); refreshEvents(); }} tenantId={adminTenantId} />}
             {tab === "photos" && <PhotosTab onSave={(msg) => { showToast(msg); refreshEvents(); }} activeEventId={activeEventId} tenantId={adminTenantId} />}
             {tab === "companies" && <CompaniesTab onSave={showToast} />}
+            {tab === "cmVideos" && <CMVideosTab onSave={showToast} />}
             {tab === "survey" && <SurveyTab onSave={showToast} activeEventId={activeEventId} activeEvent={activeEvent} tenantId={adminTenantId} />}
             {tab === "import" && <BulkImport onSave={showToast} tenantId={adminTenantId} />}
             {tab === "invoices" && <InvoiceGenerator onSave={showToast} tenantId={adminTenantId} />}
@@ -281,6 +286,7 @@ export default function AdminPage() {
             {tab === "licenses" && <LicenseBulkImport onSave={showToast} />}
             {tab === "tenants" && <TenantManager onSave={showToast} />}
             {tab === "notifications" && <NotificationLogTab />}
+            {tab === "errorLog" && <ErrorLogTab onSave={showToast} />}
             {tab === "storage" && <StorageTab onSave={showToast} />}
             {tab === "matching" && <MatchingDebugTab />}
             {tab === "export" && <ExportTab onSave={showToast} tenantId={adminTenantId} />}

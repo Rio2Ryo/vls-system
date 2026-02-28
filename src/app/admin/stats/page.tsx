@@ -1,72 +1,37 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Button from "@/components/ui/Button";
+import { useSession, signOut } from "next-auth/react";
 import Card from "@/components/ui/Card";
 import AdminHeader from "@/components/admin/AdminHeader";
-import { ADMIN_PASSWORD } from "@/lib/data";
-import { getStoredCompanies, getStoredEvents, getStoredVideoPlays, clearVideoPlays, getStoredTenants } from "@/lib/store";
+import { getStoredCompanies, getStoredEvents, getStoredVideoPlays, clearVideoPlays } from "@/lib/store";
 import { Company, EventData, VideoPlayRecord } from "@/lib/types";
 import { IS_DEMO_MODE } from "@/lib/demo";
 
 export default function StatsPage() {
-  const [authed, setAuthed] = useState(false);
-  const [pw, setPw] = useState("");
-  const [pwError, setPwError] = useState("");
+  const { data: session, status } = useSession();
   const [plays, setPlays] = useState<VideoPlayRecord[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [events, setEvents] = useState<EventData[]>([]);
   const [filterEvent, setFilterEvent] = useState("all");
   const [filterCmType, setFilterCmType] = useState("all");
-  const [tenantId, setTenantId] = useState<string | null>(null);
+
+  const tenantId = session?.user?.tenantId ?? (typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") : null) ?? null;
 
   useEffect(() => {
-    const tid = sessionStorage.getItem("adminTenantId") || null;
-    setTenantId(tid);
-    if (tid) {
+    if (status !== "authenticated") return;
+    if (tenantId) {
       const tenantEventIds = new Set(
-        getStoredEvents().filter((e) => e.tenantId === tid).map((e) => e.id)
+        getStoredEvents().filter((e) => e.tenantId === tenantId).map((e) => e.id)
       );
-      setEvents(getStoredEvents().filter((e) => e.tenantId === tid));
+      setEvents(getStoredEvents().filter((e) => e.tenantId === tenantId));
       setPlays(getStoredVideoPlays().filter((v) => tenantEventIds.has(v.eventId)));
     } else {
       setEvents(getStoredEvents());
       setPlays(getStoredVideoPlays());
     }
     setCompanies(getStoredCompanies());
-  }, []);
-
-  useEffect(() => {
-    if (sessionStorage.getItem("adminAuthed") === "true") setAuthed(true);
-  }, []);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pw === ADMIN_PASSWORD) {
-      setAuthed(true);
-      sessionStorage.setItem("adminAuthed", "true");
-      sessionStorage.removeItem("adminTenantId");
-    } else {
-      const tenants = getStoredTenants();
-      const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
-      if (tenant) {
-        if (tenant.isActive === false) {
-          setPwError("このテナントは無効化されています");
-          return;
-        }
-        if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) {
-          setPwError("ライセンスが期限切れです");
-          return;
-        }
-        setAuthed(true);
-        sessionStorage.setItem("adminAuthed", "true");
-        sessionStorage.setItem("adminTenantId", tenant.id);
-        setTenantId(tenant.id);
-      } else {
-        setPwError("パスワードが違います");
-      }
-    }
-  };
+  }, [status, tenantId]);
 
   // Filtered plays
   const filtered = useMemo(() => {
@@ -190,39 +155,31 @@ export default function StatsPage() {
     setPlays([]);
   };
 
-  // Login screen
-  if (!authed) {
+  if (status === "loading") {
     return (
       <main className="min-h-screen flex items-center justify-center p-6">
-        <Card className="w-full max-w-sm">
-          <h1 className="text-xl font-bold text-gray-800 text-center mb-4">
-            CM統計ダッシュボード
-          </h1>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input
-              type="password"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              placeholder="管理パスワード"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-center"
-              data-testid="stats-password"
-            />
-            {pwError && <p className="text-red-400 text-sm text-center">{pwError}</p>}
-            <Button type="submit" size="md" className="w-full">
-              ログイン
-            </Button>
-          </form>
-        </Card>
+        <div className="text-center">
+          <div className="inline-flex items-center gap-1.5 mb-3">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-2.5 h-2.5 rounded-full bg-[#6EC6FF] animate-bounce"
+                style={{ animationDelay: `${i * 0.15}s` }}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-gray-400 dark:text-gray-500">CM統計を読み込み中...</p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <AdminHeader
         title={IS_DEMO_MODE ? "CM統計ダッシュボード (Demo)" : "CM統計ダッシュボード"}
         badge={`${filtered.length}再生`}
-        onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
+        onLogout={() => { sessionStorage.removeItem("adminTenantId"); signOut({ redirect: false }); }}
         actions={
           IS_DEMO_MODE || tenantId ? undefined : (
             <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-600">
@@ -238,7 +195,7 @@ export default function StatsPage() {
           <select
             value={filterEvent}
             onChange={(e) => setFilterEvent(e.target.value)}
-            className="text-sm px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-[#6EC6FF]"
+            className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:border-[#6EC6FF] dark:bg-gray-700 dark:text-gray-100"
             data-testid="stats-event-filter"
           >
             <option value="all">全イベント</option>
@@ -249,7 +206,7 @@ export default function StatsPage() {
           <select
             value={filterCmType}
             onChange={(e) => setFilterCmType(e.target.value)}
-            className="text-sm px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-[#6EC6FF]"
+            className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:border-[#6EC6FF] dark:bg-gray-700 dark:text-gray-100"
             data-testid="stats-cm-type-filter"
           >
             <option value="all">全CMタイプ</option>
@@ -262,24 +219,24 @@ export default function StatsPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "総再生回数", value: String(totals.totalPlays), icon: "▶", color: "bg-blue-50 text-blue-600" },
-            { label: "視聴完了率", value: `${totals.completionRate}%`, icon: "✓", color: "bg-green-50 text-green-600" },
-            { label: "平均視聴時間", value: `${totals.avgWatchSec}秒`, icon: "⏱", color: "bg-purple-50 text-purple-600" },
-            { label: "平均CM尺", value: `${totals.avgDuration}秒`, icon: "🎬", color: "bg-yellow-50 text-yellow-700" },
+            { label: "総再生回数", value: String(totals.totalPlays), icon: "▶", color: "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" },
+            { label: "視聴完了率", value: `${totals.completionRate}%`, icon: "✓", color: "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400" },
+            { label: "平均視聴時間", value: `${totals.avgWatchSec}秒`, icon: "⏱", color: "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400" },
+            { label: "平均CM尺", value: `${totals.avgDuration}秒`, icon: "🎬", color: "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
           ].map((s) => (
             <Card key={s.label} className="text-center">
               <div className={`inline-flex w-10 h-10 rounded-full items-center justify-center text-lg mb-2 ${s.color}`}>
                 {s.icon}
               </div>
-              <p className="text-2xl font-bold text-gray-800">{s.value}</p>
-              <p className="text-xs text-gray-400">{s.label}</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{s.value}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">{s.label}</p>
             </Card>
           ))}
         </div>
 
         {filtered.length === 0 ? (
           <Card>
-            <p className="text-sm text-gray-400 text-center py-8">
+            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">
               まだ再生データがありません。ユーザーがCM動画を視聴すると統計が表示されます。
             </p>
           </Card>
@@ -287,7 +244,7 @@ export default function StatsPage() {
           <>
             {/* Company play count bar chart */}
             <Card>
-              <h3 className="font-bold text-gray-700 mb-4">企業別 再生回数</h3>
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4">企業別 再生回数</h3>
               <div className="space-y-3">
                 {companyStats.map((cs) => {
                   const compRate = cs.totalPlays > 0 ? Math.round((cs.completed / cs.totalPlays) * 100) : 0;
@@ -299,11 +256,11 @@ export default function StatsPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={cs.company.logoUrl} alt={cs.companyName} className="w-7 h-7 rounded-full flex-shrink-0" />
                         )}
-                        <span className="text-sm text-gray-700 flex-1 truncate">{cs.companyName}</span>
-                        <span className="text-xs text-gray-400 flex-shrink-0">{cs.totalPlays}回</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-200 flex-1 truncate">{cs.companyName}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">{cs.totalPlays}回</span>
                       </div>
                       <div className="flex items-center gap-2 ml-10">
-                        <div className="flex-1 bg-gray-100 rounded-full h-5 relative overflow-hidden">
+                        <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 relative overflow-hidden">
                           <div
                             className="h-full rounded-full bg-[#6EC6FF] transition-all duration-500"
                             style={{ width: `${(cs.totalPlays / maxPlays) * 100}%` }}
@@ -311,7 +268,7 @@ export default function StatsPage() {
                         </div>
                         <div className="flex gap-2 text-[10px] flex-shrink-0">
                           <span className="text-green-500">完了{compRate}%</span>
-                          <span className="text-gray-400">平均{avgWatch}秒</span>
+                          <span className="text-gray-400 dark:text-gray-500">平均{avgWatch}秒</span>
                         </div>
                       </div>
                     </div>
@@ -322,39 +279,39 @@ export default function StatsPage() {
 
             {/* Per-video stats */}
             <Card>
-              <h3 className="font-bold text-gray-700 mb-4">動画別 再生統計</h3>
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4">動画別 再生統計</h3>
               <div className="space-y-3">
                 {videoStats.map((vs) => {
                   const compRate = vs.plays > 0 ? Math.round((vs.completed / vs.plays) * 100) : 0;
                   const avgWatch = vs.plays > 0 ? Math.round(vs.totalWatched / vs.plays) : 0;
                   return (
-                    <div key={`${vs.videoId}:${vs.cmType}`} className="border border-gray-100 rounded-xl p-3">
+                    <div key={`${vs.videoId}:${vs.cmType}`} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3">
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full text-white font-bold ${CM_TYPE_COLORS[vs.cmType] || "bg-gray-400"}`}>
                           {CM_TYPE_LABELS[vs.cmType] || vs.cmType}
                         </span>
-                        <span className="text-sm text-gray-700 truncate">{vs.companyName}</span>
-                        <code className="text-[10px] text-gray-400 font-mono ml-auto flex-shrink-0">{vs.videoId}</code>
+                        <span className="text-sm text-gray-700 dark:text-gray-200 truncate">{vs.companyName}</span>
+                        <code className="text-[10px] text-gray-400 dark:text-gray-500 font-mono ml-auto flex-shrink-0">{vs.videoId}</code>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-100 rounded-full h-4 relative overflow-hidden">
+                        <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-4 relative overflow-hidden">
                           <div
                             className={`h-full rounded-full ${CM_TYPE_COLORS[vs.cmType] || "bg-gray-400"} transition-all duration-500`}
                             style={{ width: `${(vs.plays / maxVideoPlays) * 100}%` }}
                           />
-                          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-700">
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-700 dark:text-gray-200">
                             {vs.plays}再生
                           </span>
                         </div>
                       </div>
                       <div className="flex gap-4 mt-1.5 text-xs">
-                        <span className="text-gray-500">
+                        <span className="text-gray-500 dark:text-gray-400">
                           完了率: <b className={compRate >= 80 ? "text-green-600" : compRate >= 50 ? "text-yellow-600" : "text-red-500"}>{compRate}%</b>
                         </span>
-                        <span className="text-gray-500">
+                        <span className="text-gray-500 dark:text-gray-400">
                           平均視聴: <b>{avgWatch}秒</b> / {vs.duration}秒
                         </span>
-                        <span className="text-gray-500">
+                        <span className="text-gray-500 dark:text-gray-400">
                           完了: <b>{vs.completed}</b> / {vs.plays}
                         </span>
                       </div>
@@ -366,7 +323,7 @@ export default function StatsPage() {
 
             {/* Completion rate by CM type */}
             <Card>
-              <h3 className="font-bold text-gray-700 mb-4">CMタイプ別 完了率</h3>
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4">CMタイプ別 完了率</h3>
               <div className="space-y-3">
                 {(["cm15", "cm30", "cm60"] as const).map((cmType) => {
                   const typePlays = filtered.filter((p) => p.cmType === cmType);
@@ -381,18 +338,18 @@ export default function StatsPage() {
                       </span>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
+                          <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-6 relative overflow-hidden">
                             {/* Completion rate bar */}
                             <div
                               className={`h-full rounded-full ${CM_TYPE_COLORS[cmType]} opacity-80 transition-all duration-500`}
                               style={{ width: `${typeRate}%` }}
                             />
-                            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700">
+                            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700 dark:text-gray-200">
                               {typePlays.length > 0 ? `${typeRate}% (${typeCompleted}/${typePlays.length})` : "データなし"}
                             </span>
                           </div>
                         </div>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                           平均視聴 {typeAvg}秒 / {expectedDur}秒
                         </p>
                       </div>
@@ -404,20 +361,20 @@ export default function StatsPage() {
 
             {/* Recent plays timeline */}
             <Card>
-              <h3 className="font-bold text-gray-700 mb-4">最近の再生履歴</h3>
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4">最近の再生履歴</h3>
               <div className="space-y-2 max-h-80 overflow-y-auto">
                 {filtered.slice().reverse().slice(0, 50).map((p) => {
                   const dt = new Date(p.timestamp);
                   const timeStr = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
                   const dateStr = `${dt.getMonth() + 1}/${dt.getDate()}`;
                   return (
-                    <div key={p.id} className="flex items-center gap-2 text-xs py-1 border-b border-gray-50">
-                      <span className="text-gray-400 w-16 flex-shrink-0">{dateStr} {timeStr}</span>
+                    <div key={p.id} className="flex items-center gap-2 text-xs py-1 border-b border-gray-50 dark:border-gray-700">
+                      <span className="text-gray-400 dark:text-gray-500 w-16 flex-shrink-0">{dateStr} {timeStr}</span>
                       <span className={`px-1.5 py-0.5 rounded text-white text-[10px] font-bold ${CM_TYPE_COLORS[p.cmType]}`}>
                         {CM_TYPE_LABELS[p.cmType]}
                       </span>
-                      <span className="text-gray-600 truncate flex-1">{p.companyName}</span>
-                      <span className="text-gray-400 flex-shrink-0">{p.watchedSeconds}秒/{p.duration}秒</span>
+                      <span className="text-gray-600 dark:text-gray-300 truncate flex-1">{p.companyName}</span>
+                      <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">{p.watchedSeconds}秒/{p.duration}秒</span>
                       <span className={`flex-shrink-0 ${p.completed ? "text-green-500" : "text-red-400"}`}>
                         {p.completed ? "完了" : "途中離脱"}
                       </span>

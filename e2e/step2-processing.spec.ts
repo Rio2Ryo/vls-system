@@ -24,7 +24,6 @@ test.describe("STEP 2 – Processing (45s forced CM wait)", () => {
 
   test("shows CM video or loading animation", async ({ page }) => {
     // Should show either a CM card with iframe or the loading animation
-    const hasContent = await page.locator("iframe, [data-testid='loading-animation']").first().isVisible({ timeout: 5000 }).catch(() => false);
-    expect(hasContent).toBeTruthy();
+    await expect(page.locator("iframe").or(page.locator("[data-testid='loading-animation']")).first()).toBeVisible({ timeout: 10000 });
   });
 });

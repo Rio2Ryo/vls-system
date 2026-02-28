@@ -1,5 +1,6 @@
 import { AnalyticsRecord, Company, EventData, InvoiceData, NotificationLog, Participant, SurveyQuestion, Tenant, VideoPlayRecord } from "./types";
 import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
+import { csrfHeaders } from "./csrf";
 
 const KEYS = {
   events: "vls_admin_events",
@@ -23,12 +24,48 @@ function safeGet<T>(key: string, fallback: T): T {
   }
 }
 
+/** Persist to D1 via API (fire-and-forget). Skipped in E2E test mode. */
+function persistToD1(key: string, value: string): void {
+  if (typeof window !== "undefined" && window.localStorage.getItem("__skip_d1_sync")) return;
+  fetch("/api/db", {
+    method: "PUT",
+    headers: csrfHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ key, value }),
+  }).catch(() => {
+    // D1 sync failed silently — localStorage still has the data
+  });
+}
+
 function safeSet(key: string, value: unknown): void {
   if (typeof window === "undefined") return;
+  const json = JSON.stringify(value);
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(key, json);
   } catch {
     // QuotaExceededError — silently ignore to prevent page crash
+  }
+  // Fire-and-forget D1 persistence
+  persistToD1(key, json);
+}
+
+/**
+ * Fetch all data from D1 and populate localStorage.
+ * Called once on app startup by DbSyncProvider.
+ */
+export async function syncFromDb(): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (window.localStorage.getItem("__skip_d1_sync")) return;
+  try {
+    const res = await fetch("/api/db");
+    if (!res.ok) return;
+    const data = await res.json() as Record<string, string>;
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === "string" && value.length > 0) {
+        localStorage.setItem(key, value);
+      }
+    }
+  } catch {
+    // D1 sync failed — fall back to existing localStorage data
   }
 }
 
@@ -120,6 +157,7 @@ export function updateAnalyticsRecord(id: string, updates: AnalyticsUpdate): voi
 export function clearAnalytics(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(KEYS.analytics);
+  persistToD1(KEYS.analytics, "[]");
 }
 
 // --- Video Play Records ---
@@ -136,6 +174,7 @@ export function addVideoPlayRecord(record: VideoPlayRecord): void {
 export function clearVideoPlays(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(KEYS.videoPlays);
+  persistToD1(KEYS.videoPlays, "[]");
 }
 
 // --- Tenants ---
@@ -186,6 +225,15 @@ export function addNotificationLog(entry: NotificationLog): void {
   safeSet(KEYS.notificationLog, log);
 }
 
+export function updateNotificationLog(id: string, update: Partial<NotificationLog>): void {
+  const log = getStoredNotificationLog();
+  const idx = log.findIndex((e) => e.id === id);
+  if (idx !== -1) {
+    log[idx] = { ...log[idx], ...update };
+    safeSet(KEYS.notificationLog, log);
+  }
+}
+
 // --- Tenant-scoped data access ---
 export function getEventsForTenant(tenantId: string): EventData[] {
   return getStoredEvents().filter((e) => e.tenantId === tenantId);
@@ -209,6 +257,85 @@ export function getParticipantsForTenant(tenantId: string): Participant[] {
   return getStoredParticipants().filter((p) => p.tenantId === tenantId);
 }
 
+// --- Tenant cascade delete ---
+
+/** Summary of what will be (or was) deleted by cascade */
+export interface TenantDeleteSummary {
+  tenantName: string;
+  events: number;
+  participants: number;
+  invoices: number;
+  analytics: number;
+  videoPlays: number;
+  notifications: number;
+}
+
+/** Preview what cascade delete would remove (no mutation) */
+export function previewTenantCascade(tenantId: string): TenantDeleteSummary | null {
+  const tenants = getStoredTenants();
+  const tenant = tenants.find((t) => t.id === tenantId);
+  if (!tenant) return null;
+
+  const tenantEventIds = new Set(
+    getStoredEvents().filter((e) => e.tenantId === tenantId).map((e) => e.id)
+  );
+
+  return {
+    tenantName: tenant.name,
+    events: tenantEventIds.size,
+    participants: getStoredParticipants().filter((p) => p.tenantId === tenantId).length,
+    invoices: getStoredInvoices().filter((i) => i.tenantId === tenantId).length,
+    analytics: getStoredAnalytics().filter((a) => tenantEventIds.has(a.eventId)).length,
+    videoPlays: getStoredVideoPlays().filter((v) => tenantEventIds.has(v.eventId)).length,
+    notifications: getStoredNotificationLog().filter((n) => tenantEventIds.has(n.eventId)).length,
+  };
+}
+
+/**
+ * Delete a tenant and all associated child records.
+ * Order: collect event IDs → delete children by eventId → delete direct children → delete tenant.
+ * All localStorage writes are synchronous; D1 persistence is fire-and-forget per key.
+ */
+export function deleteTenantCascade(tenantId: string): TenantDeleteSummary | null {
+  const summary = previewTenantCascade(tenantId);
+  if (!summary) return null;
+
+  // Collect tenant's event IDs for indirect child lookup
+  const tenantEventIds = new Set(
+    getStoredEvents().filter((e) => e.tenantId === tenantId).map((e) => e.id)
+  );
+
+  // 1. Remove analytics records linked to tenant events
+  const remainingAnalytics = getStoredAnalytics().filter((a) => !tenantEventIds.has(a.eventId));
+  safeSet(KEYS.analytics, remainingAnalytics);
+
+  // 2. Remove video play records linked to tenant events
+  const remainingPlays = getStoredVideoPlays().filter((v) => !tenantEventIds.has(v.eventId));
+  safeSet(KEYS.videoPlays, remainingPlays);
+
+  // 3. Remove notification logs linked to tenant events
+  const remainingNotifs = getStoredNotificationLog().filter((n) => !tenantEventIds.has(n.eventId));
+  safeSet(KEYS.notificationLog, remainingNotifs);
+
+  // 4. Remove participants belonging to this tenant
+  const remainingParticipants = getStoredParticipants().filter((p) => p.tenantId !== tenantId);
+  safeSet(KEYS.participants, remainingParticipants);
+
+  // 5. Remove invoices belonging to this tenant
+  const remainingInvoices = getStoredInvoices().filter((i) => i.tenantId !== tenantId);
+  safeSet(KEYS.invoices, remainingInvoices);
+
+  // 6. Remove events belonging to this tenant
+  const remainingEvents = getStoredEvents().filter((e) => e.tenantId !== tenantId);
+  safeSet(KEYS.events, remainingEvents);
+
+  // 7. Remove the tenant itself
+  const remainingTenants = getStoredTenants().filter((t) => t.id !== tenantId);
+  safeSet(KEYS.tenants, remainingTenants);
+
+  return summary;
+}
+
 // --- Reset to defaults ---
 export function resetToDefaults(): void {
   if (typeof window === "undefined") return;
@@ -216,4 +343,9 @@ export function resetToDefaults(): void {
   localStorage.removeItem(KEYS.companies);
   localStorage.removeItem(KEYS.survey);
   localStorage.removeItem(KEYS.tenants);
+  // Sync defaults back to D1
+  persistToD1(KEYS.events, JSON.stringify(DEFAULT_EVENTS));
+  persistToD1(KEYS.companies, JSON.stringify(DEFAULT_COMPANIES));
+  persistToD1(KEYS.survey, JSON.stringify(DEFAULT_SURVEY));
+  persistToD1(KEYS.tenants, JSON.stringify(DEFAULT_TENANTS));
 }

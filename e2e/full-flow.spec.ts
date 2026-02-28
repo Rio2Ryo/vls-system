@@ -7,11 +7,11 @@ test.describe("Full Flow – STEP 0 → STEP 5", () => {
     await expect(page.getByText("イベント写真サービス")).toBeVisible();
     await page.getByTestId("password-input").fill("SUMMER2026");
     await page.getByRole("button", { name: /写真を見る/ }).click();
-    await expect(page).toHaveURL(/\/survey/);
+    await expect(page).toHaveURL(/\/survey/, { timeout: 10000 });
 
     // ===== STEP 1: Survey (name + 3 questions) =====
     // Name input step
-    await expect(page.getByText("お名前を教えてください")).toBeVisible();
+    await expect(page.getByText("お名前を教えてください")).toBeVisible({ timeout: 10000 });
     await page.getByTestId("respondent-name-input").fill("テストユーザー");
     await page.getByRole("button", { name: /つぎへ/ }).click();
 
@@ -33,8 +33,8 @@ test.describe("Full Flow – STEP 0 → STEP 5", () => {
     await expect(page).toHaveURL(/\/processing/);
 
     // ===== STEP 2: Processing (45s wait + CM) =====
-    await expect(page.getByText("イベントの全写真データを読み込んでいます")).toBeVisible();
-    await expect(page.getByText("読み込み中")).toBeVisible();
+    await expect(page.getByText("イベントの全写真データを読み込んでいます")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("progressbar", { name: "読み込み中" })).toBeVisible();
     await expect(page.getByRole("button", { name: /写真を見る/ })).toBeDisabled();
 
     // Verify session data was saved

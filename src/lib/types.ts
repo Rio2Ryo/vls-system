@@ -134,6 +134,7 @@ export interface Tenant {
   contactEmail: string;
   contactName: string;
   logoUrl?: string;
+  primaryColor?: string;  // hex color e.g. "#6EC6FF"
   billingAddress?: string;
   invoicePrefix?: string;
   createdAt: number;

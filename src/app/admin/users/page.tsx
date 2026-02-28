@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Button from "@/components/ui/Button";
+import { useSession, signOut } from "next-auth/react";
 import Card from "@/components/ui/Card";
 import AdminHeader from "@/components/admin/AdminHeader";
-import { ADMIN_PASSWORD } from "@/lib/data";
 import {
   getStoredAnalytics, getStoredEvents, getStoredCompanies,
-  getStoredVideoPlays, getStoredSurvey, getSurveyForEvent, getStoredTenants,
+  getStoredVideoPlays, getStoredSurvey, getSurveyForEvent,
 } from "@/lib/store";
 import {
   AnalyticsRecord, EventData, Company, VideoPlayRecord,
@@ -15,7 +14,7 @@ import {
 } from "@/lib/types";
 import { IS_DEMO_MODE } from "@/lib/demo";
 
-const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
+const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100";
 
 // Score config
 const SCORE_WEIGHTS = { survey: 20, cmViewed: 30, photosViewed: 20, downloaded: 30 };
@@ -53,9 +52,7 @@ function calcCmScore(plays: VideoPlayRecord[]): number {
 type SortKey = "date-desc" | "date-asc" | "name-asc" | "score-desc" | "score-asc";
 
 export default function UsersPage() {
-  const [authed, setAuthed] = useState(false);
-  const [pw, setPw] = useState("");
-  const [pwError, setPwError] = useState("");
+  const { data: session, status } = useSession();
 
   const [analytics, setAnalytics] = useState<AnalyticsRecord[]>([]);
   const [events, setEvents] = useState<EventData[]>([]);
@@ -68,10 +65,11 @@ export default function UsersPage() {
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const tenantId = session?.user?.tenantId ?? (typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") : null) ?? null;
+
   const reload = useCallback(() => {
-    const tid = typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") || null : null;
-    if (tid) {
-      const tenantEvents = getStoredEvents().filter((e) => e.tenantId === tid);
+    if (tenantId) {
+      const tenantEvents = getStoredEvents().filter((e) => e.tenantId === tenantId);
       const tenantEventIds = new Set(tenantEvents.map((e) => e.id));
       setEvents(tenantEvents);
       setAnalytics(getStoredAnalytics().filter((a) => tenantEventIds.has(a.eventId)));
@@ -83,40 +81,9 @@ export default function UsersPage() {
     }
     setCompanies(getStoredCompanies());
     setGlobalSurvey(getStoredSurvey());
-  }, []);
+  }, [tenantId]);
 
-  useEffect(() => { reload(); }, [reload]);
-
-  useEffect(() => {
-    if (sessionStorage.getItem("adminAuthed") === "true") setAuthed(true);
-  }, []);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pw === ADMIN_PASSWORD) {
-      setAuthed(true);
-      sessionStorage.setItem("adminAuthed", "true");
-      sessionStorage.removeItem("adminTenantId");
-    } else {
-      const tenants = getStoredTenants();
-      const tenant = tenants.find((t) => t.adminPassword === pw.toUpperCase());
-      if (tenant) {
-        if (tenant.isActive === false) {
-          setPwError("このテナントは無効化されています");
-          return;
-        }
-        if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) {
-          setPwError("ライセンスが期限切れです");
-          return;
-        }
-        setAuthed(true);
-        sessionStorage.setItem("adminAuthed", "true");
-        sessionStorage.setItem("adminTenantId", tenant.id);
-      } else {
-        setPwError("パスワードが違います");
-      }
-    }
-  };
+  useEffect(() => { if (status === "authenticated") reload(); }, [status, reload]);
 
   // Build user sessions by joining analytics + video plays
   const sessions: UserSession[] = useMemo(() => {
@@ -193,7 +160,7 @@ export default function UsersPage() {
 
   const ScoreBadge = ({ score, max, label }: { score: number; max: number; label: string }) => {
     const pct = max > 0 ? Math.round((score / max) * 100) : 0;
-    const color = pct >= 80 ? "text-green-600 bg-green-50" : pct >= 50 ? "text-yellow-600 bg-yellow-50" : "text-red-500 bg-red-50";
+    const color = pct >= 80 ? "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30" : pct >= 50 ? "text-yellow-600 bg-yellow-50 dark:text-yellow-400 dark:bg-yellow-900/30" : "text-red-500 bg-red-50 dark:text-red-400 dark:bg-red-900/30";
     return (
       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${color}`}>
         {label} {score}/{max}
@@ -202,13 +169,13 @@ export default function UsersPage() {
   };
 
   const StepDot = ({ done, label }: { done: boolean; label: string }) => (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded ${done ? "bg-green-50 text-green-600" : "bg-gray-50 text-gray-400"}`}>
+    <span className={`text-[10px] px-1.5 py-0.5 rounded ${done ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500"}`}>
       {done ? "✓" : "○"} {label}
     </span>
   );
 
   const CM_TYPE_LABELS: Record<string, string> = { cm15: "15秒", cm30: "30秒", cm60: "60秒" };
-  const CM_TYPE_COLORS: Record<string, string> = { cm15: "bg-blue-100 text-blue-600", cm30: "bg-green-100 text-green-600", cm60: "bg-purple-100 text-purple-600" };
+  const CM_TYPE_COLORS: Record<string, string> = { cm15: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400", cm30: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400", cm60: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400" };
 
   // CSV export
   const exportCsv = () => {
@@ -241,52 +208,48 @@ export default function UsersPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Login
-  if (!authed) {
+  if (status === "loading") {
     return (
       <main className="min-h-screen flex items-center justify-center p-6">
-        <Card className="w-full max-w-sm">
-          <h1 className="text-xl font-bold text-gray-800 text-center mb-4">ユーザー管理</h1>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input
-              type="password"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              placeholder="管理パスワード"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-center"
-              data-testid="users-password"
-            />
-            {pwError && <p className="text-red-400 text-sm text-center">{pwError}</p>}
-            <Button type="submit" size="md" className="w-full">ログイン</Button>
-          </form>
-        </Card>
+        <div className="text-center">
+          <div className="inline-flex items-center gap-1.5 mb-3">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-2.5 h-2.5 rounded-full bg-[#6EC6FF] animate-bounce"
+                style={{ animationDelay: `${i * 0.15}s` }}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-gray-400 dark:text-gray-500">ユーザー管理を読み込み中...</p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <AdminHeader
         title={IS_DEMO_MODE ? "ユーザー管理 (Demo)" : "ユーザー管理"}
         badge={`${stats.total}件`}
-        onLogout={() => { setAuthed(false); sessionStorage.removeItem("adminAuthed"); }}
+        onLogout={() => { sessionStorage.removeItem("adminTenantId"); signOut({ redirect: false }); }}
       />
 
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         {/* Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "総セッション", value: String(stats.total), icon: "👥", color: "bg-blue-50 text-blue-600" },
-            { label: "名前入力済み", value: String(stats.named), icon: "✏️", color: "bg-green-50 text-green-600" },
-            { label: "DL完了", value: String(stats.downloaded), icon: "📥", color: "bg-yellow-50 text-yellow-700" },
-            { label: "平均スコア", value: `${stats.avgScore}pt`, icon: "⭐", color: "bg-purple-50 text-purple-600" },
+            { label: "総セッション", value: String(stats.total), icon: "👥", color: "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" },
+            { label: "名前入力済み", value: String(stats.named), icon: "✏️", color: "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400" },
+            { label: "DL完了", value: String(stats.downloaded), icon: "📥", color: "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
+            { label: "平均スコア", value: `${stats.avgScore}pt`, icon: "⭐", color: "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400" },
           ].map((s) => (
             <Card key={s.label} className="text-center">
               <div className={`inline-flex w-9 h-9 rounded-full items-center justify-center text-base mb-1.5 ${s.color}`}>
                 {s.icon}
               </div>
-              <p className="text-xl font-bold text-gray-800">{s.value}</p>
-              <p className="text-[10px] text-gray-400">{s.label}</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{s.value}</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">{s.label}</p>
             </Card>
           ))}
         </div>
@@ -302,14 +265,14 @@ export default function UsersPage() {
                 onChange={(e) => setFilterText(e.target.value)}
                 data-testid="users-filter-text"
               />
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm pointer-events-none">
                 🔍
               </span>
             </div>
             <select
               value={filterEvent}
               onChange={(e) => setFilterEvent(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600 bg-white"
+              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200"
               data-testid="users-event-filter"
             >
               <option value="all">全イベント</option>
@@ -320,7 +283,7 @@ export default function UsersPage() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600 bg-white"
+              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200"
               data-testid="users-sort-select"
             >
               <option value="date-desc">日付: 新しい順</option>
@@ -336,7 +299,7 @@ export default function UsersPage() {
               CSVエクスポート
             </button>
           </div>
-          <p className="text-[10px] text-gray-400 mt-2">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
             {filterText || filterEvent !== "all"
               ? `${sorted.length}件 / ${sessions.length}件表示`
               : `${sessions.length}件のユーザーセッション`}
@@ -346,7 +309,7 @@ export default function UsersPage() {
         {/* User list */}
         {sorted.length === 0 ? (
           <Card>
-            <p className="text-sm text-gray-400 text-center py-8">
+            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">
               {sessions.length === 0
                 ? "まだユーザーデータがありません。ユーザーがアクセスするとここに表示されます。"
                 : "条件に一致するユーザーがいません。"}
@@ -370,9 +333,9 @@ export default function UsersPage() {
                     <div className="flex items-center gap-3">
                       {/* Avatar */}
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                        totalScore >= 150 ? "bg-green-100 text-green-700"
-                          : totalScore >= 80 ? "bg-yellow-100 text-yellow-700"
-                            : "bg-gray-100 text-gray-500"
+                        totalScore >= 150 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : totalScore >= 80 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                            : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
                       }`}>
                         {r.respondentName ? r.respondentName.charAt(0) : "?"}
                       </div>
@@ -380,14 +343,14 @@ export default function UsersPage() {
                       {/* Name + event */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-gray-800 truncate">
+                          <span className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate">
                             {r.respondentName || "匿名ユーザー"}
                           </span>
-                          <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
+                          <span className="text-[10px] bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
                             {session.event?.name || r.eventId}
                           </span>
                         </div>
-                        <p className="text-[10px] text-gray-400">{formatDate(r.timestamp)}</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(r.timestamp)}</p>
                       </div>
 
                       {/* Scores */}
@@ -397,14 +360,14 @@ export default function UsersPage() {
                         <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
                           totalScore >= 150 ? "bg-green-500 text-white"
                             : totalScore >= 80 ? "bg-yellow-400 text-white"
-                              : "bg-gray-200 text-gray-600"
+                              : "bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
                         }`}>
                           {totalScore}pt
                         </span>
                       </div>
 
                       {/* Expand arrow */}
-                      <span className={`text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}>
+                      <span className={`text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}>
                         ▼
                       </span>
                     </div>
@@ -421,24 +384,24 @@ export default function UsersPage() {
 
                   {/* Expanded detail */}
                   {isExpanded && (
-                    <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
                       {/* Survey answers */}
                       {r.surveyAnswers && (
                         <div>
-                          <h4 className="text-xs font-bold text-gray-500 mb-2">アンケート回答</h4>
+                          <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">アンケート回答</h4>
                           <div className="space-y-2">
                             {questions.map((q, qi) => {
                               const tags = r.surveyAnswers?.[q.id] || [];
                               return (
                                 <div key={q.id} className="flex items-start gap-2">
-                                  <span className="text-[10px] text-gray-400 flex-shrink-0 w-8">Q{qi + 1}</span>
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0 w-8">Q{qi + 1}</span>
                                   <div className="flex flex-wrap gap-1">
                                     {tags.length > 0 ? tags.map((t) => (
-                                      <span key={t} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                                      <span key={t} className="text-[10px] bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full">
                                         {getTagLabel(t, questions)}
                                       </span>
                                     )) : (
-                                      <span className="text-[10px] text-gray-400">未回答</span>
+                                      <span className="text-[10px] text-gray-400 dark:text-gray-500">未回答</span>
                                     )}
                                   </div>
                                 </div>
@@ -450,29 +413,29 @@ export default function UsersPage() {
 
                       {/* Matched companies */}
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-500">マッチ企業:</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">マッチ企業:</span>
                         {session.platinumCompany && (
-                          <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
+                          <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">
                             Platinum: {session.platinumCompany.name}
                           </span>
                         )}
                         {session.matchedCompany && (
-                          <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+                          <span className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-bold">
                             Matched: {session.matchedCompany.name}
                           </span>
                         )}
                         {!session.platinumCompany && !session.matchedCompany && (
-                          <span className="text-[10px] text-gray-400">なし</span>
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500">なし</span>
                         )}
                       </div>
 
                       {/* CM viewing history */}
                       <div>
-                        <h4 className="text-xs font-bold text-gray-500 mb-2">
+                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">
                           CM視聴履歴 ({session.videoPlays.length}件)
                         </h4>
                         {session.videoPlays.length === 0 ? (
-                          <p className="text-[10px] text-gray-400">CM視聴記録なし</p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500">CM視聴記録なし</p>
                         ) : (
                           <div className="space-y-1.5">
                             {session.videoPlays.map((vp) => (
@@ -480,9 +443,9 @@ export default function UsersPage() {
                                 <span className={`px-1.5 py-0.5 rounded font-bold ${CM_TYPE_COLORS[vp.cmType]}`}>
                                   {CM_TYPE_LABELS[vp.cmType]}
                                 </span>
-                                <span className="text-gray-600 truncate flex-1">{vp.companyName}</span>
-                                <span className="text-gray-400">{vp.watchedSeconds}秒/{vp.duration}秒</span>
-                                <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                                <span className="text-gray-600 dark:text-gray-300 truncate flex-1">{vp.companyName}</span>
+                                <span className="text-gray-400 dark:text-gray-500">{vp.watchedSeconds}秒/{vp.duration}秒</span>
+                                <div className="w-16 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                                   <div
                                     className={`h-full rounded-full ${vp.completed ? "bg-green-400" : "bg-red-300"}`}
                                     style={{ width: `${Math.min(100, (vp.watchedSeconds / vp.duration) * 100)}%` }}
@@ -498,7 +461,7 @@ export default function UsersPage() {
                       </div>
 
                       {/* Session ID */}
-                      <p className="text-[10px] text-gray-300 font-mono">ID: {r.id}</p>
+                      <p className="text-[10px] text-gray-300 dark:text-gray-500 font-mono">ID: {r.id}</p>
                     </div>
                   )}
                 </Card>
@@ -509,22 +472,22 @@ export default function UsersPage() {
 
         {/* Score legend */}
         <Card>
-          <h3 className="text-xs font-bold text-gray-500 mb-2">スコア計算方法</h3>
-          <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-500">
+          <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">スコア計算方法</h3>
+          <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-500 dark:text-gray-400">
             <div>
-              <p className="font-bold text-gray-600 mb-1">STEPスコア (100pt満点)</p>
+              <p className="font-bold text-gray-600 dark:text-gray-300 mb-1">STEPスコア (100pt満点)</p>
               <p>アンケート完了: +{SCORE_WEIGHTS.survey}pt</p>
               <p>CM視聴: +{SCORE_WEIGHTS.cmViewed}pt</p>
               <p>写真閲覧: +{SCORE_WEIGHTS.photosViewed}pt</p>
               <p>DL完了: +{SCORE_WEIGHTS.downloaded}pt</p>
             </div>
             <div>
-              <p className="font-bold text-gray-600 mb-1">CMスコア (100pt満点)</p>
+              <p className="font-bold text-gray-600 dark:text-gray-300 mb-1">CMスコア (100pt満点)</p>
               <p>完了率 x 60% + 視聴率 x 40%</p>
               <p className="mt-1">
                 <span className="bg-green-500 text-white px-1.5 py-0.5 rounded">150+</span> 優良
                 <span className="bg-yellow-400 text-white px-1.5 py-0.5 rounded ml-1">80+</span> 標準
-                <span className="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded ml-1">&lt;80</span> 低
+                <span className="bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded ml-1">&lt;80</span> 低
               </p>
             </div>
           </div>

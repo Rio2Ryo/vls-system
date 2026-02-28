@@ -7,6 +7,8 @@ import { Tenant } from "@/lib/types";
 import {
   getStoredTenants, setStoredTenants,
   getStoredEvents, getStoredAnalytics,
+  previewTenantCascade, deleteTenantCascade,
+  TenantDeleteSummary,
 } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
 import { checkLicenseExpiry } from "@/lib/notify";
@@ -27,8 +29,10 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
     name: "", slug: "", adminPassword: "", plan: "basic" as Tenant["plan"],
     contactEmail: "", contactName: "", billingAddress: "", invoicePrefix: "",
     licenseStart: "", licenseEnd: "", maxEvents: "",
+    logoUrl: "", primaryColor: "#6EC6FF",
   });
   const [expiryResult, setExpiryResult] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ tenantId: string; summary: TenantDeleteSummary } | null>(null);
 
   useEffect(() => { setTenants(getStoredTenants()); }, []);
 
@@ -37,7 +41,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
 
   const startNew = () => {
     setEditing("__new__");
-    setForm({ name: "", slug: "", adminPassword: "", plan: "basic", contactEmail: "", contactName: "", billingAddress: "", invoicePrefix: "", licenseStart: "", licenseEnd: "", maxEvents: "" });
+    setForm({ name: "", slug: "", adminPassword: "", plan: "basic", contactEmail: "", contactName: "", billingAddress: "", invoicePrefix: "", licenseStart: "", licenseEnd: "", maxEvents: "", logoUrl: "", primaryColor: "#6EC6FF" });
   };
 
   const startEdit = (t: Tenant) => {
@@ -48,6 +52,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
       billingAddress: t.billingAddress || "", invoicePrefix: t.invoicePrefix || "",
       licenseStart: t.licenseStart || "", licenseEnd: t.licenseEnd || "",
       maxEvents: t.maxEvents != null ? String(t.maxEvents) : "",
+      logoUrl: t.logoUrl || "", primaryColor: t.primaryColor || "#6EC6FF",
     });
   };
 
@@ -72,6 +77,8 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
         contactName: form.contactName,
         billingAddress: form.billingAddress || undefined,
         invoicePrefix: form.invoicePrefix || undefined,
+        logoUrl: form.logoUrl || undefined,
+        primaryColor: form.primaryColor || undefined,
         createdAt: Date.now(),
         ...licenseFields,
       }];
@@ -87,6 +94,8 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
           contactName: form.contactName,
           billingAddress: form.billingAddress || undefined,
           invoicePrefix: form.invoicePrefix || undefined,
+          logoUrl: form.logoUrl || undefined,
+          primaryColor: form.primaryColor || undefined,
           ...licenseFields,
         } : t
       );
@@ -97,11 +106,22 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
     onSave("テナントを保存しました");
   };
 
-  const remove = (id: string) => {
-    const updated = tenants.filter((t) => t.id !== id);
-    setStoredTenants(updated);
-    setTenants(updated);
-    onSave("テナントを削除しました");
+  const requestDelete = (id: string) => {
+    const summary = previewTenantCascade(id);
+    if (!summary) return;
+    setDeleteConfirm({ tenantId: id, summary });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirm) return;
+    const result = deleteTenantCascade(deleteConfirm.tenantId);
+    if (result) {
+      setTenants(getStoredTenants());
+      const total = result.events + result.participants + result.invoices
+        + result.analytics + result.videoPlays + result.notifications;
+      onSave(`「${result.tenantName}」と関連データ${total}件を削除しました`);
+    }
+    setDeleteConfirm(null);
   };
 
   return (
@@ -197,10 +217,83 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
               <label className="text-xs text-gray-500 block mb-1">上限イベント数</label>
               <input className={inputCls} type="number" value={form.maxEvents} onChange={(e) => setForm({ ...form, maxEvents: e.target.value })} placeholder="10" />
             </div>
+            <div className="col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">ロゴURL</label>
+              <div className="flex items-center gap-3">
+                <input className={inputCls} value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="https://example.com/logo.png" />
+                {form.logoUrl && (
+                  <img src={form.logoUrl} alt="logo preview" className="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">プライマリカラー</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={form.primaryColor} onChange={(e) => setForm({ ...form, primaryColor: e.target.value })} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                <input className={inputCls} value={form.primaryColor} onChange={(e) => setForm({ ...form, primaryColor: e.target.value })} placeholder="#6EC6FF" maxLength={7} />
+              </div>
+            </div>
           </div>
           <div className="flex gap-2 mt-4">
             <Button size="sm" onClick={save}>保存</Button>
             <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>キャンセル</Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Cascade delete confirmation dialog */}
+      {deleteConfirm && (
+        <Card>
+          <div className="border-l-4 border-red-400 pl-4">
+            <h3 className="font-bold text-red-600 mb-2">テナント削除の確認</h3>
+            <p className="text-sm text-gray-700 mb-3">
+              「<b>{deleteConfirm.summary.tenantName}</b>」を削除すると、以下の関連データもすべて削除されます:
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+              {deleteConfirm.summary.events > 0 && (
+                <div className="text-xs bg-red-50 text-red-700 px-2 py-1.5 rounded-lg">
+                  イベント: <b>{deleteConfirm.summary.events}</b>件
+                </div>
+              )}
+              {deleteConfirm.summary.participants > 0 && (
+                <div className="text-xs bg-red-50 text-red-700 px-2 py-1.5 rounded-lg">
+                  参加者: <b>{deleteConfirm.summary.participants}</b>件
+                </div>
+              )}
+              {deleteConfirm.summary.invoices > 0 && (
+                <div className="text-xs bg-red-50 text-red-700 px-2 py-1.5 rounded-lg">
+                  請求書: <b>{deleteConfirm.summary.invoices}</b>件
+                </div>
+              )}
+              {deleteConfirm.summary.analytics > 0 && (
+                <div className="text-xs bg-red-50 text-red-700 px-2 py-1.5 rounded-lg">
+                  分析記録: <b>{deleteConfirm.summary.analytics}</b>件
+                </div>
+              )}
+              {deleteConfirm.summary.videoPlays > 0 && (
+                <div className="text-xs bg-red-50 text-red-700 px-2 py-1.5 rounded-lg">
+                  CM視聴: <b>{deleteConfirm.summary.videoPlays}</b>件
+                </div>
+              )}
+              {deleteConfirm.summary.notifications > 0 && (
+                <div className="text-xs bg-red-50 text-red-700 px-2 py-1.5 rounded-lg">
+                  通知ログ: <b>{deleteConfirm.summary.notifications}</b>件
+                </div>
+              )}
+            </div>
+            {deleteConfirm.summary.events === 0 && deleteConfirm.summary.participants === 0 && deleteConfirm.summary.invoices === 0 && (
+              <p className="text-xs text-gray-400 mb-3">関連データはありません。</p>
+            )}
+            <p className="text-xs text-red-500 mb-3">この操作は取り消せません。</p>
+            <div className="flex gap-2">
+              <button
+                onClick={confirmDelete}
+                className="text-xs px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 font-medium"
+              >
+                削除する
+              </button>
+              <Button size="sm" variant="secondary" onClick={() => setDeleteConfirm(null)}>キャンセル</Button>
+            </div>
           </div>
         </Card>
       )}
@@ -212,6 +305,13 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
         return (
           <Card key={t.id}>
             <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                {t.logoUrl && (
+                  <img src={t.logoUrl} alt={t.name} className="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0 mt-0.5" />
+                )}
+                {t.primaryColor && !t.logoUrl && (
+                  <div className="w-10 h-10 rounded-full flex-shrink-0 mt-0.5" style={{ backgroundColor: t.primaryColor }} />
+                )}
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="font-bold text-gray-800">{t.name}</h3>
@@ -239,10 +339,11 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
                   </div>
                 )}
               </div>
+              </div>
               {!IS_DEMO_MODE && (
                 <div className="flex gap-2">
                   <button onClick={() => startEdit(t)} className="text-xs text-blue-500 hover:underline">編集</button>
-                  <button onClick={() => remove(t.id)} className="text-xs text-red-400 hover:underline">削除</button>
+                  <button onClick={() => requestDelete(t.id)} className="text-xs text-red-400 hover:underline">削除</button>
                 </div>
               )}
             </div>
