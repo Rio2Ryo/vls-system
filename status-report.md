@@ -1,7 +1,7 @@
 # VLS System — Status Report
 
 **Date**: 2026-02-28
-**Sprint**: SEO/OGP + Sentry→軽量Logger + QR E2E + CM動画管理タブ + 企業ロゴ管理 + 本番全機能確認
+**Sprint**: SEO/OGP + 軽量Logger + QR E2E + CM動画管理UI強化 + アクセシビリティ + 本番全機能確認
 
 ---
 
@@ -188,6 +188,76 @@
 
 ---
 
-## 前回分: アクセシビリティ改善 (完了)
+## 5. CM動画管理UI強化 (完了)
 
-ARIA attributes (aria-label, aria-live, role), focus-visible:ring, キーボードナビゲーション (Tab/Enter/Space), スクリーンリーダー対応 (sr-only, aria-hidden) を全主要コンポーネント・ページに追加済み。
+### 新規ユーティリティ
+| ファイル | 内容 |
+|----------|------|
+| `src/components/admin/tabs/adminUtils.ts` | `extractYouTubeId()` — youtube.com/watch?v=, youtu.be/, embed/, shorts/ からID自動抽出 |
+
+### 既存ファイル変更
+| ファイル | 変更内容 |
+|----------|----------|
+| `src/components/admin/tabs/CMVideosTab.tsx` | URL自動変換、サムネイルonErrorハンドリング（無効ID→赤い「取得不可」表示）、「デフォルトに戻す」ボタン |
+| `src/components/admin/tabs/CompaniesTab.tsx` | cm15/cm30/cm60入力でURL自動抽出、placeholder「YouTube URLまたはID」に更新 |
+
+---
+
+## 6. アクセシビリティ強化 — 第2弾 (完了)
+
+### 新規ファイル
+| ファイル | 内容 |
+|----------|------|
+| `src/components/ui/SkipToContent.tsx` | 全ページ共通のスキップリンク（キーボードナビゲーション） |
+
+### 変更ファイル
+| ファイル | 変更内容 |
+|----------|----------|
+| `src/app/layout.tsx` | SkipToContent統合 + `id="main-content"` ラッパー |
+| `src/app/admin/events/page.tsx` | toast `role="status"` / `aria-live`, ボタン `focus-visible:ring` / `aria-label`, イベント切替 `role="radiogroup"` |
+| `src/app/admin/stats/page.tsx` | フィルター `aria-label`, `focus-visible:ring-2` |
+| `src/app/admin/users/page.tsx` | 検索 `aria-label`, 展開ボタン `aria-expanded`, CSV `focus-visible` |
+| `src/app/admin/analytics/page.tsx` | クリアボタン `aria-label` / `focus-visible` |
+| `src/app/admin/page.tsx` | リセットボタン `aria-label` / `focus-visible` |
+| `src/app/admin/checkin/page.tsx` | プログレスバー `role="progressbar"` + `aria-valuenow/min/max` |
+
+### 対応範囲まとめ
+- **ARIA属性**: aria-label, aria-live, aria-expanded, aria-checked, role (dialog, progressbar, radiogroup, tablist, status, checkbox, group)
+- **キーボードナビ**: SkipToContent, focus-visible:ring-2, Tab/Enter/Space対応 (PhotoGrid, TagSelector, モーダル)
+- **スクリーンリーダー**: sr-only テキスト, aria-hidden 装飾アイコン
+- **モーダル**: Escape キー, 自動フォーカス, フォーカストラップ
+
+---
+
+## Priority Improvements — 進捗トラッカー
+
+### HIGH — 本番ブロッカー
+- [x] H1. `.env.example` 作成
+- [x] H2. エラーバウンダリ → D1永続化エラーログに拡張
+- [x] H3. API認証ミドルウェア統合 (`middleware.ts`)
+- [x] H4. CSRF保護 (double-submit cookie)
+
+### MEDIUM — 品質 & UX
+- [x] M1. CSVインポート（参加者/イベント/企業）
+- [x] M2. チェックインUI (`/admin/checkin`)
+- [x] M3. テナントブランディング (primaryColor, logoUrl, CSS変数)
+- [x] M4. 削除カスケード (`deleteTenantCascade()`)
+
+### LOW — Nice to Have
+- [x] L1. ダークモード (`darkMode: "class"`, DarkModeProvider, 全ページ対応)
+- [x] L2. アクセシビリティ (ARIA属性, focus-visible, キーボードナビ, SkipToContent, sr-only)
+- [ ] L3. 実CM動画 — YouTube IDがハードコード（Rick Astley等）。実スポンサーCM動画への差替え
+- [ ] L4. 実企業ロゴ — 全ロゴが ui-avatars.com テキストアイコン。実ロゴ画像への差替え
+- [ ] **L5. Sentryエラー監視 (次タスク)**
+  1. `npm install @sentry/nextjs`
+  2. `sentry.client.config.ts` 作成 (Sentry.init with DSN, tracesSampleRate)
+  3. `sentry.server.config.ts` / `sentry.edge.config.ts` 作成
+  4. `next.config.mjs` に `withSentryConfig` ラッパー追加
+  5. `SENTRY_DSN` 環境変数を `vercel env add` で設定
+  6. `error.tsx` / `global-error.tsx` に `Sentry.captureException()` 追加
+  7. 既存D1エラーログ (`captureError()`) と併用 — Sentry=外部通知、D1=管理画面内閲覧
+
+### LONG-TERM — アーキテクチャ
+- [x] A1. DB移行 → Cloudflare D1 (localStorage + D1永続化)
+- [ ] A2. 認証強化 — パスワード文字列比較のみ。NextAuth/Clerk for sessions/RBAC
+- [x] A3. メール設定 — Resend API (primary) + SendGrid (fallback)
