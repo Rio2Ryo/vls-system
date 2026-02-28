@@ -152,7 +152,7 @@ NEXT_PUBLIC_DEMO_MODE=true  # (optional) Demo mode flag
 - **L2. Accessibility** — ✅ Implemented. ARIA labels/roles on all interactive elements (buttons, inputs, selects, modals, tabs, progress bars). `focus-visible:ring` keyboard focus indicators. `aria-live` regions for toasts/errors. Modal Escape key + auto-focus. Photo grid keyboard navigation (Tab/Enter/Space). Screen reader support via `sr-only` text and `aria-hidden` decorative icons.
 - **L3. Real CM videos** — YouTube IDs are public videos (Rick Astley etc). Need real sponsor CMs.
 - **L4. Real company logos** — All logos are ui-avatars.com text icons.
-- **L5. Error monitoring** — ✅ Sentry SDK導入済み。`@sentry/nextjs` with client/server/edge configs. `global-error.tsx` + 既存 `error.tsx` で `Sentry.captureException()`. DSN未設定時は自動無効化。`/monitoring` tunnel route. instrumentation.ts でランタイム別初期化。
+- **L5. Sentry error monitoring** — ✅ `@sentry/nextjs` v10導入。sentry.client/server/edge.config.ts + `withSentryConfig` wrapper + `/monitoring` tunnel route。`error.tsx`/`global-error.tsx`で`Sentry.captureException()`（既存D1 `captureError()`と併用）。DSN未設定時は自動無効化。本番有効化は`vercel env add NEXT_PUBLIC_SENTRY_DSN`。
 
 #### LONG-TERM — Architecture
 - **A1. Database migration** — ✅ Migrated to Cloudflare D1 (localStorage cache + D1 persistence).
