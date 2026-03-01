@@ -32,9 +32,10 @@ import {
   QRAnalyticsTab,
   CMVideosTab,
   ErrorLogTab,
+  SponsorReportTab,
 } from "@/components/admin/tabs";
 
-type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings";
+type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "reports" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -157,6 +158,7 @@ export default function AdminPage() {
     { key: "survey", label: "アンケート", icon: "📝" },
     { key: "import", label: "参加者管理", icon: "👥" },
     { key: "invoices", label: "請求書", icon: "🧾" },
+    { key: "reports", label: "レポート", icon: "📑" },
     { key: "funnel", label: "完了率分析", icon: "📉" },
     { key: "qrAnalytics", label: "QR分析", icon: "📱" },
     { key: "chartjs", label: "Chart.js分析", icon: "📈" },
@@ -281,6 +283,7 @@ export default function AdminPage() {
             {tab === "survey" && <SurveyTab onSave={showToast} activeEventId={activeEventId} activeEvent={activeEvent} tenantId={adminTenantId} />}
             {tab === "import" && <BulkImport onSave={showToast} tenantId={adminTenantId} />}
             {tab === "invoices" && <InvoiceGenerator onSave={showToast} tenantId={adminTenantId} />}
+            {tab === "reports" && <SponsorReportTab onSave={showToast} tenantId={adminTenantId} />}
             {tab === "funnel" && <FunnelAnalysisTab tenantId={adminTenantId} />}
             {tab === "qrAnalytics" && <QRAnalyticsTab tenantId={adminTenantId} />}
             {tab === "chartjs" && <ChartJsAnalytics tenantId={adminTenantId} />}
