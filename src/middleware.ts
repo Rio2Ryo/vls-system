@@ -26,6 +26,7 @@ const ADMIN_API_RULES: { path: string; methods: string[] }[] = [
   { path: "/api/files", methods: ["GET", "DELETE"] },
   { path: "/api/lifecycle", methods: ["GET"] },
   { path: "/api/db", methods: ["PUT", "DELETE"] },
+  { path: "/api/classify-photo", methods: ["POST"] },
 ];
 
 function requiresAdminAuth(pathname: string, method: string): boolean {

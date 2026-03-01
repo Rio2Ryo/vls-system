@@ -40,11 +40,16 @@ export interface EventData {
   tenantId?: string;            // owning tenant ID (multi-tenant)
 }
 
+// Photo scene classification (AI auto-classification)
+export type PhotoClassification = "portrait" | "group" | "venue" | "activity" | "other";
+
 export interface PhotoData {
   id: string;
   originalUrl: string;    // high quality
   thumbnailUrl: string;   // low quality for grid
   watermarked: boolean;
+  classification?: PhotoClassification;
+  classificationConfidence?: number;  // 0.0–1.0
 }
 
 export interface SurveyQuestion {
