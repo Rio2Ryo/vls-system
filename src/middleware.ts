@@ -104,5 +104,6 @@ export const config = {
     "/downloading",
     "/e/:path*",
     "/demo",
+    "/scan",
   ],
 };
