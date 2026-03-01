@@ -10,18 +10,6 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { Company } from "@/lib/types";
 
-function usePlatinumCompanies(): Company[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const arr = JSON.parse(sessionStorage.getItem("platinumCompanies") || "[]");
-    if (Array.isArray(arr) && arr.length > 0) return arr.slice(0, 3);
-    const single = JSON.parse(sessionStorage.getItem("platinumCompany") || "null");
-    return single ? [single] : [];
-  } catch {
-    return [];
-  }
-}
-
 const TOTAL_SECONDS = 60;
 
 function useSelectedPhotoCount(): number {
@@ -39,7 +27,6 @@ export default function DownloadingPage() {
   const [elapsed, setElapsed] = useState(0);
   const [videoDone, setVideoDone] = useState(false);
   const photoCount = useSelectedPhotoCount();
-  const platinumCompanies = usePlatinumCompanies();
 
   useEffect(() => {
     if (!sessionStorage.getItem("eventId")) router.replace("/");
@@ -144,21 +131,6 @@ export default function DownloadingPage() {
         </Button>
       </motion.div>
 
-      {/* Platinum sponsor banner — sticky bottom */}
-      {platinumCompanies.length > 0 && (
-        <div className="sticky bottom-0 z-10 bg-white/90 backdrop-blur border-t border-gray-100 py-2 px-4 w-full">
-          <div className="max-w-lg mx-auto flex items-center justify-center gap-4">
-            <span className="text-[10px] text-gray-400 flex-shrink-0">提供スポンサー</span>
-            {platinumCompanies.map((c) => (
-              <div key={c.id} className="flex items-center gap-1.5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.logoUrl} alt={c.name} className="w-6 h-6 rounded-full flex-shrink-0" />
-                <span className="text-xs text-gray-600 font-medium hidden sm:inline">{c.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </main>
   );
 }
