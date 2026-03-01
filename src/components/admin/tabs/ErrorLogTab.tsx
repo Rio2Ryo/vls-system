@@ -89,7 +89,7 @@ export default function ErrorLogTab({ onSave }: Props) {
             <label htmlFor="error-source-filter" className="text-xs font-medium text-gray-600 dark:text-gray-400">ソース:</label>
             <select
               id="error-source-filter"
-              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm dark:bg-gray-700 dark:text-gray-100"
+              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] text-sm dark:bg-gray-700 dark:text-gray-100"
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
             >
@@ -104,7 +104,7 @@ export default function ErrorLogTab({ onSave }: Props) {
               <label htmlFor="error-route-filter" className="text-xs font-medium text-gray-600 dark:text-gray-400">ルート:</label>
               <select
                 id="error-route-filter"
-                className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm dark:bg-gray-700 dark:text-gray-100"
+                className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] text-sm dark:bg-gray-700 dark:text-gray-100"
                 value={routeFilter}
                 onChange={(e) => setRouteFilter(e.target.value)}
               >
@@ -156,9 +156,10 @@ export default function ErrorLogTab({ onSave }: Props) {
         return (
           <Card key={entry.id}>
             <button
-              className="w-full text-left"
+              className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded-lg"
               onClick={() => setExpandedId(isExpanded ? null : entry.id)}
               aria-expanded={isExpanded}
+              aria-label={`エラー: ${entry.error || entry.message}`}
             >
               <div className="flex items-start gap-2">
                 <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium flex-shrink-0 mt-0.5 ${sourceBadge}`}>

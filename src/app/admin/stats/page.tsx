@@ -262,7 +262,7 @@ export default function StatsPage() {
                         <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">{cs.totalPlays}回</span>
                       </div>
                       <div className="flex items-center gap-2 ml-10">
-                        <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 relative overflow-hidden">
+                        <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 relative overflow-hidden" role="meter" aria-label={`${cs.companyName}の再生数`} aria-valuenow={cs.totalPlays} aria-valuemin={0} aria-valuemax={maxPlays}>
                           <div
                             className="h-full rounded-full bg-[#6EC6FF] transition-all duration-500"
                             style={{ width: `${(cs.totalPlays / maxPlays) * 100}%` }}
@@ -340,7 +340,7 @@ export default function StatsPage() {
                       </span>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-6 relative overflow-hidden">
+                          <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-6 relative overflow-hidden" role="meter" aria-label={`${CM_TYPE_LABELS[cmType]}完了率`} aria-valuenow={typeRate} aria-valuemin={0} aria-valuemax={100}>
                             {/* Completion rate bar */}
                             <div
                               className={`h-full rounded-full ${CM_TYPE_COLORS[cmType]} opacity-80 transition-all duration-500`}

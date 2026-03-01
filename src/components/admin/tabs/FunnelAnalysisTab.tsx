@@ -227,7 +227,7 @@ export default function FunnelAnalysisTab({ tenantId }: Props) {
                     <span className="text-gray-300">→</span>
                     <span>{s.label.split(": ")[1]}</span>
                   </div>
-                  <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden" role="meter" aria-label={`${steps[i - 1].label.split(": ")[1]}→${s.label.split(": ")[1]}離脱率`} aria-valuenow={dropPct} aria-valuemin={0} aria-valuemax={100}>
                     <div className="h-full bg-red-300 rounded-full" style={{ width: `${dropPct}%` }} />
                   </div>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${severity}`}>

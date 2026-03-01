@@ -371,7 +371,7 @@ export default function SponsorReportTab({ onSave, tenantId }: Props) {
         <select
           value={selectedCompanyId}
           onChange={(e) => setSelectedCompanyId(e.target.value)}
-          className={inputCls}
+          className={inputCls + " focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"}
           aria-label="レポート対象企業"
           data-testid="report-company-select"
         >

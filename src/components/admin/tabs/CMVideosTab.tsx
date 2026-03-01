@@ -137,7 +137,7 @@ export default function CMVideosTab({ onSave }: Props) {
             <label htmlFor="cm-tier-filter" className="text-xs font-medium text-gray-600 dark:text-gray-400">Tier:</label>
             <select
               id="cm-tier-filter"
-              className={inputCls + " !w-auto dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"}
+              className={inputCls + " !w-auto dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"}
               value={tierFilter}
               onChange={(e) => setTierFilter(e.target.value as CompanyTier | "all")}
             >
@@ -152,7 +152,7 @@ export default function CMVideosTab({ onSave }: Props) {
             <label htmlFor="cm-status-filter" className="text-xs font-medium text-gray-600 dark:text-gray-400">状態:</label>
             <select
               id="cm-status-filter"
-              className={inputCls + " !w-auto dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"}
+              className={inputCls + " !w-auto dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"}
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
             >
@@ -171,7 +171,7 @@ export default function CMVideosTab({ onSave }: Props) {
                 resetToDefaults();
               }
             }}
-            className="text-[10px] px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="text-[10px] px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
             aria-label="CM動画をデフォルトにリセット"
           >
             デフォルトに戻す
@@ -242,7 +242,7 @@ export default function CMVideosTab({ onSave }: Props) {
               </div>
               <button
                 onClick={() => (isExpanded ? cancelEdit() : startEdit(c))}
-                className="text-xs text-[#6EC6FF] hover:underline flex-shrink-0"
+                className="text-xs text-[#6EC6FF] hover:underline flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
                 aria-label={isExpanded ? `${c.name}の編集を閉じる` : `${c.name}のCM動画を編集`}
               >
                 {isExpanded ? "閉じる" : "編集"}
@@ -272,7 +272,7 @@ export default function CMVideosTab({ onSave }: Props) {
                         {val && isValidYouTubeId(val) && (
                           <button
                             onClick={() => setPreviewId(previewId === `${c.id}-${key}` ? null : `${c.id}-${key}`)}
-                            className="text-[10px] px-2 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 flex-shrink-0"
+                            className="text-[10px] px-2 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
                             aria-label={`${label}をプレビュー`}
                           >
                             {previewId === `${c.id}-${key}` ? "閉じる" : "再生"}

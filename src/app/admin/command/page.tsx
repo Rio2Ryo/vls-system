@@ -282,7 +282,7 @@ export default function CommandCenterPage() {
               id="date-filter"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
+              className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] focus:border-[#6EC6FF]"
               aria-label="日付フィルター"
             >
               <option value="">全日程</option>
@@ -300,6 +300,7 @@ export default function CommandCenterPage() {
 
         {/* Global KPI summary */}
         {globalKPI && (
+          <div role="region" aria-label="横断KPIサマリー">
           <Card>
             <p className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-3">横断KPIサマリー</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -313,6 +314,7 @@ export default function CommandCenterPage() {
               <KPICard label="CM完了率 (平均)" value={globalKPI.avgCmCompletionRate} suffix="%" accent />
             </div>
           </Card>
+          </div>
         )}
 
         {/* Anomaly alert banner */}
@@ -323,6 +325,7 @@ export default function CommandCenterPage() {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
             >
+              <div role="alert" aria-live="polite">
               <Card className="border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10">
                 <p className="text-sm font-bold text-red-700 dark:text-red-400 mb-2">
                   異常検知: {totalAnomalies}件
@@ -338,6 +341,7 @@ export default function CommandCenterPage() {
                   ))}
                 </div>
               </Card>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
