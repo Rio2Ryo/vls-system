@@ -1,7 +1,26 @@
 # VLS System — Status Report
 
-**Date**: 2026-02-28
-**Sprint**: SEO/OGP + 軽量Logger + QR E2E + CM動画管理UI強化 + アクセシビリティ + 本番全機能確認
+**Date**: 2026-03-01
+**Sprint**: SEO/OGP + 軽量Logger + QR E2E + CM動画管理UI強化 + アクセシビリティ + 本番全機能確認 + デモページ
+
+---
+
+## 0a. デモサイト別デプロイ (2026-03-01)
+
+**デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
+**本番URL**: https://vls-system.vercel.app (影響なし)
+
+- vls-demo を別Vercelプロジェクトとしてデプロイ
+- middleware.ts でホスト名判定 (`vls-demo*` → / を /demo にリダイレクト)
+- 本番 vls-system には影響なし（ホスト名が一致しないためリダイレクト不発動）
+
+## 0b. バグ修正 (2026-03-01)
+
+| Bug | 修正内容 | 対象ファイル |
+|-----|----------|-------------|
+| Bug1&2 | complete/page.tsx のDL状態を `frameDownloaded` / `photosDownloaded` に分離。記念フレームはCanvas APIでPNG実DL | `src/app/complete/page.tsx` |
+| Bug3 | 記念フレームプレビュー改善: 写真モック（グレー矩形+📷+「お子様の写真」）、装飾枠線、ボタン文言変更 | `src/app/complete/page.tsx` |
+| Bug4 | 全22社のCM動画IDを長尺動画に統一 (cm15=dQw4w9WgXcQ, cm30=M7lc1UVf-VE, cm60=kffacxfA7G4) | `src/lib/data.ts` |
 
 ---
 
@@ -20,6 +39,7 @@
 | STEP 3 | `/photos` 写真選択 | ✅ マルチセレクトギャラリー + プレビューモーダル |
 | STEP 4 | `/downloading` ダウンロード | ✅ 60秒CM + 写真処理 |
 | STEP 5 | `/complete` 完了 | ✅ オファー表示 + クーポン + ダウンロード |
+| DEMO | `/demo` デモ体験 | ✅ パスワード不要で5ステップウォークスルー（CM待ち5秒短縮、既存UIコンポーネント流用、analytics記録なし） |
 
 ### (2) Admin画面 (14タブ + 6サブページ)
 | 項目 | 確認結果 |

@@ -115,7 +115,7 @@ NEXT_PUBLIC_DEMO_MODE=true  # (optional) Demo mode flag
 
 ## Current Status
 
-### Completed (15 features)
+### Completed (16 features)
 1. User flow (5 steps with animations)
 2. Scoring-based CM matching (22 companies, 4 events)
 3. CM video tracking (YouTube iframe, 15s/30s/60s)
@@ -131,6 +131,7 @@ NEXT_PUBLIC_DEMO_MODE=true  # (optional) Demo mode flag
 13. SEO/OGP (metadataBase, title template, og:image, Twitter Card, per-page metadata via layout.tsx)
 14. Sentry SDK (error monitoring with client/server/edge configs, global-error.tsx, auto-disable when no DSN)
 15. QR check-in E2E tests (4 tests: QR generation, QR scan login, check-in flow, full integration)
+16. Demo page (`/demo` — password-free 5-step walkthrough, CM timer shortened to 5s, existing UI components reused, no analytics recording)
 
 ### Priority Improvements Needed
 

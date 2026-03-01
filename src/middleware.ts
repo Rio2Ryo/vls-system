@@ -37,6 +37,12 @@ function requiresAdminAuth(pathname: string, method: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 0. Demo site: redirect / to /demo when hostname is vls-demo
+  const host = request.headers.get("host") || "";
+  if (pathname === "/" && host.startsWith("vls-demo")) {
+    return NextResponse.redirect(new URL("/demo", request.url));
+  }
+
   // 1. Auth check for admin sub-pages
   if (ADMIN_PAGES.some((p) => pathname.startsWith(p))) {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -97,5 +103,6 @@ export const config = {
     "/complete",
     "/downloading",
     "/e/:path*",
+    "/demo",
   ],
 };

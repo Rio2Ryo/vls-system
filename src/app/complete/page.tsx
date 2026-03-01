@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
@@ -27,9 +27,92 @@ async function downloadImage(url: string, filename: string): Promise<void> {
   }
 }
 
+/** Generate a memorial frame PNG via Canvas and trigger download */
+function downloadFramePNG(eventName: string, companyName: string): void {
+  const W = 800;
+  const H = 600;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  // Background gradient (blue → purple)
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, "#6EC6FF");
+  grad.addColorStop(1, "#A78BFA");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Corner decorations
+  ctx.strokeStyle = "rgba(255,255,255,0.5)";
+  ctx.lineWidth = 4;
+  const corner = 60;
+  // Top-left
+  ctx.beginPath(); ctx.moveTo(20, 20 + corner); ctx.lineTo(20, 20); ctx.lineTo(20 + corner, 20); ctx.stroke();
+  // Top-right
+  ctx.beginPath(); ctx.moveTo(W - 20 - corner, 20); ctx.lineTo(W - 20, 20); ctx.lineTo(W - 20, 20 + corner); ctx.stroke();
+  // Bottom-left
+  ctx.beginPath(); ctx.moveTo(20, H - 20 - corner); ctx.lineTo(20, H - 20); ctx.lineTo(20 + corner, H - 20); ctx.stroke();
+  // Bottom-right
+  ctx.beginPath(); ctx.moveTo(W - 20 - corner, H - 20); ctx.lineTo(W - 20, H - 20); ctx.lineTo(W - 20, H - 20 - corner); ctx.stroke();
+
+  // Photo placeholder (grey rectangle)
+  const photoW = 320;
+  const photoH = 240;
+  const photoX = (W - photoW) / 2;
+  const photoY = (H - photoH) / 2 - 20;
+  ctx.fillStyle = "rgba(255,255,255,0.2)";
+  ctx.fillRect(photoX, photoY, photoW, photoH);
+  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(photoX, photoY, photoW, photoH);
+
+  // Camera icon text in photo area
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.font = "48px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("\uD83D\uDCF7", W / 2, photoY + photoH / 2 - 15);
+  ctx.font = "14px sans-serif";
+  ctx.fillText("お子様の写真", W / 2, photoY + photoH / 2 + 30);
+
+  // Event name (top)
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 32px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(eventName, W / 2, 50);
+
+  // "Special Photo Frame" subtitle
+  ctx.font = "16px sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.fillText("Special Photo Frame", W / 2, 90);
+
+  // Company name (bottom)
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.font = "bold 18px sans-serif";
+  ctx.textBaseline = "bottom";
+  ctx.fillText(`${companyName} 提供`, W / 2, H - 50);
+
+  // Download
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${eventName}_記念フレーム.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, "image/png");
+}
+
 export default function CompletePage() {
   const router = useRouter();
-  const [downloaded, setDownloaded] = useState(false);
+  const [frameDownloaded, setFrameDownloaded] = useState(false);
+  const [photosDownloaded, setPhotosDownloaded] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [eventName, setEventName] = useState("");
   const [photoCount, setPhotoCount] = useState(0);
@@ -96,7 +179,7 @@ export default function CompletePage() {
       }
     }
 
-    setDownloaded(true);
+    setPhotosDownloaded(true);
     setDownloading(false);
 
     // Only record download if files were actually downloaded
@@ -110,9 +193,11 @@ export default function CompletePage() {
     }
   };
 
-  const handleDownloadFrame = () => {
-    setDownloaded(true);
-  };
+  const handleDownloadFrame = useCallback(() => {
+    if (!platinumCompany) return;
+    downloadFramePNG(eventName, platinumCompany.name);
+    setFrameDownloaded(true);
+  }, [eventName, platinumCompany]);
 
   return (
     <main className="min-h-screen p-6 pt-10">
@@ -143,23 +228,29 @@ export default function CompletePage() {
         {/* Platinum sponsor frame */}
         {platinumCompany && (
           <Card className="text-center">
-            <div className="border-2 border-dashed border-blue-200 rounded-2xl p-4 mb-3">
+            <div className="border-2 border-blue-400/60 rounded-2xl p-4 mb-3 relative overflow-hidden">
               <p className="text-xs text-gray-400 mb-2">
-                📷 {platinumCompany.name} 提供 記念フレーム
+                {platinumCompany.name} 提供 記念フレーム
               </p>
-              <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-8 text-center">
-                <p className="text-lg font-bold text-gray-600">{eventName}</p>
+              <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-xl p-6 text-center relative">
+                {/* Photo mock */}
+                <div className="bg-gray-200 rounded-lg mx-auto w-48 h-36 flex flex-col items-center justify-center mb-3 border-2 border-white/60">
+                  <span className="text-3xl mb-1" aria-hidden="true">📷</span>
+                  <span className="text-xs text-gray-500">お子様の写真</span>
+                </div>
+                {/* Overlay: event name + logo */}
+                <p className="text-lg font-bold text-gray-700">{eventName}</p>
                 <p className="text-xs text-gray-400 mt-1">Special Photo Frame</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={platinumCompany.logoUrl}
                   alt={platinumCompany.name}
-                  className="w-10 h-10 rounded-full mx-auto mt-3"
+                  className="w-10 h-10 rounded-full mx-auto mt-3 border-2 border-white shadow-sm"
                 />
               </div>
             </div>
-            <Button onClick={handleDownloadFrame} size="md" variant={downloaded ? "secondary" : "primary"}>
-              {downloaded ? "✓ 保存済み" : "記念フレームを保存"}
+            <Button onClick={handleDownloadFrame} size="md" variant={frameDownloaded ? "secondary" : "primary"}>
+              {frameDownloaded ? "✓ 保存済み" : "記念フレームをダウンロード（PNG）"}
             </Button>
           </Card>
         )}
@@ -175,11 +266,11 @@ export default function CompletePage() {
             onClick={handleDownloadPhotos}
             disabled={downloading}
             size="lg"
-            variant={downloaded ? "secondary" : "primary"}
+            variant={photosDownloaded ? "secondary" : "primary"}
           >
             {downloading
               ? "ダウンロード中..."
-              : downloaded
+              : photosDownloaded
                 ? "✓ ダウンロード済み"
                 : "写真をダウンロード"}
           </Button>
