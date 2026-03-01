@@ -1,7 +1,7 @@
 # VLS System — Status Report
 
 **最終更新**: 2026-03-01
-**ブランチ**: main (`e951707`)
+**ブランチ**: main (`b9e679c`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
@@ -147,6 +147,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | `b9e679c` | PhotoGrid UI改善 — ボタンバー追加、左上チェックマーク削除 |
 | 2026-03-01 | `e951707` | downloading/page.tsx 下部スポンサーバナー削除 |
 | 2026-03-01 | `ccee15f` | complete/page.tsx Canvas描画フレーム合成プレビュー実装 |
 | 2026-03-01 | `af40fc4` | complete/page.tsx フレームDLボタン削除 + 選択写真プレビューに変更 |
