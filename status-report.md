@@ -7,7 +7,7 @@
 
 ---
 
-## 完成済み機能一覧 (20件)
+## 完成済み機能一覧 (21件)
 
 ### ユーザーフロー (5ステップ + 補助2ページ)
 
@@ -21,7 +21,7 @@
 | 6 | デモ体験 | `/demo` | パスワード不要5ステップウォークスルー (CM 5秒短縮、analytics無し) |
 | 7 | モバイルQRチェックイン | `/scan` | html5-qrcode カメラ読取 + 手動選択 + ワンタップチェックイン |
 
-### 管理画面 (14タブ + 6サブページ)
+### 管理画面 (14タブ + 7サブページ)
 
 | # | 機能 | パス/タブ | 概要 |
 |---|------|----------|------|
@@ -32,35 +32,36 @@
 | 12 | ユーザー管理 | `/admin/users` | セッション一覧 + CSV出力 |
 | 13 | CSVインポート | `/admin/import` | 参加者/イベント/ライセンス/企業の4タブ一括取込 |
 | 14 | チェックイン | `/admin/checkin` | イベント選択 → 検索 → ワンクリックチェックイン → バルク操作 |
+| 15 | ライブダッシュボード | `/admin/live` | 当日リアルタイムKPI (5秒ポーリング) + フルスクリーン + チェックイン進捗リング + アラート通知 |
 
 ### インフラ・基盤
 
 | # | 機能 | 概要 |
 |---|------|------|
-| 15 | マルチテナント | 3テナント (さくら学園/ひまわり幼稚園/イベントプロ) + Super Admin。データ分離 + ライセンス管理 |
-| 16 | Cloudflare D1 永続化 | localStorage キャッシュ + D1 KVストア (9キー)。DbSyncProvider で起動時同期 |
-| 17 | Cloudflare R2 ストレージ | テナントスコープ写真アップロード/一覧/削除 + HMAC署名付きPresigned URL |
-| 18 | CMスコアリングマッチング | テーマ15pt + サービス20pt + 年齢25pt + Tier30pt + 広範囲15pt (22社4Tier) |
-| 19 | 請求書PDF生成 | jsPDF日本語対応。企業別請求書自動生成 |
-| 20 | 通知システム | Resend (primary) → SendGrid (fallback) → console.log 3段フォールバック |
+| 16 | マルチテナント | 3テナント (さくら学園/ひまわり幼稚園/イベントプロ) + Super Admin。データ分離 + ライセンス管理 |
+| 17 | Cloudflare D1 永続化 | localStorage キャッシュ + D1 KVストア (9キー)。DbSyncProvider で起動時同期 |
+| 18 | Cloudflare R2 ストレージ | テナントスコープ写真アップロード/一覧/削除 + HMAC署名付きPresigned URL |
+| 19 | CMスコアリングマッチング | テーマ15pt + サービス20pt + 年齢25pt + Tier30pt + 広範囲15pt (22社4Tier) |
+| 20 | 請求書PDF生成 | jsPDF日本語対応。企業別請求書自動生成 |
+| 21 | 通知システム | Resend (primary) → SendGrid (fallback) → console.log 3段フォールバック |
 
 ### セキュリティ・品質
 
 | # | 機能 | 概要 |
 |---|------|------|
-| 21 | API認証ミドルウェア | `middleware.ts` 統合。ADMIN_API_RULES テーブルでルート×メソッド保護。JWT or x-admin-password |
-| 22 | CSRF保護 | Double-submit cookie パターン。csrf_token cookie + x-csrf-token ヘッダー検証 |
-| 23 | SEO/OGP | metadataBase + title template + OG画像動的生成 (1200x630) + Twitter Card + 全12ページ個別metadata |
-| 24 | ダークモード | `darkMode: "class"` + DarkModeProvider + 全管理画面・UIコンポーネント対応 |
-| 25 | アクセシビリティ | ARIA属性 + focus-visible + SkipToContent + キーボードナビ + sr-only + モーダルEsc/auto-focus |
-| 26 | Sentryエラー監視 | @sentry/nextjs v10 (client/server/edge) + /monitoring tunnel。DSN未設定時自動無効化。D1エラーログと併用 |
-| 27 | テナントブランディング | primaryColor + logoUrl + CSS変数テーマ切替 + 設定タブ編集 |
-| 28 | 削除カスケード | `deleteTenantCascade()` — 子レコード全削除 + 影響サマリー確認ダイアログ |
-| 29 | E2Eテスト | Playwright 67テスト (11 spec)。QRチェックインフロー含む |
-| 30 | デモサイト別デプロイ | vls-demo.vercel.app — middleware ホスト名判定で / → /demo リダイレクト |
-| 31 | PWAオフラインモード | Service Worker (app shell cache) + IndexedDB (offline D1 sync queue) + OfflineIndicator UI |
-| 32 | 写真AI自動分類 | Claude Vision API (Haiku) で写真シーン分類 (個人/グループ/会場/アクティビティ)。フィルター + 手動分類 + 一括AI分類 |
-| 33 | スポンサーレポートPDF | 企業別CM再生数・完了率・平均視聴秒・属性分布・CPV試算。jsPDF A4 PDF即DL |
+| 22 | API認証ミドルウェア | `middleware.ts` 統合。ADMIN_API_RULES テーブルでルート×メソッド保護。JWT or x-admin-password |
+| 23 | CSRF保護 | Double-submit cookie パターン。csrf_token cookie + x-csrf-token ヘッダー検証 |
+| 24 | SEO/OGP | metadataBase + title template + OG画像動的生成 (1200x630) + Twitter Card + 全12ページ個別metadata |
+| 25 | ダークモード | `darkMode: "class"` + DarkModeProvider + 全管理画面・UIコンポーネント対応 |
+| 26 | アクセシビリティ | ARIA属性 + focus-visible + SkipToContent + キーボードナビ + sr-only + モーダルEsc/auto-focus |
+| 27 | Sentryエラー監視 | @sentry/nextjs v10 (client/server/edge) + /monitoring tunnel。DSN未設定時自動無効化。D1エラーログと併用 |
+| 28 | テナントブランディング | primaryColor + logoUrl + CSS変数テーマ切替 + 設定タブ編集 |
+| 29 | 削除カスケード | `deleteTenantCascade()` — 子レコード全削除 + 影響サマリー確認ダイアログ |
+| 30 | E2Eテスト | Playwright 67テスト (11 spec)。QRチェックインフロー含む |
+| 31 | デモサイト別デプロイ | vls-demo.vercel.app — middleware ホスト名判定で / → /demo リダイレクト |
+| 32 | PWAオフラインモード | Service Worker (app shell cache) + IndexedDB (offline D1 sync queue) + OfflineIndicator UI |
+| 33 | 写真AI自動分類 | Claude Vision API (Haiku) で写真シーン分類 (個人/グループ/会場/アクティビティ)。フィルター + 手動分類 + 一括AI分類 |
+| 34 | スポンサーレポートPDF | 企業別CM再生数・完了率・平均視聴秒・属性分布・CPV試算。jsPDF A4 PDF即DL |
 
 ---
 
@@ -71,7 +72,7 @@
 | ID | 内容 | ページ | 概要 |
 |----|------|--------|------|
 | P2-1 | ✅ スポンサーレポートPDF | `/admin` レポートタブ | 企業別CM再生数・完了率・属性分布・CPV試算をPDF自動生成 (`87b86b5`) |
-| P2-2 | ライブイベントダッシュボード | `/admin/live` | 当日リアルタイム画面 (5秒ポーリング) + フルスクリーン + アラート通知 |
+| P2-2 | ✅ ライブイベントダッシュボード | `/admin/live` | 当日リアルタイムKPI (5秒ポーリング) + フルスクリーン + チェックイン進捗リング + アラート通知 |
 | P2-3 | Webhook外部連携 | `/admin` 設定タブ | チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知 (Slack/LINE/Zapier) |
 | P2-4 | ✅ 写真AI自動分類 | `/admin/photos` | Claude Vision APIでシーン分類 + ギャラリーフィルター (`73bf4bf`) |
 | P2-5 | マルチイベント統合管理 | `/admin/command` | 同日複数イベント横断KPI + 異常検知ハイライト |
@@ -139,6 +140,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | — | ライブイベントダッシュボード (P2-2) — 5秒ポーリング + フルスクリーン + アラート |
 | 2026-03-01 | `87b86b5` | スポンサーレポートPDF (企業別KPI + CPV試算 + jsPDF A4) |
 | 2026-03-01 | `73bf4bf` | 写真AI自動分類 (Claude Vision API + フィルター + 手動/一括分類) |
 | 2026-03-01 | `ee11fc2` | PWAオフラインモード (SW + IndexedDB + OfflineIndicator) |
