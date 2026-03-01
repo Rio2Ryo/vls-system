@@ -1,7 +1,7 @@
 # VLS System — Status Report
 
 **最終更新**: 2026-03-01
-**ブランチ**: main (`b884b66`)
+**ブランチ**: main (`af40fc4`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
@@ -64,7 +64,7 @@
 | 33 | 写真AI自動分類 | Claude Vision API (Haiku) で写真シーン分類 (個人/グループ/会場/アクティビティ)。フィルター + 手動分類 + 一括AI分類 |
 | 34 | スポンサーレポートPDF | 企業別CM再生数・完了率・平均視聴秒・属性分布・CPV試算。jsPDF A4 PDF即DL |
 | 35 | 写真プレビュー低画質化 | 30%解像度 + blur(1.5px) + "© 未来発見ラボ" 3x3グリッド透かし (alpha 0.30) |
-| 36 | フレーム合成DL | 選択写真 + frame-template.svg をCanvas合成 → PNG DL。SVGプレビュー表示 |
+| 36 | フレーム合成プレビュー | 選択写真 + frame-template.svg をCSSオーバーレイでプレビュー表示。DLボタン廃止 |
 | 37 | プラチナスポンサーバナー | platinumCMs全社 (max3) を complete/downloading 画面に sticky bottom 表示 |
 | 38 | 写真公開期間管理 | EventData に publishedAt/expiresAt/status 追加。期限UI + アーカイブ + ログイン時期限チェック |
 | 39 | メール後日DL送付 | /api/send-download-link (Resend) + /dl/[token] DLページ + 7日有効トークン |
@@ -147,6 +147,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | `af40fc4` | complete/page.tsx フレームDLボタン削除 + 選択写真プレビューに変更 |
 | 2026-03-01 | `b884b66` | Webhook外部連携 (P2-3) — 設定UI + チェックイン/DL/CM/アンケート POST通知 + リトライ3回 |
 | 2026-03-01 | `b19714e` | 5要件一括実装 (#1写真低画質, #3プラチナバナー, #5公開期間, #6メールDL, #8フレーム合成) |
 | 2026-03-01 | `b12a99e` | ライブイベントダッシュボード (P2-2) — 5秒ポーリング + フルスクリーン + アラート |
