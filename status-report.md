@@ -1,7 +1,7 @@
 # VLS System — Status Report
 
 **最終更新**: 2026-03-01
-**ブランチ**: main (`49b98e9`)
+**ブランチ**: main (`89ffa4c`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
@@ -93,7 +93,7 @@
 | L3 | LOW | 実CM動画差替え | 現在はパブリックYouTube動画 (Rick Astley等)。実スポンサーCM素材待ち |
 | L4 | LOW | 実企業ロゴ差替え | 現在は ui-avatars.com テキストアイコン。実ロゴ画像待ち |
 | A2 | LONG-TERM | 認証強化 | パスワード文字列比較のみ → NextAuth/Clerk sessions + RBAC |
-| M1 | MEDIUM | モバイル最適化 | Admin テーブル横スクロール + タッチ操作最適化 |
+| M1 | ✅ MEDIUM | モバイル最適化 | Admin テーブル横スクロール + touch-pan-x (`89ffa4c`) |
 
 ### 環境設定のみ (コード変更不要)
 
@@ -148,6 +148,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | `89ffa4c` | M1 モバイル最適化 — 全Adminテーブル横スクロール + touch-pan-x (13ファイル) |
 | 2026-03-01 | `49b98e9` | P2-5 マルチイベント統合管理 /admin/command |
 | 2026-03-01 | `24684a3` | トップページブランディング変更 — 未来開発ラボ + 六角形SVGロゴ |
 | 2026-03-01 | `b9e679c` | PhotoGrid UI改善 — ボタンバー追加、左上チェックマーク削除 |
