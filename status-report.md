@@ -1,13 +1,13 @@
 # VLS System — Status Report
 
 **最終更新**: 2026-03-01
-**ブランチ**: main (`b19714e`)
+**ブランチ**: main (`b884b66`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
 ---
 
-## 完成済み機能一覧 (26件)
+## 完成済み機能一覧 (27件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -68,6 +68,7 @@
 | 37 | プラチナスポンサーバナー | platinumCMs全社 (max3) を complete/downloading 画面に sticky bottom 表示 |
 | 38 | 写真公開期間管理 | EventData に publishedAt/expiresAt/status 追加。期限UI + アーカイブ + ログイン時期限チェック |
 | 39 | メール後日DL送付 | /api/send-download-link (Resend) + /dl/[token] DLページ + 7日有効トークン |
+| 40 | Webhook外部連携 | /admin 設定タブ Webhook設定UI。チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知。リトライ3回+配信ログ |
 
 ---
 
@@ -79,7 +80,7 @@
 |----|------|--------|------|
 | P2-1 | ✅ スポンサーレポートPDF | `/admin` レポートタブ | 企業別CM再生数・完了率・属性分布・CPV試算をPDF自動生成 (`87b86b5`) |
 | P2-2 | ✅ ライブイベントダッシュボード | `/admin/live` | 当日リアルタイムKPI (5秒ポーリング) + フルスクリーン + チェックイン進捗リング + アラート通知 |
-| P2-3 | Webhook外部連携 | `/admin` 設定タブ | チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知 (Slack/LINE/Zapier) |
+| P2-3 | ✅ Webhook外部連携 | `/admin` 設定タブ | チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知 (Slack/LINE/Zapier) (`b884b66`) |
 | P2-4 | ✅ 写真AI自動分類 | `/admin/photos` | Claude Vision APIでシーン分類 + ギャラリーフィルター (`73bf4bf`) |
 | P2-5 | マルチイベント統合管理 | `/admin/command` | 同日複数イベント横断KPI + 異常検知ハイライト |
 | P2-6 | ✅ PWAオフラインモード | 全ページ | Service Worker + IndexedDB。オフラインチェックイン対応、オンライン復帰時D1自動同期 (`ee11fc2`) |
@@ -146,6 +147,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | `b884b66` | Webhook外部連携 (P2-3) — 設定UI + チェックイン/DL/CM/アンケート POST通知 + リトライ3回 |
 | 2026-03-01 | `b19714e` | 5要件一括実装 (#1写真低画質, #3プラチナバナー, #5公開期間, #6メールDL, #8フレーム合成) |
 | 2026-03-01 | `b12a99e` | ライブイベントダッシュボード (P2-2) — 5秒ポーリング + フルスクリーン + アラート |
 | 2026-03-01 | `87b86b5` | スポンサーレポートPDF (企業別KPI + CPV試算 + jsPDF A4) |
