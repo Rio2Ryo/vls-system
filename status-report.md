@@ -291,3 +291,47 @@
 - [x] A1. DB移行 → Cloudflare D1 (localStorage + D1永続化)
 - [ ] A2. 認証強化 — パスワード文字列比較のみ。NextAuth/Clerk for sessions/RBAC
 - [x] A3. メール設定 — Resend API (primary) + SendGrid (fallback)
+
+---
+
+## Phase 2 — 次フェーズ機能提案
+
+> Phase 1 の全タスク (HIGH/MEDIUM/LOW) 完了を受けての次期開発ロードマップ。
+> ビジネスインパクト順に HIGH として提案。
+
+### HIGH — Phase 2 新機能
+
+- [ ] **P2-H1. スポンサーレポート自動生成 (Sponsor Report PDF)**
+  - 企業ごとにブランド入りPDFレポートを自動生成
+  - 内容: CM再生数・完了率・平均視聴秒数、アンケート属性分布（年代/興味/テーマ）、CPV試算
+  - 既存の jsPDF + Chart.js canvas export を活用
+  - `/admin/reports` サブページ + 企業選択 → PDF DL
+  - **Why**: スポンサー営業の決め手。手作業レポートを自動化 → 契約更新率UP
+
+- [ ] **P2-H2. Webhook / 外部連携 (Event Webhook)**
+  - イベント発生時（チェックイン・DL完了・CM視聴完了・アンケート回答）に外部URLへPOST通知
+  - 管理画面でWebhook URL + トリガー条件を設定 → `/admin` 設定タブ内
+  - Slack / LINE Notify / Zapier 等と即連携可能
+  - リトライ (3回 exponential backoff) + 通知ログ閲覧
+  - **Why**: 既存業務フロー（Slack通知・CRM連携・Google Sheets自動記録）への組み込み
+
+- [ ] **P2-H3. ライブイベントダッシュボード (Real-time Event Monitor)**
+  - イベント当日のオペレーション用リアルタイム画面 (`/admin/live`)
+  - チェックイン進捗・CM視聴中人数・DL完了数が自動更新 (SSE or 5秒ポーリング)
+  - 大型ディスプレイ表示を想定したフルスクリーンモード
+  - アラート（チェックイン率低下、CM視聴離脱急増）をトースト通知
+  - **Why**: イベント当日の"戦況室"。スタッフが現場で即座に状況判断できる
+
+- [ ] **P2-H4. 写真AI自動分類 (AI Photo Auto-Tagging)**
+  - R2アップロード時にClaude Vision APIで写真をシーン分類 (集合写真 / 競技 / セレモニー / 食事 etc.)
+  - 自動タグをメタデータとしてD1に保存 → ユーザー写真ギャラリーでフィルター表示
+  - 顔検出カウント（何人写っているか）で "自分が写っていそうな写真" 推薦
+  - `/admin/photos` タブに自動タグ一覧 + 手動修正UI
+  - **Why**: 数百枚の写真から自分の写真を探す手間を劇的削減 → UX向上 + DL率UP
+
+- [ ] **P2-H5. マルチイベント同時管理ダッシュボード (Multi-Event Command Center)**
+  - 同日複数イベント運営時の統合管理画面 (`/admin/command`)
+  - 全イベントの進捗を1画面で横断表示（チェックイン率 / CM視聴率 / DL率）
+  - イベント間リソース比較（写真枚数、参加者数、スポンサー数）
+  - 異常検知: 特定イベントのKPIが他イベント比で著しく低い場合にハイライト
+  - **Why**: 運営会社が同日に3〜5会場を並行運営するケースへの対応
