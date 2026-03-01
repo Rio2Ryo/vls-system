@@ -24,30 +24,36 @@ function WatermarkedImage({ src, alt }: { src: string; alt: string }) {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
+      // Render at 30% resolution for low-quality preview
+      const w = Math.floor(img.width * 0.3);
+      const h = Math.floor(img.height * 0.3);
+      canvas.width = w;
+      canvas.height = h;
 
-      // Draw image
-      ctx.drawImage(img, 0, 0);
+      // Draw image at reduced resolution
+      ctx.drawImage(img, 0, 0, w, h);
 
-      // Apply slight blur for "low quality" effect
-      ctx.filter = "blur(0.5px)";
+      // Apply blur for low-quality effect
+      ctx.filter = "blur(1.5px)";
       ctx.drawImage(canvas, 0, 0);
       ctx.filter = "none";
 
-      // Draw watermark text
+      // Draw watermark text in 3x3 grid pattern
       ctx.save();
-      ctx.globalAlpha = 0.15;
+      ctx.globalAlpha = 0.30;
       ctx.fillStyle = "#000";
-      ctx.font = `bold ${Math.max(img.width / 12, 20)}px sans-serif`;
+      const fontSize = Math.max(w / 12, 14);
+      ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
-      // Diagonal watermark pattern
-      ctx.translate(img.width / 2, img.height / 2);
       ctx.rotate(-Math.PI / 6);
-      for (let y = -img.height; y < img.height; y += 100) {
-        ctx.fillText("© VLS System", 0, y);
+
+      const stepX = w / 3;
+      const stepY = h / 3;
+      for (let row = -1; row <= 3; row++) {
+        for (let col = -1; col <= 3; col++) {
+          ctx.fillText("© 未来発見ラボ", col * stepX + stepX / 2, row * stepY + stepY / 2);
+        }
       }
       ctx.restore();
     };

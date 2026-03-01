@@ -93,6 +93,7 @@ export function getCMMatch(
     return {
       platinumCM: null,
       matchedCM: null,
+      platinumCMs: [],
       ...(options?.includeDebug ? {
         debug: { allScores: [], platinumScores: [], userTags, selectedCompanyIds: eventCompanyIds, reason: "No companies available" },
       } : {}),
@@ -131,7 +132,13 @@ export function getCMMatch(
   }
   if (!reason) reason = "No companies matched";
 
-  const result: CMMatchResult = { platinumCM, matchedCM };
+  // Collect all platinum companies for banner display (max 3)
+  const platinumCMs = platinumScores
+    .slice(0, 3)
+    .map((s) => companyMap.get(s.companyId))
+    .filter((c): c is Company => c !== undefined);
+
+  const result: CMMatchResult = { platinumCM, matchedCM, platinumCMs };
 
   if (options?.includeDebug) {
     result.debug = {

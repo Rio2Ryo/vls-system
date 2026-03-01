@@ -35,6 +35,16 @@ function TopPageInner() {
       return;
     }
 
+    // Check publish period
+    if (event.status === "archived") {
+      setError("このイベントの写真は長期保存中のため現在ご覧いただけません");
+      return;
+    }
+    if (event.expiresAt && event.expiresAt < Date.now() && event.status !== "active") {
+      setError("このイベントの写真公開期間は終了しました");
+      return;
+    }
+
     sessionStorage.setItem("eventId", event.id);
     sessionStorage.setItem("eventName", event.name);
     if (event.companyIds && event.companyIds.length > 0) {

@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { Company, EventData } from "@/lib/types";
+import { Company, EventData, EventStatus } from "@/lib/types";
 import {
   getStoredEvents, setStoredEvents, getStoredCompanies,
   getEventsForTenant, getStoredTenants,
@@ -243,6 +243,53 @@ export default function EventsTab({ onSave, tenantId }: Props) {
     setPdfGenerating(false);
   };
 
+  const getEventStatus = (evt: EventData): EventStatus => {
+    if (evt.status === "archived") return "archived";
+    if (evt.expiresAt && evt.expiresAt < Date.now()) return "expired";
+    return evt.status || "active";
+  };
+
+  const STATUS_BADGE: Record<EventStatus, { label: string; icon: string; cls: string }> = {
+    active: { label: "公開中", icon: "🟢", cls: "bg-green-50 text-green-600 border-green-200" },
+    expired: { label: "期限切れ", icon: "🟡", cls: "bg-yellow-50 text-yellow-600 border-yellow-200" },
+    archived: { label: "アーカイブ済", icon: "📦", cls: "bg-gray-100 text-gray-500 border-gray-200" },
+  };
+
+  const extendExpiry = (evtId: string, days: number) => {
+    const allEvents = getStoredEvents();
+    const updatedAll = allEvents.map((e) => {
+      if (e.id !== evtId) return e;
+      const base = e.expiresAt && e.expiresAt > Date.now() ? e.expiresAt : Date.now();
+      return { ...e, expiresAt: base + days * 86400000, status: "active" as EventStatus };
+    });
+    setStoredEvents(updatedAll);
+    setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
+    onSave(`公開期限を${days}日延長しました`);
+  };
+
+  const setExpiryDate = (evtId: string, dateStr: string) => {
+    if (!dateStr) return;
+    const allEvents = getStoredEvents();
+    const updatedAll = allEvents.map((e) => {
+      if (e.id !== evtId) return e;
+      const ts = new Date(dateStr + "T23:59:59").getTime();
+      return { ...e, expiresAt: ts, status: (ts > Date.now() ? "active" : "expired") as EventStatus };
+    });
+    setStoredEvents(updatedAll);
+    setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
+    onSave("公開期限を設定しました");
+  };
+
+  const archiveEvent = (evtId: string) => {
+    const allEvents = getStoredEvents();
+    const updatedAll = allEvents.map((e) =>
+      e.id === evtId ? { ...e, status: "archived" as EventStatus, archivedAt: Date.now() } : e
+    );
+    setStoredEvents(updatedAll);
+    setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
+    onSave("イベントをアーカイブしました");
+  };
+
   return (
     <div className="space-y-4" data-testid="admin-events">
       <div className="flex justify-between items-center">
@@ -408,6 +455,52 @@ export default function EventsTab({ onSave, tenantId }: Props) {
                 ) : null;
               })
             )}
+          </div>
+
+          {/* Publish period & status */}
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            {(() => {
+              const st = getEventStatus(evt);
+              const badge = STATUS_BADGE[st];
+              return (
+                <>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${badge.cls}`}>
+                    {badge.icon} {badge.label}
+                  </span>
+                  {evt.expiresAt && (
+                    <span className="text-[10px] text-gray-400">
+                      期限: {new Date(evt.expiresAt).toLocaleDateString("ja-JP")}
+                    </span>
+                  )}
+                  {!IS_DEMO_MODE && st !== "archived" && (
+                    <>
+                      <button
+                        onClick={() => extendExpiry(evt.id, 7)}
+                        className="text-[10px] px-2 py-0.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        aria-label={`${evt.name}の期限を7日延長`}
+                      >
+                        +7日
+                      </button>
+                      <input
+                        type="date"
+                        className="text-[10px] px-1.5 py-0.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF] text-gray-500"
+                        aria-label={`${evt.name}の公開期限を設定`}
+                        onChange={(e) => setExpiryDate(evt.id, e.target.value)}
+                      />
+                    </>
+                  )}
+                  {!IS_DEMO_MODE && st !== "archived" && (
+                    <button
+                      onClick={() => archiveEvent(evt.id)}
+                      className="text-[10px] px-2 py-0.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
+                      aria-label={`${evt.name}をアーカイブ`}
+                    >
+                      📦 アーカイブ
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <div className="mt-3 pt-3 border-t border-gray-100">

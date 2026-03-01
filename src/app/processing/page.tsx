@@ -60,6 +60,9 @@ export default function ProcessingPage() {
     if (cmMatch.platinumCM) {
       sessionStorage.setItem("platinumCompany", JSON.stringify(cmMatch.platinumCM));
     }
+    if (cmMatch.platinumCMs && cmMatch.platinumCMs.length > 0) {
+      sessionStorage.setItem("platinumCompanies", JSON.stringify(cmMatch.platinumCMs));
+    }
     // Record matched company IDs in analytics
     const analyticsId = sessionStorage.getItem("analyticsId");
     if (analyticsId) {

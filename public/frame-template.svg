@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <!-- 外枠 -->
+  <rect width="1200" height="900" fill="none"/>
+  
+  <!-- 上部帯 -->
+  <rect x="0" y="0" width="1200" height="80" fill="#1a237e" opacity="0.85"/>
+  <!-- 下部帯 -->
+  <rect x="0" y="820" width="1200" height="80" fill="#1a237e" opacity="0.85"/>
+  <!-- 左帯 -->
+  <rect x="0" y="0" width="60" height="900" fill="#1a237e" opacity="0.85"/>
+  <!-- 右帯 -->
+  <rect x="1140" y="0" width="60" height="900" fill="#1a237e" opacity="0.85"/>
+  
+  <!-- コーナー装飾（左上） -->
+  <rect x="0" y="0" width="120" height="120" fill="#1565c0" opacity="0.9"/>
+  <polygon points="0,0 120,0 0,120" fill="#e3f2fd" opacity="0.3"/>
+  <!-- コーナー装飾（右上） -->
+  <rect x="1080" y="0" width="120" height="120" fill="#1565c0" opacity="0.9"/>
+  <polygon points="1200,0 1080,0 1200,120" fill="#e3f2fd" opacity="0.3"/>
+  <!-- コーナー装飾（左下） -->
+  <rect x="0" y="780" width="120" height="120" fill="#1565c0" opacity="0.9"/>
+  <polygon points="0,900 120,900 0,780" fill="#e3f2fd" opacity="0.3"/>
+  <!-- コーナー装飾（右下） -->
+  <rect x="1080" y="780" width="120" height="120" fill="#1565c0" opacity="0.9"/>
+  <polygon points="1200,900 1080,900 1200,780" fill="#e3f2fd" opacity="0.3"/>
+
+  <!-- 上部テキスト -->
+  <text x="600" y="50" font-family="'Noto Sans JP', sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">未来発見ラボ</text>
+  
+  <!-- 下部テキスト -->
+  <text x="400" y="858" font-family="'Noto Sans JP', sans-serif" font-size="20" fill="white" text-anchor="middle" dominant-baseline="middle">Special Memory Photo</text>
+  <text x="900" y="858" font-family="'Noto Sans JP', sans-serif" font-size="18" fill="#90caf9" text-anchor="middle" dominant-baseline="middle">Powered by [スポンサー名]</text>
+  
+  <!-- 星型装飾 -->
+  <text x="80" y="858" font-size="30" fill="#ffd54f" text-anchor="middle" dominant-baseline="middle">★</text>
+  <text x="1120" y="858" font-size="30" fill="#ffd54f" text-anchor="middle" dominant-baseline="middle">★</text>
+  <text x="80" y="42" font-size="30" fill="#ffd54f" text-anchor="middle" dominant-baseline="middle">★</text>
+  <text x="1120" y="42" font-size="30" fill="#ffd54f" text-anchor="middle" dominant-baseline="middle">★</text>
+</svg>

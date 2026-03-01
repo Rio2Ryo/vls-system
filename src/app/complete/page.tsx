@@ -8,6 +8,76 @@ import Card from "@/components/ui/Card";
 import { getStoredEvents, updateAnalyticsRecord } from "@/lib/store";
 import { Company, PhotoData } from "@/lib/types";
 
+function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string; selectedPhotos: PhotoData[] }) {
+  const [emailName, setEmailName] = useState("");
+  const [emailAddr, setEmailAddr] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailError, setEmailError] = useState("");
+
+  const handleSendEmail = async () => {
+    if (!emailName.trim() || !emailAddr.trim()) {
+      setEmailError("名前とメールアドレスを入力してください");
+      return;
+    }
+    setEmailError("");
+    setEmailSending(true);
+
+    try {
+      const eventId = sessionStorage.getItem("eventId") || "";
+      const photoIds = selectedPhotos.map((p) => p.id);
+      const res = await fetch("/api/send-download-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: emailName, email: emailAddr, selectedPhotoIds: photoIds, eventId, eventName }),
+      });
+      if (!res.ok) throw new Error();
+      setEmailSent(true);
+    } catch {
+      setEmailError("送信に失敗しました。もう一度お試しください。");
+    }
+    setEmailSending(false);
+  };
+
+  if (emailSent) {
+    return (
+      <Card className="text-center">
+        <p className="text-sm text-green-600 font-medium">
+          📧 {emailName}様にメールを送りました
+        </p>
+        <p className="text-xs text-gray-400 mt-1">7日以内にダウンロードしてください</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <p className="text-sm font-bold text-gray-700 mb-2">後でメールで受け取る</p>
+      <p className="text-xs text-gray-400 mb-3">ダウンロードリンクをメールでお送りします（7日間有効）</p>
+      <div className="space-y-2">
+        <input
+          type="text"
+          placeholder="お名前"
+          value={emailName}
+          onChange={(e) => setEmailName(e.target.value)}
+          className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm"
+        />
+        <input
+          type="email"
+          placeholder="メールアドレス"
+          value={emailAddr}
+          onChange={(e) => setEmailAddr(e.target.value)}
+          className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm"
+        />
+        {emailError && <p className="text-xs text-red-400">{emailError}</p>}
+        <Button onClick={handleSendEmail} disabled={emailSending} size="sm" variant="secondary" className="w-full">
+          {emailSending ? "送信中..." : "メールで受け取る"}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 /** Fetch an image and trigger browser download */
 async function downloadImage(url: string, filename: string): Promise<void> {
   try {
@@ -27,81 +97,70 @@ async function downloadImage(url: string, filename: string): Promise<void> {
   }
 }
 
-/** Generate a memorial frame PNG via Canvas and trigger download */
-function downloadFramePNG(eventName: string, companyName: string): void {
-  const W = 800;
-  const H = 600;
+/** Compose photo + SVG frame overlay and trigger download */
+async function downloadFrameComposite(
+  photoUrl: string,
+  companyName: string,
+  eventName: string,
+): Promise<void> {
+  const W = 1200;
+  const H = 900;
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  // Background gradient (blue → purple)
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, "#6EC6FF");
-  grad.addColorStop(1, "#A78BFA");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
+  // 1. Draw selected photo as background (cover entire canvas)
+  try {
+    const photo = new Image();
+    photo.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      photo.onload = () => resolve();
+      photo.onerror = () => reject();
+      photo.src = photoUrl;
+    });
+    // Cover-fit: scale to fill, center crop
+    const scale = Math.max(W / photo.width, H / photo.height);
+    const sw = photo.width * scale;
+    const sh = photo.height * scale;
+    ctx.drawImage(photo, (W - sw) / 2, (H - sh) / 2, sw, sh);
+  } catch {
+    // Fallback: gradient background if photo fails
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, "#6EC6FF");
+    grad.addColorStop(1, "#A78BFA");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
 
-  // Corner decorations
-  ctx.strokeStyle = "rgba(255,255,255,0.5)";
-  ctx.lineWidth = 4;
-  const corner = 60;
-  // Top-left
-  ctx.beginPath(); ctx.moveTo(20, 20 + corner); ctx.lineTo(20, 20); ctx.lineTo(20 + corner, 20); ctx.stroke();
-  // Top-right
-  ctx.beginPath(); ctx.moveTo(W - 20 - corner, 20); ctx.lineTo(W - 20, 20); ctx.lineTo(W - 20, 20 + corner); ctx.stroke();
-  // Bottom-left
-  ctx.beginPath(); ctx.moveTo(20, H - 20 - corner); ctx.lineTo(20, H - 20); ctx.lineTo(20 + corner, H - 20); ctx.stroke();
-  // Bottom-right
-  ctx.beginPath(); ctx.moveTo(W - 20 - corner, H - 20); ctx.lineTo(W - 20, H - 20); ctx.lineTo(W - 20, H - 20 - corner); ctx.stroke();
+  // 2. Draw SVG frame overlay
+  try {
+    const frame = new Image();
+    await new Promise<void>((resolve, reject) => {
+      frame.onload = () => resolve();
+      frame.onerror = () => reject();
+      frame.src = "/frame-template.svg";
+    });
+    ctx.drawImage(frame, 0, 0, W, H);
+  } catch {
+    // Frame load failed — continue without
+  }
 
-  // Photo placeholder (grey rectangle)
-  const photoW = 320;
-  const photoH = 240;
-  const photoX = (W - photoW) / 2;
-  const photoY = (H - photoH) / 2 - 20;
-  ctx.fillStyle = "rgba(255,255,255,0.2)";
-  ctx.fillRect(photoX, photoY, photoW, photoH);
-  ctx.strokeStyle = "rgba(255,255,255,0.4)";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(photoX, photoY, photoW, photoH);
-
-  // Camera icon text in photo area
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
-  ctx.font = "48px sans-serif";
+  // 3. Overwrite sponsor name in bottom-right area
+  ctx.fillStyle = "#90caf9";
+  ctx.font = "18px 'Noto Sans JP', sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("\uD83D\uDCF7", W / 2, photoY + photoH / 2 - 15);
-  ctx.font = "14px sans-serif";
-  ctx.fillText("お子様の写真", W / 2, photoY + photoH / 2 + 30);
+  ctx.fillText(`Powered by ${companyName}`, 900, 858);
 
-  // Event name (top)
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 32px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  ctx.fillText(eventName, W / 2, 50);
-
-  // "Special Photo Frame" subtitle
-  ctx.font = "16px sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.8)";
-  ctx.fillText("Special Photo Frame", W / 2, 90);
-
-  // Company name (bottom)
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = "bold 18px sans-serif";
-  ctx.textBaseline = "bottom";
-  ctx.fillText(`${companyName} 提供`, W / 2, H - 50);
-
-  // Download
+  // 4. Download
   canvas.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${eventName}_記念フレーム.png`;
+    a.download = `記念フレーム_${eventName}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -130,6 +189,18 @@ export default function CompletePage() {
       return null;
     }
   }, []);
+
+  const platinumCompanies = useMemo((): Company[] => {
+    if (typeof window === "undefined") return [];
+    try {
+      const arr = JSON.parse(sessionStorage.getItem("platinumCompanies") || "[]");
+      if (Array.isArray(arr) && arr.length > 0) return arr.slice(0, 3);
+      // Fallback to single platinumCompany
+      return platinumCompany ? [platinumCompany] : [];
+    } catch {
+      return platinumCompany ? [platinumCompany] : [];
+    }
+  }, [platinumCompany]);
 
   const matchedCompany = useMemo((): Company | null => {
     if (typeof window === "undefined") return null;
@@ -193,11 +264,12 @@ export default function CompletePage() {
     }
   };
 
-  const handleDownloadFrame = useCallback(() => {
+  const handleDownloadFrame = useCallback(async () => {
     if (!platinumCompany) return;
-    downloadFramePNG(eventName, platinumCompany.name);
+    const photoUrl = selectedPhotos.length > 0 ? selectedPhotos[0].originalUrl : "";
+    await downloadFrameComposite(photoUrl, platinumCompany.name, eventName);
     setFrameDownloaded(true);
-  }, [eventName, platinumCompany]);
+  }, [eventName, platinumCompany, selectedPhotos]);
 
   return (
     <main className="min-h-screen p-6 pt-10">
@@ -232,21 +304,15 @@ export default function CompletePage() {
               <p className="text-xs text-gray-400 mb-2">
                 {platinumCompany.name} 提供 記念フレーム
               </p>
-              <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-xl p-6 text-center relative">
-                {/* Photo mock */}
-                <div className="bg-gray-200 rounded-lg mx-auto w-48 h-36 flex flex-col items-center justify-center mb-3 border-2 border-white/60">
-                  <span className="text-3xl mb-1" aria-hidden="true">📷</span>
-                  <span className="text-xs text-gray-500">お子様の写真</span>
-                </div>
-                {/* Overlay: event name + logo */}
-                <p className="text-lg font-bold text-gray-700">{eventName}</p>
-                <p className="text-xs text-gray-400 mt-1">Special Photo Frame</p>
+              <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={platinumCompany.logoUrl}
-                  alt={platinumCompany.name}
-                  className="w-10 h-10 rounded-full mx-auto mt-3 border-2 border-white shadow-sm"
-                />
+                <img src="/frame-template.svg" alt="記念フレーム" className="w-full h-auto rounded-xl opacity-80" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="text-sm text-white bg-black/40 px-4 py-2 rounded-lg text-center">
+                    <span className="text-lg" aria-hidden="true">📷</span><br />
+                    あなたの写真の上にこのフレームが合成されます
+                  </p>
+                </div>
               </div>
             </div>
             <Button onClick={handleDownloadFrame} size="md" variant={frameDownloaded ? "secondary" : "primary"}>
@@ -275,6 +341,9 @@ export default function CompletePage() {
                 : "写真をダウンロード"}
           </Button>
         </Card>
+
+        {/* Email download link */}
+        <EmailDownloadSection eventName={eventName} selectedPhotos={selectedPhotos} />
 
         {/* Offer cards */}
         {matchedCompany && (
@@ -336,6 +405,22 @@ export default function CompletePage() {
           </button>
         </motion.div>
       </div>
+
+      {/* Platinum sponsor banner — sticky bottom */}
+      {platinumCompanies.length > 0 && (
+        <div className="sticky bottom-0 z-10 bg-white/90 backdrop-blur border-t border-gray-100 py-2 px-4">
+          <div className="max-w-lg mx-auto flex items-center justify-center gap-4">
+            <span className="text-[10px] text-gray-400 flex-shrink-0">提供スポンサー</span>
+            {platinumCompanies.map((c) => (
+              <div key={c.id} className="flex items-center gap-1.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.logoUrl} alt={c.name} className="w-6 h-6 rounded-full flex-shrink-0" />
+                <span className="text-xs text-gray-600 font-medium hidden sm:inline">{c.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -25,6 +25,8 @@ export interface Company {
   couponCode?: string;
 }
 
+export type EventStatus = "active" | "expired" | "archived";
+
 export interface EventData {
   id: string;
   name: string;
@@ -38,6 +40,11 @@ export interface EventData {
   slug?: string;                // custom URL path: /e/[slug] → auto-login
   notifyEmail?: string;         // admin email for notifications
   tenantId?: string;            // owning tenant ID (multi-tenant)
+  // Photo publish period
+  publishedAt?: number;         // publish start (Unix ms)
+  expiresAt?: number;           // publish deadline (Unix ms), default publishedAt + 7 days
+  archivedAt?: number;          // archive timestamp (compressed)
+  status?: EventStatus;         // "active" | "expired" | "archived"
 }
 
 // Photo scene classification (AI auto-classification)
@@ -68,6 +75,7 @@ export interface SurveyAnswer {
 export interface CMMatch {
   platinumCM: Company | null;  // 15s fixed
   matchedCM: Company | null;   // 30s preview + 60s full
+  platinumCMs: Company[];      // all platinum companies (for banner display)
 }
 
 // Score breakdown for a single company match
