@@ -98,30 +98,30 @@ export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPrevi
           >
             <WatermarkedImage src={photo.thumbnailUrl} alt={`写真 ${i + 1}`} />
 
-            {/* Selection checkmark */}
-            <div
-              className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                isSelected
-                  ? "bg-[#6EC6FF] text-white shadow-md"
-                  : "bg-white/70 text-gray-400 border border-gray-300"
-              }`}
-              aria-hidden="true"
-              data-testid={`check-${photo.id}`}
-            >
-              {isSelected ? "✓" : ""}
+            {/* Button bar */}
+            <div className="absolute bottom-0 left-0 right-0 flex">
+              <span
+                className={`flex-1 py-2 text-xs font-bold text-center transition-colors ${
+                  isSelected
+                    ? "bg-[#6EC6FF] text-white"
+                    : "bg-white/80 text-gray-700"
+                }`}
+                aria-hidden="true"
+                data-testid={`check-${photo.id}`}
+              >
+                {isSelected ? "✓ 選択中" : "選択する"}
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onPreview(photo); }}
+                aria-label={`写真 ${i + 1} をプレビュー`}
+                className="flex-1 py-2 text-xs font-bold text-center bg-black/50 text-white
+                           hover:bg-black/60 transition-colors
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-inset"
+                data-testid={`preview-${photo.id}`}
+              >
+                プレビュー
+              </button>
             </div>
-
-            {/* Preview button */}
-            <button
-              onClick={(e) => { e.stopPropagation(); onPreview(photo); }}
-              aria-label={`写真 ${i + 1} をプレビュー`}
-              className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-black/40 text-white
-                         flex items-center justify-center text-xs hover:bg-black/60 transition-colors
-                         focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              data-testid={`preview-${photo.id}`}
-            >
-              🔍
-            </button>
           </motion.div>
         );
       })}
