@@ -308,7 +308,7 @@ function WebhookSection({ tenantId, onSave }: { tenantId: string | null; onSave:
               {recentLog.length === 0 ? (
                 <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">配信ログがありません</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto touch-pan-x">
                   <table className="w-full text-xs min-w-[500px]">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">

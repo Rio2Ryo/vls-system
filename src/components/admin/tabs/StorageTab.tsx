@@ -494,8 +494,8 @@ export default function StorageTab({ onSave }: Props) {
             {lifecycle.history.length > 1 && (
               <div>
                 <p className="text-xs font-bold text-gray-500 mb-2">実行履歴（直近{lifecycle.history.length}回）</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                <div className="overflow-x-auto touch-pan-x">
+                  <table className="w-full text-xs min-w-[500px]">
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-1 text-gray-400">日時</th>

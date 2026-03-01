@@ -413,7 +413,7 @@ export default function LiveDashboardPage() {
               {selectedEventId === "all" && events.length > 1 && (
                 <Card className="lg:col-span-2">
                   <h3 className={`font-bold text-gray-700 dark:text-gray-200 mb-4 ${isFullscreen ? "text-lg" : ""}`}>イベント別ステータス</h3>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto touch-pan-x">
                     <table className="w-full text-sm min-w-[600px]">
                       <thead>
                         <tr className="border-b border-gray-100 dark:border-gray-700">

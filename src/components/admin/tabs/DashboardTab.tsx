@@ -222,7 +222,7 @@ export default function DashboardTab({ tenantId }: Props) {
         {eventStats.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">イベントが登録されていません</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto touch-pan-x">
             <table className="w-full text-sm min-w-[600px]" data-testid="event-stats-table">
               <thead>
                 <tr className="border-b border-gray-100">

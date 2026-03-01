@@ -274,8 +274,8 @@ export default function InvoiceGenerator({ onSave, tenantId }: { onSave: (msg: s
             )}
 
             {items.length > 0 && (
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-xs">
+              <div className="border rounded-lg overflow-auto touch-pan-x">
+                <table className="w-full text-xs min-w-[400px]">
                   <thead>
                     <tr className="bg-gray-50 border-b">
                       <th className="p-2 text-left">項目</th>

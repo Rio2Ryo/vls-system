@@ -417,8 +417,8 @@ export default function ImportPage() {
                       </span>
                     )}
                   </div>
-                  <div className="max-h-60 overflow-y-auto border dark:border-gray-700 rounded-lg">
-                    <table className="w-full text-xs">
+                  <div className="max-h-60 overflow-auto border dark:border-gray-700 rounded-lg touch-pan-x">
+                    <table className="w-full text-xs min-w-[500px]">
                       <thead>
                         <tr className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0">
                           <th className="p-2 text-left text-gray-500 dark:text-gray-400">行</th>
@@ -478,8 +478,8 @@ export default function ImportPage() {
               {filteredParticipants.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">参加者がいません</p>
               ) : (
-                <div className="max-h-80 overflow-y-auto">
-                  <table className="w-full text-xs">
+                <div className="max-h-80 overflow-auto touch-pan-x">
+                  <table className="w-full text-xs min-w-[500px]">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 sticky top-0">
                         <th className="p-2 text-left">名前</th>
@@ -546,8 +546,8 @@ export default function ImportPage() {
                     </span>
                   )}
                 </div>
-                <div className="max-h-60 overflow-y-auto border dark:border-gray-700 rounded-lg">
-                  <table className="w-full text-xs">
+                <div className="max-h-60 overflow-auto border dark:border-gray-700 rounded-lg touch-pan-x">
+                  <table className="w-full text-xs min-w-[500px]">
                     <thead>
                       <tr className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0">
                         <th className="p-2 text-left text-gray-500 dark:text-gray-400">行</th>
@@ -637,8 +637,8 @@ export default function ImportPage() {
                       </span>
                     )}
                   </div>
-                  <div className="max-h-60 overflow-y-auto border dark:border-gray-700 rounded-lg">
-                    <table className="w-full text-xs">
+                  <div className="max-h-60 overflow-auto border dark:border-gray-700 rounded-lg touch-pan-x">
+                    <table className="w-full text-xs min-w-[500px]">
                       <thead>
                         <tr className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0">
                           <th className="p-2 text-left text-gray-500 dark:text-gray-400">行</th>
@@ -686,8 +686,8 @@ export default function ImportPage() {
               {companies.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">企業がありません</p>
               ) : (
-                <div className="max-h-80 overflow-y-auto">
-                  <table className="w-full text-xs">
+                <div className="max-h-80 overflow-auto touch-pan-x">
+                  <table className="w-full text-xs min-w-[500px]">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 sticky top-0">
                         <th className="p-2 text-left">企業名</th>

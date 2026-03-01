@@ -168,8 +168,8 @@ export default function FunnelAnalysisTab({ tenantId }: Props) {
       {events.length > 1 && (
         <Card>
           <h3 className="font-bold text-gray-700 mb-3">イベント別比較</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto touch-pan-x">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-2 text-gray-500 font-medium">イベント</th>

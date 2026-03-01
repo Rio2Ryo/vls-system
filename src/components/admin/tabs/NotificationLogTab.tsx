@@ -245,7 +245,7 @@ export default function NotificationLogTab() {
         </Card>
       ) : (
         <Card>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto touch-pan-x">
             <table className="w-full text-xs min-w-[640px]" data-testid="notification-log-table">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">

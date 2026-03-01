@@ -405,8 +405,8 @@ export default function SponsorReportTab({ onSave, tenantId }: Props) {
           {/* CM type breakdown */}
           <Card>
             <h3 className="font-bold text-gray-700 text-sm mb-3">CM種別パフォーマンス</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+            <div className="overflow-x-auto touch-pan-x">
+              <table className="w-full text-xs min-w-[500px]">
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-2 px-2 text-gray-500">種別</th>
@@ -439,8 +439,8 @@ export default function SponsorReportTab({ onSave, tenantId }: Props) {
           {stats.eventBreakdown.length > 0 && (
             <Card>
               <h3 className="font-bold text-gray-700 text-sm mb-3">イベント別内訳</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+              <div className="overflow-x-auto touch-pan-x">
+                <table className="w-full text-xs min-w-[500px]">
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-2 px-2 text-gray-500">イベント</th>

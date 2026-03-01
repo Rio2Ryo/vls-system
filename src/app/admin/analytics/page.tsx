@@ -622,8 +622,8 @@ export default function AnalyticsPage() {
             {/* Recent responses table */}
             <Card>
               <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">最新回答一覧</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+              <div className="overflow-x-auto touch-pan-x">
+                <table className="w-full text-xs min-w-[500px]">
                   <thead>
                     <tr className="border-b border-gray-100 dark:border-gray-700">
                       <th className="text-left py-2 text-gray-500 dark:text-gray-400 font-medium">名前</th>

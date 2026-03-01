@@ -236,8 +236,8 @@ export default function MatchingDebugTab() {
           {/* Full ranking table */}
           <Card>
             <p className="text-xs font-bold text-gray-500 mb-3">全企業スコアランキング</p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs" data-testid="matching-score-table">
+            <div className="overflow-x-auto touch-pan-x">
+              <table className="w-full text-xs min-w-[600px]" data-testid="matching-score-table">
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-2 px-1 text-gray-500">#</th>

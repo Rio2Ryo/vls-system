@@ -188,8 +188,8 @@ export default function BulkImport({ onSave, tenantId }: { onSave: (msg: string)
                 <span className="text-xs text-red-400">{parsed.filter((r) => !r.valid).length}件エラー</span>
               )}
             </div>
-            <div className="max-h-48 overflow-y-auto border rounded-lg">
-              <table className="w-full text-xs">
+            <div className="max-h-48 overflow-auto border rounded-lg touch-pan-x">
+              <table className="w-full text-xs min-w-[500px]">
                 <thead>
                   <tr className="bg-gray-50 border-b">
                     <th className="p-2 text-left">名前</th>
@@ -251,8 +251,8 @@ export default function BulkImport({ onSave, tenantId }: { onSave: (msg: string)
                 このイベントの参加者をクリア
               </button>
             )}
-            <div className="max-h-80 overflow-y-auto">
-              <table className="w-full text-xs">
+            <div className="max-h-80 overflow-auto touch-pan-x">
+              <table className="w-full text-xs min-w-[500px]">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
                     <th className="p-2 text-left">名前</th>

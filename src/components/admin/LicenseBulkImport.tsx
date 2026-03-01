@@ -194,8 +194,8 @@ export default function LicenseBulkImport({
                 </span>
               )}
             </div>
-            <div className="max-h-48 overflow-y-auto border rounded-lg">
-              <table className="w-full text-xs">
+            <div className="max-h-48 overflow-auto border rounded-lg touch-pan-x">
+              <table className="w-full text-xs min-w-[500px]">
                 <thead>
                   <tr className="bg-gray-50 border-b">
                     <th className="p-2 text-left">組織名</th>
@@ -267,8 +267,8 @@ export default function LicenseBulkImport({
             ライセンスが登録されていません
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs" data-testid="license-table">
+          <div className="overflow-x-auto touch-pan-x">
+            <table className="w-full text-xs min-w-[500px]" data-testid="license-table">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="p-2 text-left">組織名</th>
