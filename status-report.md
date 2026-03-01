@@ -1,7 +1,7 @@
 # VLS System — Status Report
 
 **最終更新**: 2026-03-01
-**ブランチ**: main (`89ffa4c`)
+**ブランチ**: main (`f797e1e`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
@@ -148,6 +148,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | `f797e1e` | アクセシビリティ改善 — aria-label/focus-visible/role=meter追加 (6ファイル) |
 | 2026-03-01 | `89ffa4c` | M1 モバイル最適化 — 全Adminテーブル横スクロール + touch-pan-x (13ファイル) |
 | 2026-03-01 | `49b98e9` | P2-5 マルチイベント統合管理 /admin/command |
 | 2026-03-01 | `24684a3` | トップページブランディング変更 — 未来開発ラボ + 六角形SVGロゴ |
