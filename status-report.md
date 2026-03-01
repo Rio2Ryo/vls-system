@@ -1,13 +1,13 @@
 # VLS System — Status Report
 
 **最終更新**: 2026-03-01
-**ブランチ**: main (`783ba6d`)
+**ブランチ**: main (`ee11fc2`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
 ---
 
-## 完成済み機能一覧 (17件)
+## 完成済み機能一覧 (18件)
 
 ### ユーザーフロー (5ステップ + 補助2ページ)
 
@@ -58,6 +58,7 @@
 | 28 | 削除カスケード | `deleteTenantCascade()` — 子レコード全削除 + 影響サマリー確認ダイアログ |
 | 29 | E2Eテスト | Playwright 67テスト (11 spec)。QRチェックインフロー含む |
 | 30 | デモサイト別デプロイ | vls-demo.vercel.app — middleware ホスト名判定で / → /demo リダイレクト |
+| 31 | PWAオフラインモード | Service Worker (app shell cache) + IndexedDB (offline D1 sync queue) + OfflineIndicator UI |
 
 ---
 
@@ -72,7 +73,7 @@
 | P2-3 | Webhook外部連携 | `/admin` 設定タブ | チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知 (Slack/LINE/Zapier) |
 | P2-4 | 写真AI自動分類 | `/admin/photos` | Claude Vision APIでシーン分類 + 顔検出 → ギャラリーフィルター |
 | P2-5 | マルチイベント統合管理 | `/admin/command` | 同日複数イベント横断KPI + 異常検知ハイライト |
-| P2-6 | PWAオフラインモード | 全ページ | Service Worker + IndexedDB。オフラインチェックイン対応、オンライン復帰時D1自動同期 |
+| P2-6 | ✅ PWAオフラインモード | 全ページ | Service Worker + IndexedDB。オフラインチェックイン対応、オンライン復帰時D1自動同期 (`ee11fc2`) |
 
 ### その他 (未着手)
 
@@ -125,6 +126,7 @@
 | Auth | NextAuth (credentials) + JWT |
 | Monitoring | Sentry + D1エラーログ |
 | Testing | Playwright (67 tests) |
+| PWA | Service Worker + IndexedDB (offline sync queue) |
 | Deploy | Vercel (本番 + デモ 2プロジェクト) |
 
 ---
@@ -133,6 +135,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | `ee11fc2` | PWAオフラインモード (SW + IndexedDB + OfflineIndicator) |
 | 2026-03-01 | `783ba6d` | a11y強化 (管理画面全10タブ) + platinum ランダム抽選 |
 | 2026-03-01 | `b928d88` | /scan モバイルQRチェックイン |
 | 2026-03-01 | `d3b966b` | /demo デモ体験 + complete バグ修正 + CM動画ID長尺化 |
