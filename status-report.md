@@ -1,25 +1,26 @@
 # VLS System — Status Report
 
 **最終更新**: 2026-03-01
-**ブランチ**: main (`b12a99e`)
+**ブランチ**: main (`b19714e`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
 ---
 
-## 完成済み機能一覧 (21件)
+## 完成済み機能一覧 (26件)
 
-### ユーザーフロー (5ステップ + 補助2ページ)
+### ユーザーフロー (5ステップ + 補助3ページ)
 
 | # | 機能 | ページ | 概要 |
 |---|------|--------|------|
 | 1 | ログイン | `/`, `/e/[slug]` | パスワード認証 + slug自動ログイン |
 | 2 | アンケート | `/survey` | 名前入力 + 3問タグ選択 (テーマ/サービス/年齢) |
 | 3 | CM再生 | `/processing` | スコアリングCMマッチング → Platinum 15s + Matched 30s/60s |
-| 4 | 写真選択 | `/photos` | マルチセレクトギャラリー + Canvas透かし + プレビューモーダル |
-| 5 | 完了 | `/complete` | 記念フレームPNG DL + 写真DL + オファー/クーポン表示 |
+| 4 | 写真選択 | `/photos` | 低画質プレビュー (30%解像度+blur+3x3透かし) + マルチセレクトギャラリー |
+| 5 | 完了 | `/complete` | SVGフレーム合成DL + 写真DL + メール後日DL + プラチナバナー + オファー |
 | 6 | デモ体験 | `/demo` | パスワード不要5ステップウォークスルー (CM 5秒短縮、analytics無し) |
 | 7 | モバイルQRチェックイン | `/scan` | html5-qrcode カメラ読取 + 手動選択 + ワンタップチェックイン |
+| 8 | メールDLリンク | `/dl/[token]` | 後日メール送付 (Resend) + 7日有効トークン + 写真DLページ |
 
 ### 管理画面 (14タブ + 7サブページ)
 
@@ -62,6 +63,11 @@
 | 32 | PWAオフラインモード | Service Worker (app shell cache) + IndexedDB (offline D1 sync queue) + OfflineIndicator UI |
 | 33 | 写真AI自動分類 | Claude Vision API (Haiku) で写真シーン分類 (個人/グループ/会場/アクティビティ)。フィルター + 手動分類 + 一括AI分類 |
 | 34 | スポンサーレポートPDF | 企業別CM再生数・完了率・平均視聴秒・属性分布・CPV試算。jsPDF A4 PDF即DL |
+| 35 | 写真プレビュー低画質化 | 30%解像度 + blur(1.5px) + "© 未来発見ラボ" 3x3グリッド透かし (alpha 0.30) |
+| 36 | フレーム合成DL | 選択写真 + frame-template.svg をCanvas合成 → PNG DL。SVGプレビュー表示 |
+| 37 | プラチナスポンサーバナー | platinumCMs全社 (max3) を complete/downloading 画面に sticky bottom 表示 |
+| 38 | 写真公開期間管理 | EventData に publishedAt/expiresAt/status 追加。期限UI + アーカイブ + ログイン時期限チェック |
+| 39 | メール後日DL送付 | /api/send-download-link (Resend) + /dl/[token] DLページ + 7日有効トークン |
 
 ---
 
@@ -140,6 +146,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | `b19714e` | 5要件一括実装 (#1写真低画質, #3プラチナバナー, #5公開期間, #6メールDL, #8フレーム合成) |
 | 2026-03-01 | `b12a99e` | ライブイベントダッシュボード (P2-2) — 5秒ポーリング + フルスクリーン + アラート |
 | 2026-03-01 | `87b86b5` | スポンサーレポートPDF (企業別KPI + CPV試算 + jsPDF A4) |
 | 2026-03-01 | `73bf4bf` | 写真AI自動分類 (Claude Vision API + フィルター + 手動/一括分類) |
