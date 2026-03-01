@@ -12,6 +12,7 @@ import { getCMMatch } from "@/lib/matching";
 import { updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
 import { sendNotification } from "@/lib/notify";
+import { fireWebhook } from "@/lib/webhook";
 
 const TOTAL_SECONDS = 45;
 
@@ -118,6 +119,12 @@ export default function ProcessingPage() {
       sendNotification(eventId, "cm_complete", {
         participantName: sessionStorage.getItem("respondentName") || undefined,
         companyName: cmMatch.platinumCM.name,
+      });
+      fireWebhook("cm_viewed", {
+        eventId,
+        participantName: sessionStorage.getItem("respondentName") || undefined,
+        platinumCompany: cmMatch.platinumCM.name,
+        matchedCompany: cmMatch.matchedCM?.name || null,
       });
     }
     router.push("/photos");

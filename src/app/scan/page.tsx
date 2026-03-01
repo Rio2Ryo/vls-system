@@ -13,6 +13,7 @@ import {
   getParticipantsForEvent,
 } from "@/lib/store";
 import { EventData, Participant } from "@/lib/types";
+import { fireWebhook } from "@/lib/webhook";
 
 type Phase = "scanner" | "event-found" | "checkin" | "done";
 
@@ -170,6 +171,11 @@ export default function ScanPage() {
     setCheckedParticipant({ ...participant, checkedIn: true, checkedInAt: now });
     setPhase("done");
     showToast(`${participant.name} をチェックインしました`);
+    fireWebhook("checkin", {
+      eventId: event?.id || undefined,
+      participantName: participant.name,
+      participantEmail: participant.email || undefined,
+    }, event?.tenantId);
   };
 
   // Reset for next scan

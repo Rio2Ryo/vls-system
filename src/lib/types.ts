@@ -206,3 +206,29 @@ export interface NotificationLog {
   method?: string;
   timestamp: number;
 }
+
+// Webhook types
+export type WebhookEventType = "checkin" | "download_complete" | "cm_viewed" | "survey_complete";
+
+export interface WebhookConfig {
+  id: string;
+  tenantId?: string;
+  url: string;
+  events: WebhookEventType[];
+  enabled: boolean;
+  secret?: string;
+  createdAt: number;
+}
+
+export interface WebhookLog {
+  id: string;
+  webhookId: string;
+  eventType: WebhookEventType;
+  url: string;
+  status: "success" | "failed";
+  statusCode?: number;
+  attempts: number;
+  payload: string;
+  response?: string;
+  timestamp: number;
+}

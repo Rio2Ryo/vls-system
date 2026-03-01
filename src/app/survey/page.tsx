@@ -9,6 +9,7 @@ import TagSelector from "@/components/ui/TagSelector";
 import { getSurveyForEvent, getStoredSurvey, updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
 import { sendNotification } from "@/lib/notify";
+import { fireWebhook } from "@/lib/webhook";
 
 export default function SurveyPage() {
   const router = useRouter();
@@ -94,6 +95,11 @@ export default function SurveyPage() {
       if (eventId) {
         sendNotification(eventId, "registration", {
           participantName: sessionStorage.getItem("respondentName") || undefined,
+        });
+        fireWebhook("survey_complete", {
+          eventId,
+          participantName: sessionStorage.getItem("respondentName") || undefined,
+          answers: allAnswers,
         });
       }
 

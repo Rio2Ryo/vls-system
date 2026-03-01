@@ -12,6 +12,7 @@ import {
   setStoredParticipants,
   getParticipantsForEvent,
 } from "@/lib/store";
+import { fireWebhook } from "@/lib/webhook";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100";
 
@@ -72,6 +73,11 @@ export default function CheckinPage() {
 
     if (!target.checkedIn) {
       showToast(`${target.name} をチェックインしました`);
+      fireWebhook("checkin", {
+        eventId: selectedEventId,
+        participantName: target.name,
+        participantEmail: target.email || undefined,
+      }, tenantId);
     } else {
       showToast(`${target.name} のチェックインを取り消しました`);
     }

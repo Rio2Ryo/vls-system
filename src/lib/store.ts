@@ -1,4 +1,4 @@
-import { AnalyticsRecord, Company, EventData, InvoiceData, NotificationLog, Participant, SurveyQuestion, Tenant, VideoPlayRecord } from "./types";
+import { AnalyticsRecord, Company, EventData, InvoiceData, NotificationLog, Participant, SurveyQuestion, Tenant, VideoPlayRecord, WebhookConfig, WebhookLog } from "./types";
 import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
 import { csrfHeaders } from "./csrf";
 
@@ -12,6 +12,8 @@ const KEYS = {
   participants: "vls_participants",
   invoices: "vls_invoices",
   notificationLog: "vls_notification_log",
+  webhooks: "vls_webhooks",
+  webhookLog: "vls_webhook_log",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -349,6 +351,33 @@ export function deleteTenantCascade(tenantId: string): TenantDeleteSummary | nul
   safeSet(KEYS.tenants, remainingTenants);
 
   return summary;
+}
+
+// --- Webhooks ---
+export function getStoredWebhooks(): WebhookConfig[] {
+  return safeGet(KEYS.webhooks, []);
+}
+
+export function setStoredWebhooks(webhooks: WebhookConfig[]): void {
+  safeSet(KEYS.webhooks, webhooks);
+}
+
+export function getWebhooksForTenant(tenantId?: string | null): WebhookConfig[] {
+  const all = getStoredWebhooks();
+  if (!tenantId) return all;
+  return all.filter((w) => !w.tenantId || w.tenantId === tenantId);
+}
+
+// --- Webhook Log ---
+export function getStoredWebhookLog(): WebhookLog[] {
+  return safeGet(KEYS.webhookLog, []);
+}
+
+export function addWebhookLog(entry: WebhookLog): void {
+  const log = getStoredWebhookLog();
+  log.push(entry);
+  if (log.length > 200) log.splice(0, log.length - 200);
+  safeSet(KEYS.webhookLog, log);
 }
 
 // --- Reset to defaults ---

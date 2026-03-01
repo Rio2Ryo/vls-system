@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { getStoredEvents, updateAnalyticsRecord } from "@/lib/store";
 import { Company, PhotoData } from "@/lib/types";
+import { fireWebhook } from "@/lib/webhook";
 
 function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string; selectedPhotos: PhotoData[] }) {
   const [emailName, setEmailName] = useState("");
@@ -261,6 +262,12 @@ export default function CompletePage() {
           stepsCompleted: { downloaded: true },
         });
       }
+      fireWebhook("download_complete", {
+        eventId: sessionStorage.getItem("eventId") || undefined,
+        eventName,
+        participantName: sessionStorage.getItem("respondentName") || undefined,
+        photoCount: selectedPhotos.length,
+      });
     }
   };
 
