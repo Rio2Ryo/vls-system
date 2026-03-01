@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
@@ -98,80 +98,8 @@ async function downloadImage(url: string, filename: string): Promise<void> {
   }
 }
 
-/** Compose photo + SVG frame overlay and trigger download */
-async function downloadFrameComposite(
-  photoUrl: string,
-  companyName: string,
-  eventName: string,
-): Promise<void> {
-  const W = 1200;
-  const H = 900;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  // 1. Draw selected photo as background (cover entire canvas)
-  try {
-    const photo = new Image();
-    photo.crossOrigin = "anonymous";
-    await new Promise<void>((resolve, reject) => {
-      photo.onload = () => resolve();
-      photo.onerror = () => reject();
-      photo.src = photoUrl;
-    });
-    // Cover-fit: scale to fill, center crop
-    const scale = Math.max(W / photo.width, H / photo.height);
-    const sw = photo.width * scale;
-    const sh = photo.height * scale;
-    ctx.drawImage(photo, (W - sw) / 2, (H - sh) / 2, sw, sh);
-  } catch {
-    // Fallback: gradient background if photo fails
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, "#6EC6FF");
-    grad.addColorStop(1, "#A78BFA");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-  }
-
-  // 2. Draw SVG frame overlay
-  try {
-    const frame = new Image();
-    await new Promise<void>((resolve, reject) => {
-      frame.onload = () => resolve();
-      frame.onerror = () => reject();
-      frame.src = "/frame-template.svg";
-    });
-    ctx.drawImage(frame, 0, 0, W, H);
-  } catch {
-    // Frame load failed — continue without
-  }
-
-  // 3. Overwrite sponsor name in bottom-right area
-  ctx.fillStyle = "#90caf9";
-  ctx.font = "18px 'Noto Sans JP', sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(`Powered by ${companyName}`, 900, 858);
-
-  // 4. Download
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `記念フレーム_${eventName}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, "image/png");
-}
-
 export default function CompletePage() {
   const router = useRouter();
-  const [frameDownloaded, setFrameDownloaded] = useState(false);
   const [photosDownloaded, setPhotosDownloaded] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [eventName, setEventName] = useState("");
@@ -271,13 +199,6 @@ export default function CompletePage() {
     }
   };
 
-  const handleDownloadFrame = useCallback(async () => {
-    if (!platinumCompany) return;
-    const photoUrl = selectedPhotos.length > 0 ? selectedPhotos[0].originalUrl : "";
-    await downloadFrameComposite(photoUrl, platinumCompany.name, eventName);
-    setFrameDownloaded(true);
-  }, [eventName, platinumCompany, selectedPhotos]);
-
   return (
     <main className="min-h-screen p-6 pt-10">
       <div className="max-w-lg mx-auto space-y-6">
@@ -304,27 +225,27 @@ export default function CompletePage() {
           )}
         </motion.div>
 
-        {/* Platinum sponsor frame */}
+        {/* Frame composite preview */}
         {platinumCompany && (
           <Card className="text-center">
-            <div className="border-2 border-blue-400/60 rounded-2xl p-4 mb-3 relative overflow-hidden">
-              <p className="text-xs text-gray-400 mb-2">
-                {platinumCompany.name} 提供 記念フレーム
-              </p>
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/frame-template.svg" alt="記念フレーム" className="w-full h-auto rounded-xl opacity-80" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-sm text-white bg-black/40 px-4 py-2 rounded-lg text-center">
-                    <span className="text-lg" aria-hidden="true">📷</span><br />
-                    あなたの写真の上にこのフレームが合成されます
-                  </p>
+            <p className="text-xs text-gray-400 mb-2">フレーム合成プレビュー</p>
+            <div className="relative rounded-xl overflow-hidden">
+              {selectedPhotos.length > 0 ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={selectedPhotos[0].thumbnailUrl} alt="選択写真" className="w-full h-auto" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/frame-template.svg" alt="フレーム" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                </>
+              ) : (
+                <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
+                  <span className="text-4xl" aria-hidden="true">📷</span>
                 </div>
-              </div>
+              )}
             </div>
-            <Button onClick={handleDownloadFrame} size="md" variant={frameDownloaded ? "secondary" : "primary"}>
-              {frameDownloaded ? "✓ 保存済み" : "記念フレームをダウンロード（PNG）"}
-            </Button>
+            <p className="text-xs text-gray-500 mt-2">
+              📷 {platinumCompany.name} 提供のフレームが全ての写真に合成されます
+            </p>
           </Card>
         )}
 
