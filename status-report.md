@@ -1,13 +1,13 @@
 # VLS System — Status Report
 
 **最終更新**: 2026-03-01
-**ブランチ**: main (`ee11fc2`)
+**ブランチ**: main (`73bf4bf`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
 ---
 
-## 完成済み機能一覧 (18件)
+## 完成済み機能一覧 (19件)
 
 ### ユーザーフロー (5ステップ + 補助2ページ)
 
@@ -59,6 +59,7 @@
 | 29 | E2Eテスト | Playwright 67テスト (11 spec)。QRチェックインフロー含む |
 | 30 | デモサイト別デプロイ | vls-demo.vercel.app — middleware ホスト名判定で / → /demo リダイレクト |
 | 31 | PWAオフラインモード | Service Worker (app shell cache) + IndexedDB (offline D1 sync queue) + OfflineIndicator UI |
+| 32 | 写真AI自動分類 | Claude Vision API (Haiku) で写真シーン分類 (個人/グループ/会場/アクティビティ)。フィルター + 手動分類 + 一括AI分類 |
 
 ---
 
@@ -71,7 +72,7 @@
 | P2-1 | スポンサーレポートPDF | `/admin/reports` | 企業別CM再生数・完了率・属性分布・CPV試算をPDF自動生成 |
 | P2-2 | ライブイベントダッシュボード | `/admin/live` | 当日リアルタイム画面 (5秒ポーリング) + フルスクリーン + アラート通知 |
 | P2-3 | Webhook外部連携 | `/admin` 設定タブ | チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知 (Slack/LINE/Zapier) |
-| P2-4 | 写真AI自動分類 | `/admin/photos` | Claude Vision APIでシーン分類 + 顔検出 → ギャラリーフィルター |
+| P2-4 | ✅ 写真AI自動分類 | `/admin/photos` | Claude Vision APIでシーン分類 + ギャラリーフィルター (`73bf4bf`) |
 | P2-5 | マルチイベント統合管理 | `/admin/command` | 同日複数イベント横断KPI + 異常検知ハイライト |
 | P2-6 | ✅ PWAオフラインモード | 全ページ | Service Worker + IndexedDB。オフラインチェックイン対応、オンライン復帰時D1自動同期 (`ee11fc2`) |
 
@@ -90,6 +91,7 @@
 |------|---------|------|
 | Sentry本番有効化 | `vercel env add NEXT_PUBLIC_SENTRY_DSN` | DSN未設定のため無効 |
 | SendGrid設定 | `vercel env add SENDGRID_API_KEY` | Resend のみ有効 |
+| 写真AI分類有効化 | `vercel env add ANTHROPIC_API_KEY` | 未設定時は手動分類のみ |
 
 ### tasks.txt 残タスク
 
@@ -124,6 +126,7 @@
 | QR | qrcode + html5-qrcode |
 | Storage | Cloudflare R2 + D1 |
 | Auth | NextAuth (credentials) + JWT |
+| AI | Claude Haiku 4.5 Vision (写真分類) |
 | Monitoring | Sentry + D1エラーログ |
 | Testing | Playwright (67 tests) |
 | PWA | Service Worker + IndexedDB (offline sync queue) |
@@ -135,6 +138,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | `73bf4bf` | 写真AI自動分類 (Claude Vision API + フィルター + 手動/一括分類) |
 | 2026-03-01 | `ee11fc2` | PWAオフラインモード (SW + IndexedDB + OfflineIndicator) |
 | 2026-03-01 | `783ba6d` | a11y強化 (管理画面全10タブ) + platinum ランダム抽選 |
 | 2026-03-01 | `b928d88` | /scan モバイルQRチェックイン |
