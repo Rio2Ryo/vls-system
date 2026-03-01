@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
@@ -75,6 +75,63 @@ function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string
           {emailSending ? "送信中..." : "メールで受け取る"}
         </Button>
       </div>
+    </Card>
+  );
+}
+
+function FrameCanvasPreview({ photo, companyName }: { photo: PhotoData | null; companyName: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [drawn, setDrawn] = useState(false);
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !photo) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const photoImg = new Image();
+    photoImg.crossOrigin = "anonymous";
+    photoImg.onload = () => {
+      canvas.width = photoImg.naturalWidth;
+      canvas.height = photoImg.naturalHeight;
+      ctx.drawImage(photoImg, 0, 0);
+
+      const frameImg = new Image();
+      frameImg.onload = () => {
+        ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+        setDrawn(true);
+      };
+      frameImg.onerror = () => setDrawn(true);
+      frameImg.src = "/frame-template.svg";
+    };
+    photoImg.onerror = () => setDrawn(false);
+    photoImg.src = photo.thumbnailUrl;
+  }, [photo]);
+
+  useEffect(() => {
+    draw();
+  }, [draw]);
+
+  return (
+    <Card className="text-center">
+      <p className="text-xs text-gray-400 mb-2">フレーム合成プレビュー</p>
+      <div className="rounded-xl overflow-hidden">
+        {photo ? (
+          <canvas
+            ref={canvasRef}
+            className="w-full h-auto"
+            style={{ display: drawn ? "block" : "none" }}
+          />
+        ) : null}
+        {(!photo || !drawn) && (
+          <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
+            <span className="text-4xl" aria-hidden="true">📷</span>
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-gray-500 mt-2">
+        📷 {companyName} 提供のフレームが全ての写真に合成されます
+      </p>
     </Card>
   );
 }
@@ -225,28 +282,12 @@ export default function CompletePage() {
           )}
         </motion.div>
 
-        {/* Frame composite preview */}
+        {/* Frame composite preview (Canvas) */}
         {platinumCompany && (
-          <Card className="text-center">
-            <p className="text-xs text-gray-400 mb-2">フレーム合成プレビュー</p>
-            <div className="relative rounded-xl overflow-hidden">
-              {selectedPhotos.length > 0 ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={selectedPhotos[0].thumbnailUrl} alt="選択写真" className="w-full h-auto" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/frame-template.svg" alt="フレーム" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
-                </>
-              ) : (
-                <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
-                  <span className="text-4xl" aria-hidden="true">📷</span>
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              📷 {platinumCompany.name} 提供のフレームが全ての写真に合成されます
-            </p>
-          </Card>
+          <FrameCanvasPreview
+            photo={selectedPhotos.length > 0 ? selectedPhotos[0] : null}
+            companyName={platinumCompany.name}
+          />
         )}
 
         {/* Download photos */}
