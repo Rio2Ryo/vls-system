@@ -1,13 +1,13 @@
 # VLS System — Status Report
 
 **最終更新**: 2026-03-01
-**ブランチ**: main (`73bf4bf`)
+**ブランチ**: main (`87b86b5`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
 ---
 
-## 完成済み機能一覧 (19件)
+## 完成済み機能一覧 (20件)
 
 ### ユーザーフロー (5ステップ + 補助2ページ)
 
@@ -60,6 +60,7 @@
 | 30 | デモサイト別デプロイ | vls-demo.vercel.app — middleware ホスト名判定で / → /demo リダイレクト |
 | 31 | PWAオフラインモード | Service Worker (app shell cache) + IndexedDB (offline D1 sync queue) + OfflineIndicator UI |
 | 32 | 写真AI自動分類 | Claude Vision API (Haiku) で写真シーン分類 (個人/グループ/会場/アクティビティ)。フィルター + 手動分類 + 一括AI分類 |
+| 33 | スポンサーレポートPDF | 企業別CM再生数・完了率・平均視聴秒・属性分布・CPV試算。jsPDF A4 PDF即DL |
 
 ---
 
@@ -69,7 +70,7 @@
 
 | ID | 内容 | ページ | 概要 |
 |----|------|--------|------|
-| P2-1 | スポンサーレポートPDF | `/admin/reports` | 企業別CM再生数・完了率・属性分布・CPV試算をPDF自動生成 |
+| P2-1 | ✅ スポンサーレポートPDF | `/admin` レポートタブ | 企業別CM再生数・完了率・属性分布・CPV試算をPDF自動生成 (`87b86b5`) |
 | P2-2 | ライブイベントダッシュボード | `/admin/live` | 当日リアルタイム画面 (5秒ポーリング) + フルスクリーン + アラート通知 |
 | P2-3 | Webhook外部連携 | `/admin` 設定タブ | チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知 (Slack/LINE/Zapier) |
 | P2-4 | ✅ 写真AI自動分類 | `/admin/photos` | Claude Vision APIでシーン分類 + ギャラリーフィルター (`73bf4bf`) |
@@ -138,6 +139,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-01 | `87b86b5` | スポンサーレポートPDF (企業別KPI + CPV試算 + jsPDF A4) |
 | 2026-03-01 | `73bf4bf` | 写真AI自動分類 (Claude Vision API + フィルター + 手動/一括分類) |
 | 2026-03-01 | `ee11fc2` | PWAオフラインモード (SW + IndexedDB + OfflineIndicator) |
 | 2026-03-01 | `783ba6d` | a11y強化 (管理画面全10タブ) + platinum ランダム抽選 |
