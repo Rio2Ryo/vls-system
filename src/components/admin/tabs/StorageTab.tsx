@@ -166,6 +166,7 @@ export default function StorageTab({ onSave }: Props) {
               <select
                 value={uploadType}
                 onChange={(e) => setUploadType(e.target.value as "photos" | "videos")}
+                aria-label="アップロードタイプ"
                 className={inputCls}
                 data-testid="storage-upload-type"
               >
@@ -178,6 +179,7 @@ export default function StorageTab({ onSave }: Props) {
               <select
                 value={uploadEventId}
                 onChange={(e) => setUploadEventId(e.target.value)}
+                aria-label="イベント選択"
                 className={inputCls}
                 data-testid="storage-upload-event"
               >
@@ -189,10 +191,14 @@ export default function StorageTab({ onSave }: Props) {
             </div>
           </div>
           <div
-            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+            role="button"
+            tabIndex={0}
+            aria-label="クリックしてファイルを選択"
+            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
               uploading ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:border-[#6EC6FF]"
             }`}
             onClick={() => !uploading && document.getElementById("r2-file-input")?.click()}
+            onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !uploading) { e.preventDefault(); document.getElementById("r2-file-input")?.click(); } }}
           >
             {uploading ? (
               <p className="text-sm text-blue-600 animate-pulse">アップロード中...</p>
@@ -229,14 +235,15 @@ export default function StorageTab({ onSave }: Props) {
           </div>
           <button
             onClick={() => loadFiles(currentPrefix || undefined)}
-            className="text-xs text-[#6EC6FF] hover:underline"
+            aria-label="ファイル一覧を更新"
+            className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
           >
             更新
           </button>
         </div>
 
         {/* Breadcrumb */}
-        <div className="flex items-center gap-1 mb-3 text-xs">
+        <nav aria-label="ストレージパス" className="flex items-center gap-1 mb-3 text-xs">
           <button
             onClick={() => setCurrentPrefix("")}
             className={`px-2 py-1 rounded ${!currentPrefix ? "bg-[#6EC6FF] text-white" : "text-[#6EC6FF] hover:underline"}`}
@@ -259,7 +266,7 @@ export default function StorageTab({ onSave }: Props) {
               </span>
             );
           })}
-        </div>
+        </nav>
 
         {/* Folders */}
         {(currentPrefix || prefixes.length > 0) && (
@@ -334,7 +341,8 @@ export default function StorageTab({ onSave }: Props) {
                   <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDate(f.lastModified)}</span>
                   <button
                     onClick={() => handleDelete(f.key)}
-                    className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label={`${f.key.replace(currentPrefix, "")}を削除`}
+                    className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
                   >
                     削除
                   </button>
@@ -357,7 +365,7 @@ export default function StorageTab({ onSave }: Props) {
           <h3 className="font-bold text-gray-700">ライフサイクルポリシー</h3>
           <div className="flex items-center gap-2">
             {lifecycleLoading && <span className="text-xs text-gray-400 animate-pulse">読み込み中...</span>}
-            <button onClick={loadLifecycle} className="text-xs text-[#6EC6FF] hover:underline">更新</button>
+            <button onClick={loadLifecycle} aria-label="ライフサイクル情報を更新" className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">更新</button>
           </div>
         </div>
 

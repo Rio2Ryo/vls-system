@@ -114,7 +114,8 @@ export default function MatchingDebugTab() {
             <button
               key={p.label}
               onClick={() => applyPreset(p.tags)}
-              className="text-xs px-3 py-1.5 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 font-medium transition-colors"
+              aria-label={`プリセット: ${p.label}`}
+              className="text-xs px-3 py-1.5 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
             >
               {p.label}
             </button>
@@ -134,7 +135,10 @@ export default function MatchingDebugTab() {
                   <button
                     key={t.tag}
                     onClick={() => toggleTag(t.tag)}
-                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                    role="checkbox"
+                    aria-checked={selectedTags.includes(t.tag)}
+                    aria-label={t.label}
+                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
                       selectedTags.includes(t.tag)
                         ? "bg-[#6EC6FF] text-white"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -160,6 +164,7 @@ export default function MatchingDebugTab() {
             <select
               value={eventFilter}
               onChange={(e) => setEventFilter(e.target.value)}
+              aria-label="イベントフィルター"
               className={inputCls}
             >
               <option value="all">全企業（フィルターなし）</option>
@@ -172,7 +177,8 @@ export default function MatchingDebugTab() {
           </div>
           <button
             onClick={runMatch}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-bold text-sm hover:from-blue-600 hover:to-purple-600 transition-all shadow-md"
+            aria-label="マッチング実行"
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-bold text-sm hover:from-blue-600 hover:to-purple-600 transition-all shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
             data-testid="matching-run-btn"
           >
             マッチング実行

@@ -65,7 +65,8 @@ export default function FunnelAnalysisTab({ tenantId }: Props) {
         <select
           value={selectedEventId}
           onChange={(e) => setSelectedEventId(e.target.value)}
-          className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF]"
+          aria-label="イベントで絞り込み"
+          className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF] focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
         >
           <option value="all">全イベント ({analytics.length}件)</option>
           {events.map((evt) => {
@@ -108,7 +109,14 @@ export default function FunnelAnalysisTab({ tenantId }: Props) {
                       )}
                     </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-8 relative overflow-hidden">
+                  <div
+                    className="w-full bg-gray-100 rounded-full h-8 relative overflow-hidden"
+                    role="meter"
+                    aria-label={s.label}
+                    aria-valuenow={counts[i]}
+                    aria-valuemin={0}
+                    aria-valuemax={total}
+                  >
                     <div
                       className="h-full rounded-full transition-all duration-700 flex items-center justify-center"
                       style={{ width: `${width}%`, backgroundColor: s.color }}

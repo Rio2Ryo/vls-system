@@ -42,7 +42,7 @@ function SurveyQuestionEditor({
           className={inputCls + " font-medium"}
           data-testid={`survey-q-${question.id}`}
         />
-        <button onClick={onRemove} className="text-xs text-red-400 hover:underline flex-shrink-0">削除</button>
+        <button onClick={onRemove} aria-label={`質問${index + 1}を削除`} className="text-xs text-red-400 hover:underline flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">削除</button>
       </div>
 
       <div className="ml-8 space-y-2">
@@ -68,7 +68,8 @@ function SurveyQuestionEditor({
               <span className="text-[10px] text-gray-400">({opt.tag})</span>
               <button
                 onClick={() => onRemoveOption(opt.tag)}
-                className="text-red-400 hover:text-red-600 ml-1"
+                aria-label={`${opt.label}を削除`}
+                className="text-red-400 hover:text-red-600 ml-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
               >
                 ×
               </button>
@@ -80,18 +81,21 @@ function SurveyQuestionEditor({
           <input
             className="flex-1 px-2 py-1 rounded-lg border border-gray-200 text-xs"
             placeholder="ラベル"
+            aria-label="選択肢ラベル"
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
           />
           <input
             className="flex-1 px-2 py-1 rounded-lg border border-gray-200 text-xs font-mono"
             placeholder="タグ (例: education)"
+            aria-label="選択肢タグ"
             value={newTag}
             onChange={(e) => setNewTag(e.target.value)}
           />
           <button
             onClick={() => { onAddOption(newLabel, newTag); setNewLabel(""); setNewTag(""); }}
-            className="text-xs text-[#6EC6FF] hover:underline flex-shrink-0"
+            aria-label="選択肢を追加"
+            className="text-xs text-[#6EC6FF] hover:underline flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
           >
             + 追加
           </button>
@@ -214,18 +218,22 @@ export default function SurveyTab({ onSave, activeEventId, activeEvent }: Props)
     <div className="space-y-4" data-testid="admin-survey">
       {/* Mode toggle */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex rounded-xl overflow-hidden border border-gray-200">
+        <div className="flex rounded-xl overflow-hidden border border-gray-200" role="tablist" aria-label="アンケート設定モード">
           <button
+            role="tab"
+            aria-selected={mode === "event"}
             onClick={() => setMode("event")}
-            className={`text-xs px-4 py-2 font-medium transition-colors ${
+            className={`text-xs px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
               mode === "event" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
             }`}
           >
             イベント別
           </button>
           <button
+            role="tab"
+            aria-selected={mode === "global"}
             onClick={() => setMode("global")}
-            className={`text-xs px-4 py-2 font-medium transition-colors ${
+            className={`text-xs px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
               mode === "global" ? "bg-[#6EC6FF] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
             }`}
           >

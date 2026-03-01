@@ -128,7 +128,10 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
       {!IS_DEMO_MODE && (
         <Card>
           <div
-            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-colors ${
+            role="button"
+            tabIndex={0}
+            aria-label="写真をドラッグ＆ドロップまたはクリックして選択"
+            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
               dragging ? "border-[#6EC6FF] bg-blue-50" : "border-gray-200 hover:border-[#6EC6FF]"
             } ${uploading ? "pointer-events-none opacity-60" : ""}`}
             data-testid="photo-upload-zone"
@@ -136,6 +139,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
             onDragLeave={() => setDragging(false)}
             onDrop={handleDrop}
             onClick={() => !uploading && document.getElementById("photo-file-input")?.click()}
+            onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !uploading) { e.preventDefault(); document.getElementById("photo-file-input")?.click(); } }}
           >
             {uploading ? (
               <>
@@ -185,7 +189,8 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
                 {!IS_DEMO_MODE && (
                   <button
                     onClick={() => removePhoto(p.id)}
-                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    aria-label={`写真${p.id}を削除`}
+                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                   >
                     ×
                   </button>

@@ -104,12 +104,14 @@ export default function SettingsTab({ onSave, tenantId }: { onSave: (msg: string
               type="color"
               value={primaryColor}
               onChange={(e) => setPrimaryColor(e.target.value)}
+              aria-label="プライマリカラーピッカー"
               className="w-10 h-10 rounded cursor-pointer border-0 p-0"
             />
             <input
               className={inputCls + " max-w-[140px]"}
               value={primaryColor}
               onChange={(e) => setPrimaryColor(e.target.value)}
+              aria-label="プライマリカラーコード"
               placeholder="#6EC6FF"
               maxLength={7}
             />
@@ -121,7 +123,9 @@ export default function SettingsTab({ onSave, tenantId }: { onSave: (msg: string
                 <button
                   key={color}
                   onClick={() => setPrimaryColor(color)}
-                  className={`w-8 h-8 rounded-lg border-2 transition-transform ${
+                  aria-label={`カラー ${color} を選択`}
+                  aria-pressed={primaryColor === color}
+                  className={`w-8 h-8 rounded-lg border-2 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
                     primaryColor === color ? "border-gray-800 dark:border-white scale-110" : "border-transparent"
                   }`}
                   style={{ backgroundColor: color }}

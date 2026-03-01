@@ -135,7 +135,7 @@ export default function CompaniesTab({ onSave }: Props) {
         <Card>
           <h3 className="font-bold text-gray-700 mb-3">{editing === "__new__" ? "新規企業" : "企業編集"}</h3>
           <div className="space-y-3">
-            <input className={inputCls} placeholder="企業名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="company-name-input" />
+            <input className={inputCls} placeholder="企業名" aria-label="企業名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="company-name-input" />
             <div className="border border-gray-100 rounded-xl p-3 space-y-2">
               <p className="text-xs font-bold text-gray-500">企業ロゴ</p>
               <div className="flex items-center gap-3">
@@ -152,27 +152,27 @@ export default function CompaniesTab({ onSave }: Props) {
                     data-testid="company-logo-input"
                   />
                   {logoPreview && (
-                    <button type="button" onClick={removeLogo} className="text-xs text-red-400 hover:underline">ロゴ削除</button>
+                    <button type="button" onClick={removeLogo} aria-label="ロゴを削除" className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">ロゴ削除</button>
                   )}
                 </div>
               </div>
             </div>
-            <select className={inputCls} value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value as CompanyTier })} data-testid="company-tier-select">
+            <select className={inputCls} aria-label="ティア選択" value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value as CompanyTier })} data-testid="company-tier-select">
               <option value="platinum">Platinum</option>
               <option value="gold">Gold</option>
               <option value="silver">Silver</option>
               <option value="bronze">Bronze</option>
             </select>
-            <input className={inputCls} placeholder="タグ（カンマ区切り: education, sports）" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} data-testid="company-tags-input" />
+            <input className={inputCls} placeholder="タグ（カンマ区切り: education, sports）" aria-label="タグ" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} data-testid="company-tags-input" />
             <div className="border border-gray-100 rounded-xl p-3 space-y-2">
               <p className="text-xs font-bold text-gray-500">CM動画 YouTube ID</p>
-              <input className={inputCls + " font-mono"} placeholder="15秒CM（YouTube URLまたはID）" value={form.cm15} onChange={(e) => setForm({ ...form, cm15: extractYouTubeId(e.target.value) })} data-testid="company-cm15-input" />
-              <input className={inputCls + " font-mono"} placeholder="30秒CM（YouTube URLまたはID）" value={form.cm30} onChange={(e) => setForm({ ...form, cm30: extractYouTubeId(e.target.value) })} data-testid="company-cm30-input" />
-              <input className={inputCls + " font-mono"} placeholder="60秒CM（YouTube URLまたはID）" value={form.cm60} onChange={(e) => setForm({ ...form, cm60: extractYouTubeId(e.target.value) })} data-testid="company-cm60-input" />
+              <input className={inputCls + " font-mono"} placeholder="15秒CM（YouTube URLまたはID）" aria-label="15秒CM YouTube ID" value={form.cm15} onChange={(e) => setForm({ ...form, cm15: extractYouTubeId(e.target.value) })} data-testid="company-cm15-input" />
+              <input className={inputCls + " font-mono"} placeholder="30秒CM（YouTube URLまたはID）" aria-label="30秒CM YouTube ID" value={form.cm30} onChange={(e) => setForm({ ...form, cm30: extractYouTubeId(e.target.value) })} data-testid="company-cm30-input" />
+              <input className={inputCls + " font-mono"} placeholder="60秒CM（YouTube URLまたはID）" aria-label="60秒CM YouTube ID" value={form.cm60} onChange={(e) => setForm({ ...form, cm60: extractYouTubeId(e.target.value) })} data-testid="company-cm60-input" />
             </div>
-            <input className={inputCls} placeholder="オファーテキスト" value={form.offerText} onChange={(e) => setForm({ ...form, offerText: e.target.value })} />
-            <input className={inputCls} placeholder="オファーURL" value={form.offerUrl} onChange={(e) => setForm({ ...form, offerUrl: e.target.value })} />
-            <input className={inputCls + " font-mono"} placeholder="クーポンコード（任意）" value={form.couponCode} onChange={(e) => setForm({ ...form, couponCode: e.target.value })} />
+            <input className={inputCls} placeholder="オファーテキスト" aria-label="オファーテキスト" value={form.offerText} onChange={(e) => setForm({ ...form, offerText: e.target.value })} />
+            <input className={inputCls} placeholder="オファーURL" aria-label="オファーURL" value={form.offerUrl} onChange={(e) => setForm({ ...form, offerUrl: e.target.value })} />
+            <input className={inputCls + " font-mono"} placeholder="クーポンコード（任意）" aria-label="クーポンコード" value={form.couponCode} onChange={(e) => setForm({ ...form, couponCode: e.target.value })} />
             <div className="flex gap-2">
               <Button size="sm" onClick={save} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
               <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>キャンセル</Button>
@@ -223,8 +223,8 @@ export default function CompaniesTab({ onSave }: Props) {
             </div>
             {!IS_DEMO_MODE && (
               <div className="flex gap-2">
-                <button onClick={() => startEdit(c)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>
-                <button onClick={() => remove(c.id)} className="text-xs text-red-400 hover:underline">削除</button>
+                <button onClick={() => startEdit(c)} aria-label={`${c.name}を編集`} className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">編集</button>
+                <button onClick={() => remove(c.id)} aria-label={`${c.name}を削除`} className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">削除</button>
               </div>
             )}
           </div>

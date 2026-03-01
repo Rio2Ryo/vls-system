@@ -135,7 +135,8 @@ export default function DashboardTab({ tenantId }: Props) {
           <div className="flex gap-2">
             <button
               onClick={() => exportEventStatsCsv(events, analytics, videoPlays, companies)}
-              className="text-xs px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium transition-colors"
+              aria-label="イベント統計をCSVエクスポート"
+              className="text-xs px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
               data-testid="stats-csv-export-btn"
             >
               イベント統計CSV
@@ -143,7 +144,8 @@ export default function DashboardTab({ tenantId }: Props) {
             {analytics.filter((r) => r.surveyAnswers).length > 0 && (
               <button
                 onClick={() => exportSurveyCsv(analytics.filter((r) => r.surveyAnswers), getStoredSurvey(), events)}
-                className="text-xs px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-medium transition-colors"
+                aria-label="アンケート回答をCSVエクスポート"
+                className="text-xs px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 data-testid="survey-csv-export-btn"
               >
                 アンケート回答CSV
@@ -161,7 +163,8 @@ export default function DashboardTab({ tenantId }: Props) {
             <select
               value={selectedEventFilter}
               onChange={(e) => setSelectedEventFilter(e.target.value)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF]"
+              aria-label="イベントで絞り込み"
+              className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#6EC6FF] focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
               data-testid="dashboard-event-filter"
             >
               <option value="all">全イベント</option>
@@ -172,7 +175,8 @@ export default function DashboardTab({ tenantId }: Props) {
             {!IS_DEMO_MODE && !tenantId && (
               <button
                 onClick={handleClearAnalytics}
-                className="text-[10px] text-red-400 hover:text-red-600"
+                aria-label="アクセスデータをクリア"
+                className="text-[10px] text-red-400 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
               >
                 データクリア
               </button>
@@ -187,7 +191,14 @@ export default function DashboardTab({ tenantId }: Props) {
             {funnelSteps.map((step) => (
               <div key={step.key} className="flex items-center gap-3">
                 <span className="text-xs text-gray-500 w-28 text-right flex-shrink-0">{step.label}</span>
-                <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
+                <div
+                  className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden"
+                  role="meter"
+                  aria-label={step.label}
+                  aria-valuenow={step.count}
+                  aria-valuemin={0}
+                  aria-valuemax={maxFunnel}
+                >
                   <div
                     className={`h-full rounded-full ${step.color} transition-all duration-500`}
                     style={{ width: `${(step.count / maxFunnel) * 100}%` }}

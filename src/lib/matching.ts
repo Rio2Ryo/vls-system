@@ -103,9 +103,10 @@ export function getCMMatch(
   const allScores = sortScores(companies.map((c) => scoreCompany(c, userTags)));
   const companyMap = new Map(companies.map((c) => [c.id, c]));
 
-  // Select platinum CM: highest-scoring platinum company
+  // Select platinum CM: random pick from all platinum companies
   const platinumScores = sortScores(allScores.filter((s) => s.tier === "platinum"));
-  const platinumCM = platinumScores.length > 0 ? companyMap.get(platinumScores[0].companyId) ?? null : null;
+  const platinumIdx = platinumScores.length > 0 ? Math.floor(Math.random() * platinumScores.length) : -1;
+  const platinumCM = platinumIdx >= 0 ? companyMap.get(platinumScores[platinumIdx].companyId) ?? null : null;
 
   // Select matched CM: highest-scoring company (excluding platinum CM)
   const matchedScores = allScores.filter((s) => s.companyId !== platinumCM?.id);
@@ -113,8 +114,8 @@ export function getCMMatch(
 
   // Build reason string
   let reason = "";
-  if (platinumCM && platinumScores[0]) {
-    const ps = platinumScores[0];
+  if (platinumCM && platinumIdx >= 0) {
+    const ps = platinumScores[platinumIdx];
     reason += `Platinum: ${ps.companyName} (score: ${ps.totalScore})`;
     if (ps.breakdown.tagMatchDetails.length > 0) {
       reason += ` [tags: ${ps.breakdown.tagMatchDetails.join(", ")}]`;

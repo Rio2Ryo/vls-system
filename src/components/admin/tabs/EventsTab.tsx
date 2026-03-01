@@ -251,7 +251,8 @@ export default function EventsTab({ onSave, tenantId }: Props) {
           <button
             onClick={generateBulkQrPdf}
             disabled={pdfGenerating || events.length === 0}
-            className="text-xs px-3 py-1.5 rounded-lg bg-purple-500 text-white hover:bg-purple-600 font-medium disabled:opacity-50 transition-colors"
+            aria-label={`QR一括PDF生成 (${events.length}件)`}
+            className="text-xs px-3 py-1.5 rounded-lg bg-purple-500 text-white hover:bg-purple-600 font-medium disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
             data-testid="bulk-qr-pdf-btn"
           >
             {pdfGenerating ? "PDF生成中..." : `QR一括PDF (${events.length}件)`}
@@ -280,6 +281,7 @@ export default function EventsTab({ onSave, tenantId }: Props) {
               <input
                 className={inputCls + " pl-8"}
                 placeholder="イベント名・会場・パスワードで検索"
+                aria-label="イベント検索"
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
                 data-testid="event-filter-text"
@@ -291,7 +293,8 @@ export default function EventsTab({ onSave, tenantId }: Props) {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as EventSortKey)}
-              className="px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600 bg-white"
+              aria-label="並び替え"
+              className="px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600 bg-white focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
               data-testid="event-sort-select"
             >
               <option value="default">登録順</option>
@@ -304,11 +307,11 @@ export default function EventsTab({ onSave, tenantId }: Props) {
           </div>
           <div className="flex gap-2 items-center">
             <span className="text-xs text-gray-500 flex-shrink-0">期間:</span>
-            <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="px-2 py-1.5 rounded-lg border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600" data-testid="event-filter-date-from" />
-            <span className="text-xs text-gray-400">〜</span>
-            <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="px-2 py-1.5 rounded-lg border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600" data-testid="event-filter-date-to" />
+            <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} aria-label="開始日" className="px-2 py-1.5 rounded-lg border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600" data-testid="event-filter-date-from" />
+            <span className="text-xs text-gray-400" aria-hidden="true">〜</span>
+            <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} aria-label="終了日" className="px-2 py-1.5 rounded-lg border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600" data-testid="event-filter-date-to" />
             {hasActiveFilters && (
-              <button onClick={() => { setFilterText(""); setFilterDateFrom(""); setFilterDateTo(""); }} className="text-[10px] text-red-400 hover:text-red-600 ml-auto">
+              <button onClick={() => { setFilterText(""); setFilterDateFrom(""); setFilterDateTo(""); }} aria-label="フィルタをすべて解除" className="text-[10px] text-red-400 hover:text-red-600 ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">
                 フィルタ解除
               </button>
             )}
@@ -323,13 +326,13 @@ export default function EventsTab({ onSave, tenantId }: Props) {
         <Card>
           <h3 className="font-bold text-gray-700 mb-3">{editing === "__new__" ? "新規イベント" : "イベント編集"}</h3>
           <div className="space-y-3">
-            <input className={inputCls} placeholder="イベント名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="event-name-input" />
-            <input className={inputCls} type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="event-date-input" />
-            <input className={inputCls} placeholder="会場（例: 東京ビッグサイト）" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} data-testid="event-venue-input" />
-            <input className={inputCls} placeholder="説明" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            <input className={inputCls + " font-mono uppercase"} placeholder="パスワード（例: SUMMER2026）" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} data-testid="event-password-input" />
-            <input className={inputCls + " font-mono"} placeholder="カスタムURL slug（例: summer2026 → /e/summer2026）" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} data-testid="event-slug-input" />
-            <input className={inputCls} type="email" placeholder="通知メール（任意: admin@example.com）" value={form.notifyEmail} onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })} data-testid="event-notify-email" />
+            <input className={inputCls} placeholder="イベント名" aria-label="イベント名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="event-name-input" />
+            <input className={inputCls} type="date" aria-label="開催日" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="event-date-input" />
+            <input className={inputCls} placeholder="会場（例: 東京ビッグサイト）" aria-label="会場" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} data-testid="event-venue-input" />
+            <input className={inputCls} placeholder="説明" aria-label="イベント説明" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <input className={inputCls + " font-mono uppercase"} placeholder="パスワード（例: SUMMER2026）" aria-label="パスワード" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} data-testid="event-password-input" />
+            <input className={inputCls + " font-mono"} placeholder="カスタムURL slug（例: summer2026 → /e/summer2026）" aria-label="カスタムURL slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} data-testid="event-slug-input" />
+            <input className={inputCls} type="email" placeholder="通知メール（任意: admin@example.com）" aria-label="通知メールアドレス" value={form.notifyEmail} onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })} data-testid="event-notify-email" />
 
             <div className="border border-gray-100 rounded-xl p-3" data-testid="event-company-assign">
               <p className="text-xs font-bold text-gray-500 mb-2">CM企業の割り当て</p>
@@ -386,8 +389,8 @@ export default function EventsTab({ onSave, tenantId }: Props) {
               <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-full">
                 {evt.photos.length}枚
               </span>
-              {!IS_DEMO_MODE && <button onClick={() => startEdit(evt)} className="text-xs text-[#6EC6FF] hover:underline">編集</button>}
-              {!IS_DEMO_MODE && <button onClick={() => remove(evt.id)} className="text-xs text-red-400 hover:underline">削除</button>}
+              {!IS_DEMO_MODE && <button onClick={() => startEdit(evt)} aria-label={`${evt.name}を編集`} className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">編集</button>}
+              {!IS_DEMO_MODE && <button onClick={() => remove(evt.id)} aria-label={`${evt.name}を削除`} className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">削除</button>}
             </div>
           </div>
 
@@ -418,7 +421,8 @@ export default function EventsTab({ onSave, tenantId }: Props) {
               </code>
               <button
                 onClick={() => copyUrl(evt)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                aria-label={`${evt.name}のURLをコピー`}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
                   copiedId === evt.id
                     ? "bg-green-50 text-green-600 border border-green-200"
                     : "bg-[#6EC6FF] text-white hover:bg-blue-400"
@@ -429,7 +433,9 @@ export default function EventsTab({ onSave, tenantId }: Props) {
               </button>
               <button
                 onClick={() => toggleQr(evt)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                aria-label={qrEventId === evt.id ? `${evt.name}のQRコードを閉じる` : `${evt.name}のQRコードを表示`}
+                aria-expanded={qrEventId === evt.id}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
                   qrEventId === evt.id
                     ? "bg-gray-200 text-gray-600"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -460,7 +466,8 @@ export default function EventsTab({ onSave, tenantId }: Props) {
                     <p className="text-[10px] text-gray-400 text-center">{getShareUrl(evt.password)}</p>
                     <button
                       onClick={() => downloadQr(evt.name)}
-                      className="text-xs px-4 py-2 rounded-lg bg-[#6EC6FF] text-white hover:bg-blue-400 font-medium transition-colors"
+                      aria-label={`${evt.name}のQRコードをダウンロード`}
+                      className="text-xs px-4 py-2 rounded-lg bg-[#6EC6FF] text-white hover:bg-blue-400 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
                       data-testid={`event-qr-download-${evt.id}`}
                     >
                       QRコードをダウンロード

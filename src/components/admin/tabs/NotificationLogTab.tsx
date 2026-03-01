@@ -123,11 +123,12 @@ export default function NotificationLogTab() {
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">通知ログ</h2>
         <div className="flex items-center gap-2">
-          <button onClick={reload} className="text-xs text-[#6EC6FF] hover:underline">更新</button>
+          <button onClick={reload} aria-label="通知ログを更新" className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">更新</button>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 focus:outline-none focus:border-[#6EC6FF] dark:bg-gray-700 dark:text-gray-200"
+            aria-label="通知タイプで絞り込み"
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 focus:outline-none focus:border-[#6EC6FF] focus-visible:ring-2 focus-visible:ring-[#6EC6FF] dark:bg-gray-700 dark:text-gray-200"
           >
             <option value="all">全タイプ ({logs.length}件)</option>
             <option value="registration">参加通知 ({typeCounts.registration})</option>
@@ -216,13 +217,15 @@ export default function NotificationLogTab() {
             value={testEmail}
             onChange={(e) => setTestEmail(e.target.value)}
             placeholder="test@example.com"
+            aria-label="テスト送信先メールアドレス"
             className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100"
             data-testid="test-email-input"
           />
           <button
             onClick={handleTestSend}
             disabled={!testEmail || sending}
-            className="text-xs px-4 py-2 rounded-lg bg-[#6EC6FF] text-white hover:bg-blue-400 font-medium disabled:opacity-50 transition-colors whitespace-nowrap"
+            aria-label="テストメールを送信"
+            className="text-xs px-4 py-2 rounded-lg bg-[#6EC6FF] text-white hover:bg-blue-400 font-medium disabled:opacity-50 transition-colors whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
             data-testid="test-email-send"
           >
             {sending ? "送信中..." : "テスト送信"}

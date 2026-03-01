@@ -1,374 +1,129 @@
 # VLS System — Status Report
 
-**Date**: 2026-03-01
-**Sprint**: SEO/OGP + 軽量Logger + QR E2E + CM動画管理UI強化 + アクセシビリティ + 本番全機能確認 + デモページ
-
----
-
-## 0a-2. モバイルスキャンチェックイン (2026-03-01)
-
-**ページ**: `/scan`
-**ライブラリ**: html5-qrcode (カメラQRリーダー)
-
-| 機能 | 内容 |
-|------|------|
-| QRスキャン | カメラ起動 → イベントQR読み取り（`/?pw=PASSWORD`、`/e/slug`、パスワード直値、slug直値対応） |
-| 手動選択 | QRなしでイベント一覧から選択（フォールバック） |
-| 参加者検索 | 名前・メールで絞り込み（20件表示、追加は検索で） |
-| チェックイン | ワンタップでlocalStorage + D1同期 |
-| 完了画面 | 「続けてチェックイン」「別イベントをスキャン」の2アクション |
-| モバイル最適化 | sticky ヘッダー、大きめタッチターゲット、autoFocus検索 |
-
----
-
-## 0a. デモサイト別デプロイ完了 (2026-03-01, d3b966b)
-
+**最終更新**: 2026-03-01
+**ブランチ**: main (`b928d88`)
+**本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
-**本番URL**: https://vls-system.vercel.app (影響なし)
-
-- vls-demo を別Vercelプロジェクトとしてデプロイ **完了**
-- middleware.ts でホスト名判定 (`vls-demo*` → / を /demo にリダイレクト)
-- 本番 vls-system には影響なし（ホスト名が一致しないためリダイレクト不発動）
-- git push 完了: `cd87aeb..d3b966b`
-
-## 0b. バグ修正 (2026-03-01)
-
-| Bug | 修正内容 | 対象ファイル |
-|-----|----------|-------------|
-| Bug1&2 | complete/page.tsx のDL状態を `frameDownloaded` / `photosDownloaded` に分離。記念フレームはCanvas APIでPNG実DL | `src/app/complete/page.tsx` |
-| Bug3 | 記念フレームプレビュー改善: 写真モック（グレー矩形+📷+「お子様の写真」）、装飾枠線、ボタン文言変更 | `src/app/complete/page.tsx` |
-| Bug4 | 全22社のCM動画IDを長尺動画に統一 (cm15=dQw4w9WgXcQ, cm30=M7lc1UVf-VE, cm60=kffacxfA7G4) | `src/lib/data.ts` |
 
 ---
 
-## 0. 本番環境 全機能動作確認 (2026-02-28)
+## 完成済み機能一覧 (17件)
 
-**URL**: https://vls-system.vercel.app
-**Deploy**: Vercel production (全未コミット変更を含む初回フルデプロイ)
+### ユーザーフロー (5ステップ + 補助2ページ)
 
-### (1) STEP 0〜5 ユーザーフロー
-| STEP | ページ | 確認結果 |
-|------|--------|----------|
-| STEP 0 | `/` ログイン | ✅ パスワード認証 (SUMMER2026, SPORTS2026, GRADUATION2026) 正常 |
-| STEP 0 | `/e/[slug]` 自動ログイン | ✅ 3つのslugルート全て200 |
-| STEP 1 | `/survey` アンケート | ✅ 名前入力 + 3問アンケート + タグ保存 |
-| STEP 2 | `/processing` CM再生 | ✅ CM動画iframe表示 + 15秒タイマー + プログレスバー |
-| STEP 3 | `/photos` 写真選択 | ✅ マルチセレクトギャラリー + プレビューモーダル |
-| STEP 4 | `/downloading` ダウンロード | ✅ 60秒CM + 写真処理 |
-| STEP 5 | `/complete` 完了 | ✅ オファー表示 + クーポン + ダウンロード |
-| DEMO | `/demo` デモ体験 | ✅ パスワード不要で5ステップウォークスルー（CM待ち5秒短縮、既存UIコンポーネント流用、analytics記録なし） |
+| # | 機能 | ページ | 概要 |
+|---|------|--------|------|
+| 1 | ログイン | `/`, `/e/[slug]` | パスワード認証 + slug自動ログイン |
+| 2 | アンケート | `/survey` | 名前入力 + 3問タグ選択 (テーマ/サービス/年齢) |
+| 3 | CM再生 | `/processing` | スコアリングCMマッチング → Platinum 15s + Matched 30s/60s |
+| 4 | 写真選択 | `/photos` | マルチセレクトギャラリー + Canvas透かし + プレビューモーダル |
+| 5 | 完了 | `/complete` | 記念フレームPNG DL + 写真DL + オファー/クーポン表示 |
+| 6 | デモ体験 | `/demo` | パスワード不要5ステップウォークスルー (CM 5秒短縮、analytics無し) |
+| 7 | モバイルQRチェックイン | `/scan` | html5-qrcode カメラ読取 + 手動選択 + ワンタップチェックイン |
 
-### (2) Admin画面 (14タブ + 6サブページ)
-| 項目 | 確認結果 |
-|------|----------|
-| `/admin` メインダッシュボード | ✅ 14タブ: ダッシュボード, イベント, 写真, 企業, CM動画, アンケート, ストレージ, ファネル, マッチング, 通知ログ, エラーログ, 設定, チェックイン, CSV |
-| `/admin/events` イベント管理 | ✅ 認証付き200 |
-| `/admin/analytics` アンケート分析 | ✅ 認証付き200 |
-| `/admin/stats` CM統計 | ✅ 認証付き200 |
-| `/admin/users` ユーザー管理 | ✅ 認証付き200 |
-| `/admin/import` CSVインポート | ✅ 認証付き200 |
-| `/admin/checkin` チェックイン | ✅ 認証付き200 |
+### 管理画面 (14タブ + 6サブページ)
 
-### (3) R2ストレージ
-| 項目 | 確認結果 |
-|------|----------|
-| `/api/files` GET (認証なし) | ✅ 401 Unauthorized (期待通り) |
-| `/api/files` GET (認証あり) | ✅ R2オブジェクト一覧取得 (1 file, 3 prefixes) |
-| `/api/upload` POST (認証なし) | ✅ 401 Unauthorized (期待通り) |
+| # | 機能 | パス/タブ | 概要 |
+|---|------|----------|------|
+| 8 | ダッシュボード | `/admin` | 14タブ統合管理画面 (ダッシュボード, イベント, 写真, 企業, CM動画, アンケート, ストレージ, ファネル, マッチング, 通知ログ, エラーログ, 設定, チェックイン, CSV) |
+| 9 | イベント管理 | `/admin/events` | CRUD + QRコード生成 + 共有URL |
+| 10 | アンケート分析 | `/admin/analytics` | Recharts日付フィルター + ファネル + 離脱分析 |
+| 11 | CM統計 | `/admin/stats` | 企業別CM再生数・完了率ダッシュボード |
+| 12 | ユーザー管理 | `/admin/users` | セッション一覧 + CSV出力 |
+| 13 | CSVインポート | `/admin/import` | 参加者/イベント/ライセンス/企業の4タブ一括取込 |
+| 14 | チェックイン | `/admin/checkin` | イベント選択 → 検索 → ワンクリックチェックイン → バルク操作 |
 
-### (4) マルチテナント切替
-| テナント | Plan | Events | ログイン結果 |
-|----------|------|--------|-------------|
-| さくら学園 (tenant-school-a) | premium | 2 | ✅ JWT session + tenantId付き |
-| ひまわり幼稚園 (tenant-school-b) | basic | 1 | ✅ 設定済み |
-| 株式会社イベントプロ (tenant-corp-a) | enterprise | 1 | ✅ 設定済み |
-| Super Admin | - | 全4件 | ✅ role=super_admin |
+### インフラ・基盤
 
-### (5) CSVインポート
-| 項目 | 確認結果 |
-|------|----------|
-| `/admin/import` ページ | ✅ 認証付きアクセス正常 |
-| 参加者/イベント/企業 3タブ | ✅ コンポーネント正常読み込み |
+| # | 機能 | 概要 |
+|---|------|------|
+| 15 | マルチテナント | 3テナント (さくら学園/ひまわり幼稚園/イベントプロ) + Super Admin。データ分離 + ライセンス管理 |
+| 16 | Cloudflare D1 永続化 | localStorage キャッシュ + D1 KVストア (9キー)。DbSyncProvider で起動時同期 |
+| 17 | Cloudflare R2 ストレージ | テナントスコープ写真アップロード/一覧/削除 + HMAC署名付きPresigned URL |
+| 18 | CMスコアリングマッチング | テーマ15pt + サービス20pt + 年齢25pt + Tier30pt + 広範囲15pt (22社4Tier) |
+| 19 | 請求書PDF生成 | jsPDF日本語対応。企業別請求書自動生成 |
+| 20 | 通知システム | Resend (primary) → SendGrid (fallback) → console.log 3段フォールバック |
 
-### (6) 認証・セキュリティ
-| 項目 | 確認結果 |
-|------|----------|
-| NextAuth credentials provider | ✅ CSRF + JWT session |
-| CSRF cookie (double-submit) | ✅ csrf_token cookie 自動発行 |
-| Admin sub-page 保護 | ✅ 未認証→307リダイレクト |
-| API auth middleware | ✅ 保護ルートは認証必須 |
+### セキュリティ・品質
 
-### (7) SEO/OGP
-| 項目 | 確認結果 |
-|------|----------|
-| OG画像 | ✅ `/opengraph-image` → 200, image/png (1200x630) |
-| meta tags | ✅ og:title, og:description, og:image, og:url, robots: index |
-| D1データ同期 | ✅ 9キー (events: 4, companies: 22, tenants: 3) |
-
-### (8) E2Eテスト結果 (ローカル)
-- **全67テスト**: 66/67 パス (1件は間欠的タイミング)
-- **修正済み**: step2-processing + full-flow テストのタイミング改善
-- **ビルド**: 成功 (Middleware 47.2KB)
+| # | 機能 | 概要 |
+|---|------|------|
+| 21 | API認証ミドルウェア | `middleware.ts` 統合。ADMIN_API_RULES テーブルでルート×メソッド保護。JWT or x-admin-password |
+| 22 | CSRF保護 | Double-submit cookie パターン。csrf_token cookie + x-csrf-token ヘッダー検証 |
+| 23 | SEO/OGP | metadataBase + title template + OG画像動的生成 (1200x630) + Twitter Card + 全12ページ個別metadata |
+| 24 | ダークモード | `darkMode: "class"` + DarkModeProvider + 全管理画面・UIコンポーネント対応 |
+| 25 | アクセシビリティ | ARIA属性 + focus-visible + SkipToContent + キーボードナビ + sr-only + モーダルEsc/auto-focus |
+| 26 | Sentryエラー監視 | @sentry/nextjs v10 (client/server/edge) + /monitoring tunnel。DSN未設定時自動無効化。D1エラーログと併用 |
+| 27 | テナントブランディング | primaryColor + logoUrl + CSS変数テーマ切替 + 設定タブ編集 |
+| 28 | 削除カスケード | `deleteTenantCascade()` — 子レコード全削除 + 影響サマリー確認ダイアログ |
+| 29 | E2Eテスト | Playwright 67テスト (11 spec)。QRチェックインフロー含む |
+| 30 | デモサイト別デプロイ | vls-demo.vercel.app — middleware ホスト名判定で / → /demo リダイレクト |
 
 ---
 
-## 1. SEO/OGP対応 (完了)
+## 未実装・残タスク
 
-### Root Layout更新 (`src/app/layout.tsx`)
-- `metadataBase`: `https://vls-system.vercel.app`
-- `title.template`: `%s | VLS`
-- `openGraph`: siteName, url, images (1200x630 OG画像)
-- `twitter`: `summary_large_image` card
-- `robots`: index: true, follow: true (本番公開用)
+### 未着手 (コード変更が必要)
 
-### ページ別metadata (layout.tsx 新規作成 x12)
-| ページ | title | description |
-|--------|-------|-------------|
-| `/survey` | アンケート | イベントアンケートに回答して... |
-| `/processing` | 読み込み中 | イベント写真データとCM動画を... |
-| `/photos` | 写真ギャラリー | イベントの写真を閲覧・選択して... |
-| `/complete` | ダウンロード完了 | 写真のダウンロードが完了しました... |
-| `/downloading` | ダウンロード準備中 | 高画質写真データを生成中です |
-| `/admin` | 管理画面 | VLSイベント管理ダッシュボード |
-| `/admin/analytics` | アンケート分析 | アンケート回答の分析ダッシュボード |
-| `/admin/events` | イベント管理 | イベントの作成・編集・QRコード管理 |
-| `/admin/stats` | CM統計 | CM動画の視聴統計ダッシュボード |
-| `/admin/users` | ユーザー管理 | ユーザーセッションの管理 |
-| `/admin/import` | CSVインポート | 参加者・イベント・企業のCSV一括インポート |
-| `/admin/checkin` | チェックイン | イベント参加者のチェックイン管理 |
+| ID | 優先度 | 内容 | 備考 |
+|----|--------|------|------|
+| L3 | LOW | 実CM動画差替え | 現在はパブリックYouTube動画 (Rick Astley等)。実スポンサーCM素材待ち |
+| L4 | LOW | 実企業ロゴ差替え | 現在は ui-avatars.com テキストアイコン。実ロゴ画像待ち |
+| A2 | LONG-TERM | 認証強化 | パスワード文字列比較のみ → NextAuth/Clerk sessions + RBAC |
+| M1 | MEDIUM | モバイル最適化 | Admin テーブル横スクロール + タッチ操作最適化 |
 
-### OG画像動的生成
-- `src/app/opengraph-image.tsx` (Edge Runtime, ImageResponse API)
-- 1200x630, グラデーション背景 (#6EC6FF → #A78BFA)
-- 📸 アイコン + "VLS" + "イベント写真サービス"
+### 環境設定のみ (コード変更不要)
+
+| 項目 | コマンド | 現状 |
+|------|---------|------|
+| Sentry本番有効化 | `vercel env add NEXT_PUBLIC_SENTRY_DSN` | DSN未設定のため無効 |
+| SendGrid設定 | `vercel env add SENDGRID_API_KEY` | Resend のみ有効 |
+
+### tasks.txt 残タスク
+
+| タスク | 状態 |
+|--------|------|
+| matching.ts platinum枠ランダム抽選化 | 未着手 |
 
 ---
 
-## 2. 軽量エラーロギング (Sentry → D1永続化に置換)
+## Phase 2 — 次フェーズ機能提案 (ビジネスインパクト順)
 
-### Sentry SDK 削除
-- `@sentry/nextjs` アンインストール済み
-- `sentry.client.config.ts` / `sentry.server.config.ts` / `sentry.edge.config.ts` 削除
-- `next.config.mjs`: `withSentryConfig` ラッパー除去
-- バンドルサイズ改善: Middleware 107KB → 47.2KB、First Load JS大幅削減
+| # | 機能 | ページ | 概要 | Why |
+|---|------|--------|------|-----|
+| P2-1 | スポンサーレポートPDF | `/admin/reports` | 企業別CM再生数・完了率・属性分布・CPV試算をPDF自動生成。jsPDF + Chart.js canvas export活用 | 営業資料自動化 → 契約更新率UP |
+| P2-2 | ライブイベントダッシュボード | `/admin/live` | 当日リアルタイム画面。チェックイン進捗・CM視聴中人数・DL完了数 (5秒ポーリング) + フルスクリーン + アラート通知 | イベント当日の即時状況判断 |
+| P2-3 | Webhook外部連携 | `/admin` 設定タブ | チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知。Slack/LINE/Zapier連携。リトライ3回 + ログ | 既存業務フロー組み込み |
+| P2-4 | 写真AI自動分類 | `/admin/photos` | R2アップロード時にClaude Vision APIでシーン分類 + 顔検出カウント → ギャラリーフィルター | 写真探し時間削減 → DL率UP |
+| P2-5 | マルチイベント統合管理 | `/admin/command` | 同日複数イベントの横断KPI表示 (チェックイン率/CM視聴率/DL率) + 異常検知ハイライト | 複数会場並行運営対応 |
 
-### 新規ファイル
-| ファイル | 内容 |
+---
+
+## 技術スタック
+
+| カテゴリ | 技術 |
 |----------|------|
-| `src/lib/errorLog.ts` | `captureError()` — console.error + /api/errors POST (fire-and-forget) |
-| `src/app/api/errors/route.ts` | POST: エラー受信→console.error→D1永続化 / GET: ログ取得 / DELETE: クリア |
-| `src/components/admin/tabs/ErrorLogTab.tsx` | エラーログ閲覧タブ (ソースフィルター, スタックトレース展開, クリア機能) |
-
-### 既存ファイル変更
-| ファイル | 変更内容 |
-|----------|----------|
-| `src/app/error.tsx` | `Sentry.captureException` → `captureError` |
-| `src/app/global-error.tsx` | `Sentry.captureException` → `captureError` |
-| `next.config.mjs` | `withSentryConfig` 除去 (素の nextConfig をexport) |
-| `src/instrumentation.ts` | Sentry import除去 |
-| `src/app/admin/page.tsx` | 🐛エラーログタブ追加 (superOnly) |
-
-### エラーロギング設計
-- **クライアント**: `captureError(error, context)` → `/api/errors` POST → D1 `vls_error_log` キー
-- **サーバー**: `console.error` + D1直接永続化
-- **D1保持**: 最新200件、各エントリに message/stack/url/source/userAgent/timestamp
-- **管理画面**: 🐛エラーログタブ (source別フィルター, スタックトレース展開, ログクリア)
-- **外部依存なし**: Sentry DSN/SDK不要、Cloudflare D1のみ
+| Framework | Next.js 14.2 (App Router) |
+| Language | TypeScript 5, React 18 |
+| Styling | Tailwind CSS 3.4 |
+| Animation | framer-motion |
+| Charts | Chart.js (react-chartjs-2) + Recharts |
+| PDF | jsPDF |
+| QR | qrcode + html5-qrcode |
+| Storage | Cloudflare R2 + D1 |
+| Auth | NextAuth (credentials) + JWT |
+| Monitoring | Sentry + D1エラーログ |
+| Testing | Playwright (67 tests) |
+| Deploy | Vercel (本番 + デモ 2プロジェクト) |
 
 ---
 
-## 3. QR → チェックイン E2Eテスト (完了)
+## デプロイ履歴 (直近)
 
-### テストファイル: `e2e/qr-checkin-flow.spec.ts`
-| テスト | 内容 | 結果 |
-|--------|------|------|
-| Admin creates event → QR shows URL | イベント作成→QRコード表示→共有URL確認 | ✅ |
-| User scans QR URL → auto-login | /?pw=XXX でパスワード自動入力→ログイン→survey到達 | ✅ |
-| Check-in: register → check in | 参加者登録→checkinページ→ワンクリックチェックイン→取消ボタン確認 | ✅ |
-| Full QR flow | イベント作成→参加者追加→QRアクセス→チェックイン→管理画面確認 | ✅ |
-
-### テスト結果
-- **新規QRテスト**: 4/4 パス
-- **既存adminテスト**: 8/8 パス
-- **admin-subpagesテスト**: 15/16 パス (1件は間欠的セッションtimeout)
-- **ビルド**: 成功
-
----
-
-## 4. CM動画管理タブ (完了)
-
-### 新規ファイル
-| ファイル | 内容 |
-|----------|------|
-| `src/components/admin/tabs/CMVideosTab.tsx` | CM動画専用管理タブ |
-
-### 既存ファイル変更
-| ファイル | 変更内容 |
-|----------|----------|
-| `src/components/admin/tabs/index.ts` | `CMVideosTab` エクスポート追加 |
-| `src/app/admin/page.tsx` | タブ定義追加 (`cmVideos`, 🎬アイコン, 企業管理の後) |
-
-### 機能
-- **統計サマリー**: 全設定済/一部未設定/未設定/全企業の4カード
-- **フィルター**: Tier別 (platinum/gold/silver/bronze) + 設定状態別
-- **一覧表示**: Tier順ソート、YouTubeサムネイルプレビュー (cm15/cm30/cm60)
-- **インライン編集**: YouTube ID入力 + 11文字バリデーション
-- **プレビュー再生**: YouTube embed iframe
-- **ダークモード**: 完全対応
-
-### テスト結果
-- **ビルド**: 成功
-- **adminテスト**: 8/8 パス
-- **admin-subpagesテスト**: 15/16 パス (既存の間欠的timeout 1件)
-
----
-
----
-
-## 5. CM動画管理UI強化 (完了)
-
-### 新規ユーティリティ
-| ファイル | 内容 |
-|----------|------|
-| `src/components/admin/tabs/adminUtils.ts` | `extractYouTubeId()` — youtube.com/watch?v=, youtu.be/, embed/, shorts/ からID自動抽出 |
-
-### 既存ファイル変更
-| ファイル | 変更内容 |
-|----------|----------|
-| `src/components/admin/tabs/CMVideosTab.tsx` | URL自動変換、サムネイルonErrorハンドリング（無効ID→赤い「取得不可」表示）、「デフォルトに戻す」ボタン |
-| `src/components/admin/tabs/CompaniesTab.tsx` | cm15/cm30/cm60入力でURL自動抽出、placeholder「YouTube URLまたはID」に更新 |
-
----
-
-## 6. アクセシビリティ強化 — 第2弾 (完了)
-
-### 新規ファイル
-| ファイル | 内容 |
-|----------|------|
-| `src/components/ui/SkipToContent.tsx` | 全ページ共通のスキップリンク（キーボードナビゲーション） |
-
-### 変更ファイル
-| ファイル | 変更内容 |
-|----------|----------|
-| `src/app/layout.tsx` | SkipToContent統合 + `id="main-content"` ラッパー |
-| `src/app/admin/events/page.tsx` | toast `role="status"` / `aria-live`, ボタン `focus-visible:ring` / `aria-label`, イベント切替 `role="radiogroup"` |
-| `src/app/admin/stats/page.tsx` | フィルター `aria-label`, `focus-visible:ring-2` |
-| `src/app/admin/users/page.tsx` | 検索 `aria-label`, 展開ボタン `aria-expanded`, CSV `focus-visible` |
-| `src/app/admin/analytics/page.tsx` | クリアボタン `aria-label` / `focus-visible` |
-| `src/app/admin/page.tsx` | リセットボタン `aria-label` / `focus-visible` |
-| `src/app/admin/checkin/page.tsx` | プログレスバー `role="progressbar"` + `aria-valuenow/min/max` |
-
-### 対応範囲まとめ
-- **ARIA属性**: aria-label, aria-live, aria-expanded, aria-checked, role (dialog, progressbar, radiogroup, tablist, status, checkbox, group)
-- **キーボードナビ**: SkipToContent, focus-visible:ring-2, Tab/Enter/Space対応 (PhotoGrid, TagSelector, モーダル)
-- **スクリーンリーダー**: sr-only テキスト, aria-hidden 装飾アイコン
-- **モーダル**: Escape キー, 自動フォーカス, フォーカストラップ
-
----
-
-## 7. Sentryエラー監視 (完了)
-
-### インストール
-- `@sentry/nextjs` v10.40 — `npm install @sentry/nextjs`
-
-### 新規ファイル
-| ファイル | 内容 |
-|----------|------|
-| `sentry.client.config.ts` | Sentry.init (DSN, tracesSampleRate: 0.1, replaysOnErrorSampleRate: 1.0) |
-| `sentry.server.config.ts` | Sentry.init (DSN, tracesSampleRate: 0.1) |
-| `sentry.edge.config.ts` | Sentry.init (DSN, tracesSampleRate: 0.1) |
-
-### 既存ファイル変更
-| ファイル | 変更内容 |
-|----------|----------|
-| `next.config.mjs` | `withSentryConfig` ラッパー、`/monitoring` tunnel route、source map非公開 |
-| `src/instrumentation.ts` | `NEXT_RUNTIME` 別に sentry.server / sentry.edge を動的import |
-| `src/app/error.tsx` | `Sentry.captureException(error)` 追加 (既存D1ログと併用) |
-| `src/app/global-error.tsx` | `Sentry.captureException(error)` 追加 (既存D1ログと併用) |
-
-### 設計方針
-- **DSN未設定時**: `if (dsn)` ガードで自動無効化 → バンドルは含まれるがSentry通信なし
-- **D1エラーログと併用**: Sentry=外部通知+パフォーマンス監視、D1=管理画面内エラー閲覧
-- **Source map**: `SENTRY_AUTH_TOKEN` 未設定時はWebpackプラグイン無効化 (ビルドエラー回避)
-- **バンドル影響**: First Load JS +74KB (88→162KB)、Middleware +60KB (47→107KB)
-- **要対応**: 本番有効化には `vercel env add NEXT_PUBLIC_SENTRY_DSN` が必要
-
----
-
-## Priority Improvements — 進捗トラッカー
-
-### HIGH — 本番ブロッカー
-- [x] H1. `.env.example` 作成
-- [x] H2. エラーバウンダリ → D1永続化エラーログに拡張
-- [x] H3. API認証ミドルウェア統合 (`middleware.ts`)
-- [x] H4. CSRF保護 (double-submit cookie)
-
-### MEDIUM — 品質 & UX
-- [x] M1. CSVインポート（参加者/イベント/企業）
-- [x] M2. チェックインUI (`/admin/checkin`)
-- [x] M3. テナントブランディング (primaryColor, logoUrl, CSS変数)
-- [x] M4. 削除カスケード (`deleteTenantCascade()`)
-
-### LOW — Nice to Have
-- [x] L1. ダークモード (`darkMode: "class"`, DarkModeProvider, 全ページ対応)
-- [x] L2. アクセシビリティ (ARIA属性, focus-visible, キーボードナビ, SkipToContent, sr-only)
-- [ ] L3. 実CM動画 — YouTube IDがハードコード（Rick Astley等）。実スポンサーCM動画への差替え
-- [ ] L4. 実企業ロゴ — 全ロゴが ui-avatars.com テキストアイコン。実ロゴ画像への差替え
-- [x] **L5. Sentryエラー監視**
-  - `@sentry/nextjs` v10 インストール
-  - `sentry.client.config.ts` / `sentry.server.config.ts` / `sentry.edge.config.ts` 作成
-  - `next.config.mjs` に `withSentryConfig` ラッパー + `/monitoring` tunnel route
-  - `instrumentation.ts` でランタイム別初期化 (nodejs / edge)
-  - `error.tsx` / `global-error.tsx` に `Sentry.captureException()` 追加
-  - 既存D1エラーログ (`captureError()`) と併用 — Sentry=外部通知、D1=管理画面内閲覧
-  - DSN未設定時は自動無効化 (`if (dsn)` ガード)
-  - **要対応**: `NEXT_PUBLIC_SENTRY_DSN` を `vercel env add` で設定
-
-### LONG-TERM — アーキテクチャ
-- [x] A1. DB移行 → Cloudflare D1 (localStorage + D1永続化)
-- [ ] A2. 認証強化 — パスワード文字列比較のみ。NextAuth/Clerk for sessions/RBAC
-- [x] A3. メール設定 — Resend API (primary) + SendGrid (fallback)
-
----
-
-## Phase 2 — 次フェーズ機能提案
-
-> Phase 1 の全タスク (HIGH/MEDIUM/LOW) 完了を受けての次期開発ロードマップ。
-> ビジネスインパクト順に HIGH として提案。
-
-### HIGH — Phase 2 新機能
-
-- [ ] **P2-H1. スポンサーレポート自動生成 (Sponsor Report PDF)**
-  - 企業ごとにブランド入りPDFレポートを自動生成
-  - 内容: CM再生数・完了率・平均視聴秒数、アンケート属性分布（年代/興味/テーマ）、CPV試算
-  - 既存の jsPDF + Chart.js canvas export を活用
-  - `/admin/reports` サブページ + 企業選択 → PDF DL
-  - **Why**: スポンサー営業の決め手。手作業レポートを自動化 → 契約更新率UP
-
-- [ ] **P2-H2. Webhook / 外部連携 (Event Webhook)**
-  - イベント発生時（チェックイン・DL完了・CM視聴完了・アンケート回答）に外部URLへPOST通知
-  - 管理画面でWebhook URL + トリガー条件を設定 → `/admin` 設定タブ内
-  - Slack / LINE Notify / Zapier 等と即連携可能
-  - リトライ (3回 exponential backoff) + 通知ログ閲覧
-  - **Why**: 既存業務フロー（Slack通知・CRM連携・Google Sheets自動記録）への組み込み
-
-- [ ] **P2-H3. ライブイベントダッシュボード (Real-time Event Monitor)**
-  - イベント当日のオペレーション用リアルタイム画面 (`/admin/live`)
-  - チェックイン進捗・CM視聴中人数・DL完了数が自動更新 (SSE or 5秒ポーリング)
-  - 大型ディスプレイ表示を想定したフルスクリーンモード
-  - アラート（チェックイン率低下、CM視聴離脱急増）をトースト通知
-  - **Why**: イベント当日の"戦況室"。スタッフが現場で即座に状況判断できる
-
-- [ ] **P2-H4. 写真AI自動分類 (AI Photo Auto-Tagging)**
-  - R2アップロード時にClaude Vision APIで写真をシーン分類 (集合写真 / 競技 / セレモニー / 食事 etc.)
-  - 自動タグをメタデータとしてD1に保存 → ユーザー写真ギャラリーでフィルター表示
-  - 顔検出カウント（何人写っているか）で "自分が写っていそうな写真" 推薦
-  - `/admin/photos` タブに自動タグ一覧 + 手動修正UI
-  - **Why**: 数百枚の写真から自分の写真を探す手間を劇的削減 → UX向上 + DL率UP
-
-- [ ] **P2-H5. マルチイベント同時管理ダッシュボード (Multi-Event Command Center)**
-  - 同日複数イベント運営時の統合管理画面 (`/admin/command`)
-  - 全イベントの進捗を1画面で横断表示（チェックイン率 / CM視聴率 / DL率）
-  - イベント間リソース比較（写真枚数、参加者数、スポンサー数）
-  - 異常検知: 特定イベントのKPIが他イベント比で著しく低い場合にハイライト
-  - **Why**: 運営会社が同日に3〜5会場を並行運営するケースへの対応
+| 日付 | コミット | 内容 |
+|------|---------|------|
+| 2026-03-01 | `b928d88` | /scan モバイルQRチェックイン |
+| 2026-03-01 | `d3b966b` | /demo デモ体験 + complete バグ修正 + CM動画ID長尺化 |
+| 2026-03-01 | `cd87aeb` | Phase 2 提案追加 |
+| 2026-02-28 | `ea24f6b` | Sentry エラー監視 |
+| 2026-02-28 | `250c3b9` | CM動画URL自動抽出 + アクセシビリティ強化 |
