@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/admin/import", label: "インポート" },
   { href: "/admin/checkin", label: "チェックイン" },
   { href: "/admin/live", label: "ライブ" },
+  { href: "/admin/command", label: "統合管理" },
 ];
 
 interface AdminHeaderProps {
