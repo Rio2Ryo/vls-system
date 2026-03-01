@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import AuthProvider from "@/components/providers/SessionProvider";
 import DbSyncProvider from "@/components/providers/DbSyncProvider";
+import ServiceWorkerProvider from "@/components/providers/ServiceWorkerProvider";
 import TenantBrandingProvider from "@/components/providers/TenantBrandingProvider";
 import DarkModeProvider from "@/components/providers/DarkModeProvider";
 import SkipToContent from "@/components/ui/SkipToContent";
+import OfflineIndicator from "@/components/ui/OfflineIndicator";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -49,13 +51,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+      </head>
       <body className="min-h-screen antialiased">
         <SkipToContent />
         <AuthProvider>
           <DbSyncProvider>
-            <DarkModeProvider>
-              <TenantBrandingProvider><div id="main-content">{children}</div></TenantBrandingProvider>
-            </DarkModeProvider>
+            <ServiceWorkerProvider>
+              <DarkModeProvider>
+                <TenantBrandingProvider>
+                  <div id="main-content">{children}</div>
+                  <OfflineIndicator />
+                </TenantBrandingProvider>
+              </DarkModeProvider>
+            </ServiceWorkerProvider>
           </DbSyncProvider>
         </AuthProvider>
       </body>

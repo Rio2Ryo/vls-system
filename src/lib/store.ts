@@ -24,15 +24,30 @@ function safeGet<T>(key: string, fallback: T): T {
   }
 }
 
-/** Persist to D1 via API (fire-and-forget). Skipped in E2E test mode. */
+/** Queue a D1 write in IndexedDB for later sync (called when offline or fetch fails). */
+function queueForSync(key: string, value: string): void {
+  import("./idb").then(({ addToSyncQueue }) => {
+    addToSyncQueue({ key, value, timestamp: Date.now() });
+  }).catch(() => {});
+}
+
+/** Persist to D1 via API (fire-and-forget). Queues in IndexedDB when offline. Skipped in E2E test mode. */
 function persistToD1(key: string, value: string): void {
   if (typeof window !== "undefined" && window.localStorage.getItem("__skip_d1_sync")) return;
+
+  // If clearly offline, queue immediately
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    queueForSync(key, value);
+    return;
+  }
+
   fetch("/api/db", {
     method: "PUT",
     headers: csrfHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ key, value }),
   }).catch(() => {
-    // D1 sync failed silently — localStorage still has the data
+    // Network error — queue for sync when back online
+    queueForSync(key, value);
   });
 }
 
