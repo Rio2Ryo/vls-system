@@ -81,17 +81,18 @@ function TopPageInner() {
         className="text-center mb-8"
       >
         <motion.div
-          className="text-5xl mb-3"
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="mb-3"
         >
-          📸
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mirai.svg" alt="未来開発ラボ ロゴ" className="w-20 h-20 mx-auto" />
         </motion.div>
-        <h1 className="text-3xl md:text-4xl font-black text-gray-800">
-          イベント写真サービス
+        <h1 className="text-3xl md:text-4xl font-black text-[#1a237e]">
+          未来開発ラボ
         </h1>
-        <p className="text-gray-400 mt-1 text-sm">
-          パスワードを入力して写真にアクセス
+        <p className="text-gray-500 mt-1 text-sm">
+          イベント写真ダウンロードサービス
         </p>
       </motion.div>
 
