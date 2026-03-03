@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { getStoredTenants, setStoredTenants, getStoredWebhooks, setStoredWebhooks, getStoredWebhookLog, getRetentionPolicy, setRetentionPolicy, previewDataCleanup, runDataCleanup } from "@/lib/store";
-import { RetentionDays, RetentionPolicy, WebhookConfig, WebhookEventType, WebhookLog } from "@/lib/types";
+import { getStoredTenants, setStoredTenants, getStoredWebhooks, setStoredWebhooks, getStoredWebhookLog, getRetentionPolicy, setRetentionPolicy, previewDataCleanup, runDataCleanup, getWatermarkConfig, setWatermarkConfig } from "@/lib/store";
+import { DEFAULT_WATERMARK_CONFIG, RetentionDays, RetentionPolicy, WatermarkConfig, WatermarkPosition, WebhookConfig, WebhookEventType, WebhookLog } from "@/lib/types";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100";
 
@@ -591,6 +591,356 @@ function RetentionPolicySection({ onSave }: { onSave: (msg: string) => void }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Watermark Settings Section
+// ---------------------------------------------------------------------------
+
+const POSITION_OPTIONS: { value: WatermarkPosition; label: string }[] = [
+  { value: "tile", label: "タイル (繰り返し)" },
+  { value: "center", label: "中央" },
+  { value: "bottom-right", label: "右下" },
+  { value: "bottom-left", label: "左下" },
+  { value: "top-right", label: "右上" },
+  { value: "top-left", label: "左上" },
+];
+
+const SAMPLE_IMAGE_URL = "https://ui-avatars.com/api/?name=Sample+Photo&background=87ceeb&color=fff&size=600&font-size=0.2";
+
+function WatermarkSection({ tenantId, onSave }: { tenantId: string; onSave: (msg: string) => void }) {
+  const [config, setConfig] = useState<WatermarkConfig>({ tenantId, ...DEFAULT_WATERMARK_CONFIG });
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    setConfig(getWatermarkConfig(tenantId));
+  }, [tenantId]);
+
+  // Draw preview whenever config changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const W = 400;
+      const H = Math.round((img.height / img.width) * W);
+      canvas.width = W;
+      canvas.height = H;
+
+      // Draw base image
+      ctx.drawImage(img, 0, 0, W, H);
+
+      // Apply blur if enabled
+      if (config.blur) {
+        ctx.filter = "blur(1.5px)";
+        ctx.drawImage(canvas, 0, 0);
+        ctx.filter = "none";
+      }
+
+      if (!config.enabled || !config.text) return;
+
+      // Draw watermark
+      ctx.save();
+      ctx.globalAlpha = config.opacity;
+      ctx.fillStyle = config.fontColor;
+      const fontSize = Math.max(config.fontSize * (W / 600), 10);
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      if (config.position === "tile") {
+        // Tile pattern
+        ctx.save();
+        const rad = (config.rotation * Math.PI) / 180;
+        ctx.rotate(rad);
+
+        const cols = config.gridCols || 3;
+        const rows = config.gridRows || 3;
+        const stepX = (W * 1.5) / cols;
+        const stepY = (H * 1.5) / rows;
+        const offsetX = -W * 0.25;
+        const offsetY = -H * 0.25;
+
+        for (let r = 0; r <= rows + 1; r++) {
+          for (let c = 0; c <= cols + 1; c++) {
+            ctx.fillText(config.text, offsetX + c * stepX, offsetY + r * stepY);
+          }
+        }
+        ctx.restore();
+      } else {
+        // Single position
+        let x = W / 2;
+        let y = H / 2;
+        ctx.textAlign = "center";
+
+        if (config.position === "bottom-right") { x = W - fontSize * 2; y = H - fontSize; ctx.textAlign = "right"; }
+        else if (config.position === "bottom-left") { x = fontSize * 2; y = H - fontSize; ctx.textAlign = "left"; }
+        else if (config.position === "top-right") { x = W - fontSize * 2; y = fontSize * 1.5; ctx.textAlign = "right"; }
+        else if (config.position === "top-left") { x = fontSize * 2; y = fontSize * 1.5; ctx.textAlign = "left"; }
+
+        // Draw background shadow for readability
+        ctx.save();
+        const rad = (config.rotation * Math.PI) / 180;
+        ctx.translate(x, y);
+        ctx.rotate(rad);
+        ctx.shadowColor = "rgba(255,255,255,0.5)";
+        ctx.shadowBlur = 4;
+        ctx.fillText(config.text, 0, 0);
+        ctx.restore();
+      }
+
+      // Draw image watermark if set
+      if (config.imageUrl) {
+        const wmImg = new Image();
+        wmImg.crossOrigin = "anonymous";
+        wmImg.onload = () => {
+          const scale = config.imageScale || 0.15;
+          const wmW = W * scale;
+          const wmH = (wmImg.height / wmImg.width) * wmW;
+          ctx.globalAlpha = config.opacity;
+          let ix = W - wmW - 10;
+          let iy = H - wmH - 10;
+          if (config.position === "top-left") { ix = 10; iy = 10; }
+          else if (config.position === "top-right") { ix = W - wmW - 10; iy = 10; }
+          else if (config.position === "bottom-left") { ix = 10; iy = H - wmH - 10; }
+          else if (config.position === "center") { ix = (W - wmW) / 2; iy = (H - wmH) / 2; }
+          ctx.drawImage(wmImg, ix, iy, wmW, wmH);
+        };
+        wmImg.src = config.imageUrl;
+      }
+
+      ctx.restore();
+    };
+    img.src = SAMPLE_IMAGE_URL;
+  }, [config]);
+
+  const handleSave = () => {
+    setWatermarkConfig(config);
+    onSave("ウォーターマーク設定を保存しました");
+  };
+
+  const handleReset = () => {
+    const reset = { tenantId, ...DEFAULT_WATERMARK_CONFIG };
+    setConfig(reset);
+    setWatermarkConfig(reset);
+    onSave("ウォーターマーク設定をリセットしました");
+  };
+
+  const update = (patch: Partial<WatermarkConfig>) => {
+    setConfig((prev) => ({ ...prev, ...patch }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">ウォーターマーク設定</h2>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={config.enabled}
+            onChange={(e) => update({ enabled: e.target.checked })}
+            className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+          />
+          <span className="text-xs text-gray-600 dark:text-gray-300">有効</span>
+        </label>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Settings panel */}
+        <Card>
+          <div className="space-y-4">
+            <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">テキスト設定</h3>
+
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">ウォーターマークテキスト</label>
+              <input
+                className={inputCls}
+                value={config.text}
+                onChange={(e) => update({ text: e.target.value })}
+                placeholder="© テナント名"
+                aria-label="ウォーターマークテキスト"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">フォントサイズ: {config.fontSize}px</label>
+                <input
+                  type="range"
+                  min={12}
+                  max={72}
+                  value={config.fontSize}
+                  onChange={(e) => update({ fontSize: Number(e.target.value) })}
+                  className="w-full accent-blue-500"
+                  aria-label="フォントサイズ"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">透明度: {Math.round(config.opacity * 100)}%</label>
+                <input
+                  type="range"
+                  min={5}
+                  max={100}
+                  value={Math.round(config.opacity * 100)}
+                  onChange={(e) => update({ opacity: Number(e.target.value) / 100 })}
+                  className="w-full accent-blue-500"
+                  aria-label="透明度"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">文字色</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={config.fontColor}
+                    onChange={(e) => update({ fontColor: e.target.value })}
+                    className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                    aria-label="文字色ピッカー"
+                  />
+                  <input
+                    className={inputCls + " max-w-[100px]"}
+                    value={config.fontColor}
+                    onChange={(e) => update({ fontColor: e.target.value })}
+                    maxLength={7}
+                    aria-label="文字色コード"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">回転: {config.rotation}°</label>
+                <input
+                  type="range"
+                  min={-90}
+                  max={90}
+                  value={config.rotation}
+                  onChange={(e) => update({ rotation: Number(e.target.value) })}
+                  className="w-full accent-blue-500"
+                  aria-label="回転角度"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">配置</label>
+              <select
+                className={inputCls}
+                value={config.position}
+                onChange={(e) => update({ position: e.target.value as WatermarkPosition })}
+                aria-label="ウォーターマーク配置"
+              >
+                {POSITION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {config.position === "tile" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">列数: {config.gridCols}</label>
+                  <input
+                    type="range"
+                    min={2}
+                    max={6}
+                    value={config.gridCols}
+                    onChange={(e) => update({ gridCols: Number(e.target.value) })}
+                    className="w-full accent-blue-500"
+                    aria-label="タイル列数"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">行数: {config.gridRows}</label>
+                  <input
+                    type="range"
+                    min={2}
+                    max={6}
+                    value={config.gridRows}
+                    onChange={(e) => update({ gridRows: Number(e.target.value) })}
+                    className="w-full accent-blue-500"
+                    aria-label="タイル行数"
+                  />
+                </div>
+              </div>
+            )}
+
+            <hr className="border-gray-200 dark:border-gray-700" />
+
+            <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">画像ウォーターマーク (オプション)</h3>
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">画像URL</label>
+              <input
+                className={inputCls}
+                value={config.imageUrl || ""}
+                onChange={(e) => update({ imageUrl: e.target.value || undefined })}
+                placeholder="https://example.com/watermark-logo.png"
+                aria-label="画像ウォーターマークURL"
+              />
+            </div>
+
+            {config.imageUrl && (
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">画像サイズ: {Math.round((config.imageScale || 0.15) * 100)}%</label>
+                <input
+                  type="range"
+                  min={5}
+                  max={50}
+                  value={Math.round((config.imageScale || 0.15) * 100)}
+                  onChange={(e) => update({ imageScale: Number(e.target.value) / 100 })}
+                  className="w-full accent-blue-500"
+                  aria-label="画像サイズ"
+                />
+              </div>
+            )}
+
+            <hr className="border-gray-200 dark:border-gray-700" />
+
+            <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">その他</h3>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.blur}
+                onChange={(e) => update({ blur: e.target.checked })}
+                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+              />
+              <span className="text-xs text-gray-600 dark:text-gray-300">プレビュー画像にぼかし効果</span>
+            </label>
+
+            <div className="flex gap-2 pt-2">
+              <Button size="sm" onClick={handleSave}>保存</Button>
+              <button
+                onClick={handleReset}
+                className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
+              >
+                デフォルトに戻す
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Live preview panel */}
+        <Card>
+          <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm mb-3">プレビュー</h3>
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-2 flex items-center justify-center">
+            <canvas
+              ref={canvasRef}
+              className="max-w-full rounded-lg shadow-sm"
+              aria-label="ウォーターマークプレビュー"
+            />
+          </div>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 text-center">
+            設定変更はリアルタイムでプレビューに反映されます
+          </p>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsTab({ onSave, tenantId }: { onSave: (msg: string) => void; tenantId?: string | null }) {
   const { data: session } = useSession();
   const [logoUrl, setLogoUrl] = useState("");
@@ -742,6 +1092,12 @@ export default function SettingsTab({ onSave, tenantId }: { onSave: (msg: string
 
       {/* Webhook settings */}
       <WebhookSection tenantId={activeTenantId} onSave={onSave} />
+
+      {/* Divider */}
+      <hr className="border-gray-200 dark:border-gray-700" />
+
+      {/* Watermark settings */}
+      <WatermarkSection tenantId={activeTenantId} onSave={onSave} />
 
       {/* Divider */}
       <hr className="border-gray-200 dark:border-gray-700" />

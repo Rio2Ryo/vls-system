@@ -2,8 +2,9 @@
 
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { PhotoData } from "@/lib/types";
-import { useRef, useEffect } from "react";
+import { DEFAULT_WATERMARK_CONFIG, PhotoData, WatermarkConfig } from "@/lib/types";
+import { useRef, useEffect, useMemo } from "react";
+import { getWatermarkConfig } from "@/lib/store";
 
 interface PhotoGridProps {
   photos: PhotoData[];
@@ -12,7 +13,63 @@ interface PhotoGridProps {
   onPreview: (photo: PhotoData) => void;
 }
 
-function WatermarkedImage({ src, alt }: { src: string; alt: string }) {
+/**
+ * Draw watermark on a canvas using the provided WatermarkConfig.
+ * Shared by PhotoGrid (preview) and can be reused elsewhere.
+ */
+function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number, config: Omit<WatermarkConfig, "tenantId">) {
+  if (!config.enabled || !config.text) return;
+
+  ctx.save();
+  ctx.globalAlpha = config.opacity;
+  ctx.fillStyle = config.fontColor;
+  const fontSize = Math.max((config.fontSize * w) / 600, 10);
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  if (config.position === "tile") {
+    const rad = (config.rotation * Math.PI) / 180;
+    ctx.save();
+    ctx.rotate(rad);
+
+    const cols = config.gridCols || 3;
+    const rows = config.gridRows || 3;
+    const stepX = (w * 1.5) / cols;
+    const stepY = (h * 1.5) / rows;
+    const offsetX = -w * 0.25;
+    const offsetY = -h * 0.25;
+
+    for (let r = 0; r <= rows + 1; r++) {
+      for (let c = 0; c <= cols + 1; c++) {
+        ctx.fillText(config.text, offsetX + c * stepX, offsetY + r * stepY);
+      }
+    }
+    ctx.restore();
+  } else {
+    let x = w / 2;
+    let y = h / 2;
+    ctx.textAlign = "center";
+
+    if (config.position === "bottom-right") { x = w - fontSize * 2; y = h - fontSize; ctx.textAlign = "right"; }
+    else if (config.position === "bottom-left") { x = fontSize * 2; y = h - fontSize; ctx.textAlign = "left"; }
+    else if (config.position === "top-right") { x = w - fontSize * 2; y = fontSize * 1.5; ctx.textAlign = "right"; }
+    else if (config.position === "top-left") { x = fontSize * 2; y = fontSize * 1.5; ctx.textAlign = "left"; }
+
+    ctx.save();
+    const rad = (config.rotation * Math.PI) / 180;
+    ctx.translate(x, y);
+    ctx.rotate(rad);
+    ctx.shadowColor = "rgba(255,255,255,0.5)";
+    ctx.shadowBlur = 4;
+    ctx.fillText(config.text, 0, 0);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function WatermarkedImage({ src, alt, wmConfig }: { src: string; alt: string; wmConfig: Omit<WatermarkConfig, "tenantId"> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -34,32 +91,18 @@ function WatermarkedImage({ src, alt }: { src: string; alt: string }) {
       // Draw image at reduced resolution
       ctx.drawImage(img, 0, 0, w, h);
 
-      // Apply blur for low-quality effect
-      ctx.filter = "blur(1.5px)";
-      ctx.drawImage(canvas, 0, 0);
-      ctx.filter = "none";
-
-      // Draw watermark text in 3x3 grid pattern
-      ctx.save();
-      ctx.globalAlpha = 0.30;
-      ctx.fillStyle = "#000";
-      const fontSize = Math.max(w / 12, 14);
-      ctx.font = `bold ${fontSize}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.rotate(-Math.PI / 6);
-
-      const stepX = w / 3;
-      const stepY = h / 3;
-      for (let row = -1; row <= 3; row++) {
-        for (let col = -1; col <= 3; col++) {
-          ctx.fillText("© みらい発見ラボ", col * stepX + stepX / 2, row * stepY + stepY / 2);
-        }
+      // Apply blur for low-quality effect (if enabled in config)
+      if (wmConfig.blur) {
+        ctx.filter = "blur(1.5px)";
+        ctx.drawImage(canvas, 0, 0);
+        ctx.filter = "none";
       }
-      ctx.restore();
+
+      // Draw watermark using config
+      drawWatermark(ctx, w, h, wmConfig);
     };
     img.src = src;
-  }, [src]);
+  }, [src, wmConfig]);
 
   return (
     <canvas
@@ -72,6 +115,13 @@ function WatermarkedImage({ src, alt }: { src: string; alt: string }) {
 
 export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPreview }: PhotoGridProps) {
   const t = useTranslations("Photos");
+
+  // Load watermark config for the current tenant (from sessionStorage tenantId)
+  const wmConfig = useMemo(() => {
+    if (typeof window === "undefined") return DEFAULT_WATERMARK_CONFIG;
+    const tenantId = sessionStorage.getItem("adminTenantId") || sessionStorage.getItem("tenantId") || "default";
+    return getWatermarkConfig(tenantId);
+  }, []);
 
   return (
     <div
@@ -99,7 +149,7 @@ export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPrevi
                        }`}
             data-testid={`photo-${photo.id}`}
           >
-            <WatermarkedImage src={photo.thumbnailUrl} alt={t("photoN", { n: i + 1 })} />
+            <WatermarkedImage src={photo.thumbnailUrl} alt={t("photoN", { n: i + 1 })} wmConfig={wmConfig} />
 
             {/* Quality badge */}
             {photo.qualityScore !== undefined && photo.qualityScore >= 80 && (

@@ -167,6 +167,41 @@ export interface Tenant {
   isActive?: boolean;      // manually toggle active/inactive
 }
 
+// Watermark configuration (per-tenant customizable)
+export type WatermarkPosition = "tile" | "center" | "bottom-right" | "bottom-left" | "top-right" | "top-left";
+
+export interface WatermarkConfig {
+  tenantId: string;
+  enabled: boolean;
+  // Text watermark
+  text: string;
+  fontSize: number;            // 12–72
+  fontColor: string;           // hex color
+  opacity: number;             // 0.05–1.0
+  rotation: number;            // degrees, -90 to 90
+  position: WatermarkPosition;
+  // Image watermark (optional overlay)
+  imageUrl?: string;           // URL of watermark image (logo etc)
+  imageScale?: number;         // 0.05–0.5 (relative to photo width)
+  // Advanced
+  blur: boolean;               // apply blur to preview
+  gridCols: number;            // tile grid columns (2–6)
+  gridRows: number;            // tile grid rows (2–6)
+}
+
+export const DEFAULT_WATERMARK_CONFIG: Omit<WatermarkConfig, "tenantId"> = {
+  enabled: true,
+  text: "© みらい発見ラボ",
+  fontSize: 24,
+  fontColor: "#000000",
+  opacity: 0.3,
+  rotation: -30,
+  position: "tile",
+  blur: true,
+  gridCols: 3,
+  gridRows: 3,
+};
+
 // Pre-registered participant (bulk import)
 export interface Participant {
   id: string;

@@ -1,4 +1,4 @@
-import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, Company, DEFAULT_RETENTION_POLICY, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, VideoPlayRecord, WebhookConfig, WebhookLog } from "./types";
+import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, Company, DEFAULT_RETENTION_POLICY, DEFAULT_WATERMARK_CONFIG, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, VideoPlayRecord, WatermarkConfig, WebhookConfig, WebhookLog } from "./types";
 import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
 import { csrfHeaders } from "./csrf";
 import { fetchWithRetry } from "./fetchWithRetry";
@@ -35,6 +35,7 @@ const KEYS = {
   campaigns: "vls_campaigns",
   reportShares: "vls_report_shares",
   retentionPolicy: "vls_retention_policy",
+  watermarkConfigs: "vls_watermark_configs",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -961,6 +962,29 @@ export function previewDataCleanup(): Record<string, { total: number; expired: n
   preview(KEYS.npsResponses, getStoredNpsResponses, policy.npsResponses, "sentAt");
 
   return results;
+}
+
+// --- Watermark Configs ---
+export function getStoredWatermarkConfigs(): WatermarkConfig[] {
+  return safeGet<WatermarkConfig[]>(KEYS.watermarkConfigs, []);
+}
+export function setStoredWatermarkConfigs(configs: WatermarkConfig[]): void {
+  safeSet(KEYS.watermarkConfigs, configs);
+}
+export function getWatermarkConfig(tenantId: string): WatermarkConfig {
+  const configs = getStoredWatermarkConfigs();
+  const found = configs.find((c) => c.tenantId === tenantId);
+  return found || { tenantId, ...DEFAULT_WATERMARK_CONFIG };
+}
+export function setWatermarkConfig(config: WatermarkConfig): void {
+  const configs = getStoredWatermarkConfigs();
+  const idx = configs.findIndex((c) => c.tenantId === config.tenantId);
+  if (idx >= 0) {
+    configs[idx] = config;
+  } else {
+    configs.push(config);
+  }
+  setStoredWatermarkConfigs(configs);
 }
 
 // --- Reset to defaults ---
