@@ -243,3 +243,106 @@ export function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
+/** Resize an image file to fit within maxSize pixels, maintaining aspect ratio.
+ *  Returns original blob if already small enough. Output format: JPEG quality 0.85. */
+export function resizeImageBlob(file: File, maxSize = 2048): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.onload = () => {
+        const { naturalWidth: w, naturalHeight: h } = img;
+        // Already within limits — return original
+        if (w <= maxSize && h <= maxSize) {
+          resolve(file);
+          return;
+        }
+        // Calculate scaled dimensions
+        const scale = Math.min(maxSize / w, maxSize / h);
+        const newW = Math.round(w * scale);
+        const newH = Math.round(h * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = newW;
+        canvas.height = newH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve(file); return; }
+        ctx.drawImage(img, 0, 0, newW, newH);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else resolve(file);
+          },
+          "image/jpeg",
+          0.85,
+        );
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Generate a thumbnail blob maintaining aspect ratio. Fits within maxWidth x maxHeight. */
+export function createThumbnailBlobAR(
+  file: File | Blob,
+  maxWidth = 400,
+  maxHeight = 400,
+): Promise<Blob> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const { naturalWidth: w, naturalHeight: h } = img;
+        const scale = Math.min(maxWidth / w, maxHeight / h, 1);
+        const newW = Math.round(w * scale);
+        const newH = Math.round(h * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = newW;
+        canvas.height = newH;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, newW, newH);
+        canvas.toBlob(
+          (blob) => resolve(blob || new Blob()),
+          "image/jpeg",
+          0.6,
+        );
+      };
+      img.onerror = () => {
+        // Fallback: return as-is
+        resolve(file instanceof Blob ? file : new Blob());
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file instanceof File ? file : new File([file], "thumb.jpg"));
+  });
+}
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB
+
+export interface FileValidationResult {
+  valid: File[];
+  errors: string[];
+}
+
+/** Validate image files for type and size constraints. */
+export function validateImageFiles(files: File[]): FileValidationResult {
+  const valid: File[] = [];
+  const errors: string[] = [];
+  for (const file of files) {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type) && !file.name.match(/\.(jpe?g|png|webp|heic|heif)$/i)) {
+      errors.push(`${file.name}: 対応していないファイル形式です (JPEG/PNG/WebP/HEIC)`);
+      continue;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      errors.push(`${file.name}: ファイルサイズが大きすぎます (上限30MB)`);
+      continue;
+    }
+    valid.push(file);
+  }
+  return { valid, errors };
+}
+

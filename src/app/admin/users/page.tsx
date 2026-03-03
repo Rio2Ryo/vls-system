@@ -7,14 +7,37 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import {
   getStoredAnalytics, getStoredEvents, getStoredCompanies,
   getStoredVideoPlays, getStoredSurvey, getSurveyForEvent,
+  getStoredAdminUsers, addAdminUser, updateAdminUser, deleteAdminUser,
+  getAdminUsersForTenant,
 } from "@/lib/store";
 import {
   AnalyticsRecord, EventData, Company, VideoPlayRecord,
   SurveyQuestion, InterestTag,
+  AdminUser, AdminRole, Permission, ROLE_PERMISSIONS,
 } from "@/lib/types";
 import { IS_DEMO_MODE } from "@/lib/demo";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100";
+
+const ROLE_MAP: Record<AdminRole, { label: string; color: string }> = {
+  super_admin: { label: "Super Admin", color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" },
+  tenant_admin: { label: "テナント管理者", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" },
+  viewer: { label: "閲覧者", color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" },
+};
+
+const PERMISSION_LABELS: Record<Permission, string> = {
+  "events.read": "イベント閲覧",
+  "events.write": "イベント編集",
+  "companies.read": "企業閲覧",
+  "companies.write": "企業編集",
+  "photos.read": "写真閲覧",
+  "photos.write": "写真編集",
+  "users.read": "ユーザー閲覧",
+  "users.write": "ユーザー編集",
+  "analytics.read": "分析閲覧",
+  "settings.write": "設定変更",
+  "import.write": "インポート",
+};
 
 // Score config
 const SCORE_WEIGHTS = { survey: 20, cmViewed: 30, photosViewed: 20, downloaded: 30 };
@@ -65,6 +88,17 @@ export default function UsersPage() {
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // RBAC state
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserRole, setNewUserRole] = useState<AdminRole>("viewer");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [toast, setToast] = useState("");
+  const isSuperAdmin = session?.user?.role === "super_admin";
+
   const tenantId = session?.user?.tenantId ?? (typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") : null) ?? null;
 
   const reload = useCallback(() => {
@@ -81,6 +115,12 @@ export default function UsersPage() {
     }
     setCompanies(getStoredCompanies());
     setGlobalSurvey(getStoredSurvey());
+    // Load admin users
+    if (tenantId) {
+      setAdminUsers(getAdminUsersForTenant(tenantId));
+    } else {
+      setAdminUsers(getStoredAdminUsers());
+    }
   }, [tenantId]);
 
   useEffect(() => { if (status === "authenticated") reload(); }, [status, reload]);
@@ -140,6 +180,51 @@ export default function UsersPage() {
     const avgScore = total > 0 ? Math.round(filtered.reduce((s, u) => s + u.stepScore + u.cmScore, 0) / total) : 0;
     return { total, named, downloaded, avgScore };
   }, [filtered]);
+
+  // RBAC handlers
+  const handleAddUser = () => {
+    if (!newUserName.trim() || !newUserPassword.trim()) return;
+    const user: AdminUser = {
+      id: `admin-${Date.now()}`,
+      name: newUserName.trim(),
+      email: newUserEmail.trim() || undefined,
+      password: newUserPassword.trim().toUpperCase(),
+      role: newUserRole,
+      tenantId: tenantId || undefined,
+      permissions: [...ROLE_PERMISSIONS[newUserRole]],
+      isActive: true,
+      createdAt: Date.now(),
+    };
+    addAdminUser(user);
+    setNewUserName(""); setNewUserPassword(""); setNewUserEmail(""); setNewUserRole("viewer");
+    setShowAddForm(false);
+    reload();
+    setToast(`${user.name} を追加しました`);
+    setTimeout(() => setToast(""), 3000);
+  };
+
+  const handleDeleteUser = (user: AdminUser) => {
+    if (!confirm(`${user.name} を削除しますか？`)) return;
+    deleteAdminUser(user.id);
+    reload();
+    setToast(`${user.name} を削除しました`);
+    setTimeout(() => setToast(""), 3000);
+  };
+
+  const handleRoleChange = (userId: string, newRole: AdminRole) => {
+    updateAdminUser(userId, { role: newRole, permissions: [...ROLE_PERMISSIONS[newRole]] });
+    setEditingUserId(null);
+    reload();
+    setToast("ロールを更新しました");
+    setTimeout(() => setToast(""), 3000);
+  };
+
+  const handleToggleActive = (user: AdminUser) => {
+    updateAdminUser(user.id, { isActive: !user.isActive });
+    reload();
+    setToast(`${user.name} を${user.isActive ? "無効化" : "有効化"}しました`);
+    setTimeout(() => setToast(""), 3000);
+  };
 
   const getSurveyQuestions = (eventId: string): SurveyQuestion[] => {
     return getSurveyForEvent(eventId);
@@ -236,6 +321,12 @@ export default function UsersPage() {
       />
 
       <div className="max-w-6xl mx-auto p-6 space-y-6">
+        {toast && (
+          <div className="fixed top-4 right-4 z-50 bg-green-500 text-white text-sm px-4 py-2 rounded-lg shadow-lg" role="status" aria-live="polite">
+            {toast}
+          </div>
+        )}
+
         {/* Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
@@ -498,6 +589,164 @@ export default function UsersPage() {
             </div>
           </div>
         </Card>
+
+        {/* Role Management Section */}
+        {(isSuperAdmin || session?.user?.role === "tenant_admin") && (
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">管理者ロール管理</h3>
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                aria-label="管理者を追加"
+                className="text-xs px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                {showAddForm ? "キャンセル" : "+ 管理者追加"}
+              </button>
+            </div>
+
+            {/* Add form */}
+            {showAddForm && (
+              <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">名前 *</label>
+                    <input className={inputCls} value={newUserName} onChange={(e) => setNewUserName(e.target.value)} placeholder="管理者名" aria-label="管理者名" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">メール</label>
+                    <input className={inputCls} value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} placeholder="email@example.com" aria-label="メールアドレス" type="email" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">パスワード *</label>
+                    <input className={inputCls} value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="ログインパスワード" aria-label="パスワード" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">ロール</label>
+                    <select
+                      className={inputCls}
+                      value={newUserRole}
+                      onChange={(e) => setNewUserRole(e.target.value as AdminRole)}
+                      aria-label="ロール選択"
+                    >
+                      {isSuperAdmin && <option value="super_admin">Super Admin</option>}
+                      <option value="tenant_admin">テナント管理者</option>
+                      <option value="viewer">閲覧者</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleAddUser}
+                    disabled={!newUserName.trim() || !newUserPassword.trim()}
+                    aria-label="管理者を保存"
+                    className="text-xs px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+                  >
+                    追加
+                  </button>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                    権限: {ROLE_PERMISSIONS[newUserRole].map((p) => PERMISSION_LABELS[p]).join(", ")}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Admin users table */}
+            <div className="overflow-x-auto touch-pan-x">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100 dark:border-gray-700">
+                    <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">名前</th>
+                    <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">ロール</th>
+                    <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">権限</th>
+                    <th className="text-center py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">状態</th>
+                    <th className="text-right py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminUsers.length === 0 ? (
+                    <tr><td colSpan={5} className="text-center py-6 text-gray-400 dark:text-gray-500">カスタム管理者はまだ追加されていません</td></tr>
+                  ) : adminUsers.map((u) => (
+                    <tr key={u.id} className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <td className="py-2 px-2">
+                        <div>
+                          <span className="font-medium text-gray-800 dark:text-gray-100">{u.name}</span>
+                          {u.email && <p className="text-[10px] text-gray-400 dark:text-gray-500">{u.email}</p>}
+                        </div>
+                      </td>
+                      <td className="py-2 px-2">
+                        {editingUserId === u.id ? (
+                          <select
+                            value={u.role}
+                            onChange={(e) => handleRoleChange(u.id, e.target.value as AdminRole)}
+                            onBlur={() => setEditingUserId(null)}
+                            autoFocus
+                            aria-label="ロール変更"
+                            className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none"
+                          >
+                            {isSuperAdmin && <option value="super_admin">Super Admin</option>}
+                            <option value="tenant_admin">テナント管理者</option>
+                            <option value="viewer">閲覧者</option>
+                          </select>
+                        ) : (
+                          <button
+                            onClick={() => setEditingUserId(u.id)}
+                            aria-label={`${u.name}のロールを変更`}
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-medium cursor-pointer ${ROLE_MAP[u.role].color}`}
+                          >
+                            {ROLE_MAP[u.role].label} ✎
+                          </button>
+                        )}
+                      </td>
+                      <td className="py-2 px-2">
+                        <div className="flex flex-wrap gap-0.5">
+                          {u.permissions.slice(0, 3).map((p) => (
+                            <span key={p} className="text-[9px] bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 rounded">
+                              {PERMISSION_LABELS[p]}
+                            </span>
+                          ))}
+                          {u.permissions.length > 3 && (
+                            <span className="text-[9px] text-gray-400 dark:text-gray-500">+{u.permissions.length - 3}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <button
+                          onClick={() => handleToggleActive(u)}
+                          aria-label={`${u.name}を${u.isActive ? "無効化" : "有効化"}`}
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${u.isActive ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"}`}
+                        >
+                          {u.isActive ? "有効" : "無効"}
+                        </button>
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <button
+                          onClick={() => handleDeleteUser(u)}
+                          aria-label={`${u.name}を削除`}
+                          className="text-[10px] text-red-400 hover:text-red-600 dark:hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded px-1"
+                        >
+                          削除
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Role permissions legend */}
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-2">ロール別デフォルト権限</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                {(Object.keys(ROLE_MAP) as AdminRole[]).map((role) => (
+                  <div key={role} className="text-[10px]">
+                    <span className={`px-2 py-0.5 rounded-full font-medium ${ROLE_MAP[role].color}`}>{ROLE_MAP[role].label}</span>
+                    <p className="text-gray-400 dark:text-gray-500 mt-1">{ROLE_PERMISSIONS[role].map((p) => PERMISSION_LABELS[p]).join(", ")}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
     </main>
   );

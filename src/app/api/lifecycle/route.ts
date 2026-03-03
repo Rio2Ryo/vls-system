@@ -150,3 +150,70 @@ export async function GET() {
     );
   }
 }
+
+/**
+ * POST /api/lifecycle
+ * Execute a scheduled task.
+ * Body: { taskId: string; action: "execute" }
+ */
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { taskId, action } = body as { taskId?: string; action?: string };
+
+    if (!taskId || action !== "execute") {
+      return NextResponse.json(
+        { error: "Invalid request. Required: { taskId: string, action: 'execute' }" },
+        { status: 400 }
+      );
+    }
+
+    // Simulate task execution
+    // In production, this would interact with D1/R2 to perform actual operations
+    const taskType = body.taskType as string | undefined;
+    const eventId = body.eventId as string | undefined;
+    let resultMessage = "";
+
+    switch (taskType) {
+      case "photo_publish":
+        resultMessage = eventId
+          ? `イベント ${eventId} の写真を公開しました`
+          : "対象イベントが指定されていません";
+        break;
+      case "photo_archive":
+        resultMessage = eventId
+          ? `イベント ${eventId} の写真をアーカイブしました`
+          : "対象イベントが指定されていません";
+        break;
+      case "nps_send":
+        resultMessage = eventId
+          ? `イベント ${eventId} のNPSアンケートメール送信をキューに追加しました`
+          : "全イベントのNPSアンケートメール送信をキューに追加しました";
+        break;
+      case "report_generate":
+        resultMessage = eventId
+          ? `イベント ${eventId} のレポートを生成しました`
+          : "全イベントの統合レポートを生成しました";
+        break;
+      case "event_expire":
+        resultMessage = "期限切れイベントのチェックを完了しました";
+        break;
+      default:
+        resultMessage = `タスク ${taskId} を実行しました`;
+        break;
+    }
+
+    return NextResponse.json({
+      success: true,
+      taskId,
+      result: resultMessage,
+      executedAt: Date.now(),
+    });
+  } catch (error) {
+    logError({ route: "/api/lifecycle POST", error });
+    return NextResponse.json(
+      { error: "Failed to execute task" },
+      { status: 500 }
+    );
+  }
+}

@@ -23,6 +23,7 @@ export interface Company {
   offerText: string;
   offerUrl: string;
   couponCode?: string;
+  portalPassword?: string;  // スポンサーポータルログイン用
 }
 
 export type EventStatus = "active" | "expired" | "archived";
@@ -57,6 +58,14 @@ export interface PhotoData {
   watermarked: boolean;
   classification?: PhotoClassification;
   classificationConfidence?: number;  // 0.0–1.0
+  qualityScore?: number;  // 0–100 AI quality score (blur/exposure/composition)
+  faceCount?: number;           // detected face count
+  faceDescriptions?: string[];  // description of each detected face
+  faceGroupId?: string;         // assigned face group ID
+  // Upload optimization metadata
+  uploadedAt?: number;        // upload timestamp (Unix ms)
+  originalSize?: number;      // original file size in bytes
+  optimizedSize?: number;     // post-resize file size in bytes
 }
 
 export interface SurveyQuestion {
@@ -207,6 +216,18 @@ export interface NotificationLog {
   timestamp: number;
 }
 
+// Event template (reusable event settings without instance-specific data)
+export interface EventTemplate {
+  id: string;
+  name: string;               // テンプレート名 (例: "夏祭りテンプレート")
+  description?: string;
+  venue?: string;
+  companyIds?: string[];
+  surveyQuestions?: SurveyQuestion[];
+  tenantId?: string;
+  createdAt: number;
+}
+
 // Webhook types
 export type WebhookEventType = "checkin" | "download_complete" | "cm_viewed" | "survey_complete";
 
@@ -220,6 +241,45 @@ export interface WebhookConfig {
   createdAt: number;
 }
 
+// Album share (public photo sharing with 30-day expiry)
+export interface AlbumShare {
+  id: string;
+  token: string;
+  eventId: string;
+  eventName: string;
+  photoIds: string[];
+  creatorName: string;
+  sponsorIds: string[];       // platinum company IDs for banner display
+  matchedCompanyId?: string;  // matched sponsor for offer display
+  createdAt: number;
+  expiresAt: number;          // 30日有効
+  viewCount: number;
+}
+
+// My Portal session (magic link auth, 7-day expiry)
+export interface MyPortalSession {
+  id: string;
+  email: string;
+  token: string;
+  createdAt: number;
+  expiresAt: number;   // 7日間有効
+}
+
+// NPS (Net Promoter Score) follow-up response
+export interface NpsResponse {
+  id: string;
+  eventId: string;
+  eventName: string;
+  participantName: string;
+  participantEmail: string;
+  score?: number;          // 0-10 NPS score (undefined = not yet responded)
+  comment?: string;        // free-text feedback
+  token: string;           // unique URL token
+  sentAt: number;          // email sent timestamp
+  respondedAt?: number;    // when participant responded
+  expiresAt: number;       // token expiry (7 days)
+}
+
 export interface WebhookLog {
   id: string;
   webhookId: string;
@@ -231,4 +291,218 @@ export interface WebhookLog {
   payload: string;
   response?: string;
   timestamp: number;
+}
+
+// Audit log types
+export type AuditAction =
+  | "event_create" | "event_update" | "event_delete" | "event_clone"
+  | "photo_upload" | "photo_delete" | "photo_classify" | "photo_score"
+  | "company_create" | "company_update" | "company_delete"
+  | "survey_update"
+  | "tenant_create" | "tenant_update" | "tenant_delete"
+  | "nps_send"
+  | "admin_login" | "admin_logout"
+  | "settings_update"
+  | "checkin" | "checkin_bulk";
+
+export interface AuditLog {
+  id: string;
+  timestamp: number;
+  action: AuditAction;
+  actor: string;
+  targetType: string;
+  targetId?: string;
+  targetName?: string;
+  details?: string;
+  tenantId?: string;
+}
+
+// Face group (grouping photos by detected person)
+export interface FaceGroup {
+  id: string;
+  label: string;          // e.g. "人物A (黒髪ロング)"
+  photoIds: string[];     // photo IDs in this group
+}
+
+// A/B Test types
+export interface ABVariant {
+  id: string;
+  label: string;             // e.g. "15秒CM", "30秒CM", "60秒CM"
+  cmType: "cm15" | "cm30" | "cm60";
+  impressions: number;        // times shown
+  completions: number;        // times CM completed (watched to end)
+  conversions: number;        // times user engaged with offer
+}
+
+export interface ABTest {
+  id: string;
+  name: string;
+  companyId: string;
+  companyName: string;
+  variants: ABVariant[];
+  status: "active" | "paused" | "completed";
+  createdAt: number;
+  completedAt?: number;
+  eventIds?: string[];        // limit to specific events; undefined = all
+  tenantId?: string;
+}
+
+export interface ABAssignment {
+  id: string;
+  testId: string;
+  variantId: string;
+  userId: string;             // analytics record ID or session ID
+  eventId: string;
+  companyId: string;
+  assignedCmType: "cm15" | "cm30" | "cm60";
+  timestamp: number;
+  completed: boolean;
+  converted: boolean;
+}
+
+// Behavior tracking event types
+export type BehaviorEventType =
+  | "page_view"       // ページ表示
+  | "page_leave"      // ページ離脱 (dwell time計測)
+  | "tap"             // タップ/クリック
+  | "scroll"          // スクロール (depth %)
+  | "form_submit";    // フォーム送信
+
+export interface BehaviorEvent {
+  id: string;
+  eventId: string;          // VLS event ID
+  sessionId: string;        // browser session ID
+  type: BehaviorEventType;
+  page: string;             // e.g. "/", "/survey", "/photos", "/complete"
+  timestamp: number;
+  // Optional detail fields
+  dwellMs?: number;         // milliseconds spent on page (for page_leave)
+  scrollDepth?: number;     // 0-100 percentage
+  targetElement?: string;   // CSS selector or data-testid of clicked element
+  metadata?: Record<string, string>;  // additional key-value pairs
+}
+
+// Coupon/Offer tracking
+export type OfferActionType = "offer_view" | "offer_click" | "coupon_view" | "coupon_copy" | "coupon_redeem";
+
+export interface OfferInteraction {
+  id: string;
+  eventId: string;
+  sessionId: string;
+  companyId: string;
+  companyName: string;
+  action: OfferActionType;
+  couponCode?: string;
+  timestamp: number;
+  metadata?: Record<string, string>;
+}
+
+// Scheduled task types
+export type ScheduledTaskType =
+  | "photo_publish"     // 写真公開
+  | "photo_archive"     // 写真アーカイブ
+  | "nps_send"          // NPSアンケート送信
+  | "report_generate"   // レポート生成
+  | "event_expire";     // イベント期限チェック
+
+export type ScheduledTaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+
+export interface ScheduledTask {
+  id: string;
+  name: string;
+  type: ScheduledTaskType;
+  eventId?: string;
+  tenantId?: string;
+  scheduledAt: number;       // when to execute (Unix ms)
+  executedAt?: number;       // actual execution time
+  status: ScheduledTaskStatus;
+  result?: string;           // execution result/error message
+  createdAt: number;
+  createdBy: string;
+  recurring?: boolean;
+  recurringIntervalMs?: number;  // ms between recurring executions (e.g. 86400000 = 24h)
+}
+
+export interface TaskExecutionLog {
+  id: string;
+  taskId: string;
+  taskName: string;
+  taskType: ScheduledTaskType;
+  status: "success" | "failed";
+  startedAt: number;
+  completedAt: number;
+  result: string;
+  details?: string;
+}
+
+// RBAC (Role-Based Access Control)
+export type AdminRole = "super_admin" | "tenant_admin" | "viewer";
+
+export type Permission =
+  | "events.read" | "events.write"
+  | "companies.read" | "companies.write"
+  | "photos.read" | "photos.write"
+  | "users.read" | "users.write"
+  | "analytics.read"
+  | "settings.write"
+  | "import.write";
+
+export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
+  super_admin: [
+    "events.read", "events.write",
+    "companies.read", "companies.write",
+    "photos.read", "photos.write",
+    "users.read", "users.write",
+    "analytics.read",
+    "settings.write",
+    "import.write",
+  ],
+  tenant_admin: [
+    "events.read", "events.write",
+    "companies.read", "companies.write",
+    "photos.read", "photos.write",
+    "users.read",
+    "analytics.read",
+    "settings.write",
+    "import.write",
+  ],
+  viewer: [
+    "events.read",
+    "companies.read",
+    "photos.read",
+    "users.read",
+    "analytics.read",
+  ],
+};
+
+// Participant engagement score (weighted composite)
+export interface EngagementScore {
+  id: string;
+  eventId: string;
+  eventName: string;
+  participantName: string;
+  analyticsId: string;       // link to AnalyticsRecord
+  // Individual factor scores (0–100 each)
+  pvScore: number;           // page view count
+  dwellScore: number;        // total dwell time on pages
+  cmCompletionScore: number; // CM video watched to completion
+  photoDlScore: number;      // photos downloaded
+  npsScore: number;          // NPS survey responded
+  couponScore: number;       // coupon interactions (copy/redeem)
+  // Weighted total (0–100)
+  totalScore: number;
+  calculatedAt: number;
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email?: string;
+  password: string;
+  role: AdminRole;
+  tenantId?: string;
+  permissions: Permission[];
+  isActive: boolean;
+  createdAt: number;
+  lastLoginAt?: number;
 }

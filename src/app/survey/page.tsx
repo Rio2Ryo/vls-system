@@ -3,16 +3,20 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import TagSelector from "@/components/ui/TagSelector";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { getSurveyForEvent, getStoredSurvey, updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
 import { sendNotification } from "@/lib/notify";
 import { fireWebhook } from "@/lib/webhook";
+import { trackPageView, trackPageLeave, trackFormSubmit } from "@/lib/tracker";
 
 export default function SurveyPage() {
   const router = useRouter();
+  const t = useTranslations("Survey");
 
   const [currentQ, setCurrentQ] = useState(0);
   const [allAnswers, setAllAnswers] = useState<Record<string, InterestTag[]>>({});
@@ -21,6 +25,13 @@ export default function SurveyPage() {
     const eventId = sessionStorage.getItem("eventId");
     return eventId ? getSurveyForEvent(eventId) : getStoredSurvey();
   });
+
+  // Behavior tracking
+  useEffect(() => {
+    trackPageView("/survey");
+    const enterTime = Date.now();
+    return () => trackPageLeave("/survey", enterTime);
+  }, []);
 
   useEffect(() => {
     if (!sessionStorage.getItem("eventId")) {
@@ -81,16 +92,14 @@ export default function SurveyPage() {
       // Send registration notification
       const eventId = sessionStorage.getItem("eventId");
       if (eventId) {
-        sendNotification(eventId, "registration", {
-          participantName: sessionStorage.getItem("respondentName") || undefined,
-        });
+        sendNotification(eventId, "registration", {});
         fireWebhook("survey_complete", {
           eventId,
-          participantName: sessionStorage.getItem("respondentName") || undefined,
           answers: allAnswers,
         });
       }
 
+      trackFormSubmit("/survey", { questionsAnswered: String(survey.length) });
       router.push("/processing");
     }
   };
@@ -101,13 +110,18 @@ export default function SurveyPage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center p-6 pt-12">
+      {/* Language switcher */}
+      <div className="fixed top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
+
       {/* Step indicator */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="flex gap-2 mb-8"
         role="navigation"
-        aria-label={`アンケート進捗: ${currentQ + 1} / ${survey.length}`}
+        aria-label={t("progress", { current: currentQ + 1, total: survey.length })}
       >
         {survey.map((_, i) => (
           <div
@@ -136,7 +150,7 @@ export default function SurveyPage() {
           <Card>
             <div className="text-center mb-1">
               <span className="text-xs text-gray-400 font-medium">
-                Q{currentQ + 1} / {survey.length}
+                {t("questionNumber", { current: currentQ + 1, total: survey.length })}
               </span>
             </div>
 
@@ -155,7 +169,7 @@ export default function SurveyPage() {
             />
 
             <p className="text-xs text-gray-400 text-center mt-3">
-              最大{question.maxSelections}つまで選択できます
+              {t("maxSelections", { max: question.maxSelections })}
             </p>
 
             <div className="text-center mt-6">
@@ -164,7 +178,7 @@ export default function SurveyPage() {
                 disabled={selectedTags.length === 0}
                 size="md"
               >
-                {isLast ? "スタート →" : "つぎへ →"}
+                {isLast ? t("start") : t("next")}
               </Button>
             </div>
           </Card>

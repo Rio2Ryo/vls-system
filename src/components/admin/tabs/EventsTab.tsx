@@ -6,12 +6,14 @@ import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { Company, EventData, EventStatus } from "@/lib/types";
+import { Company, EventData, EventStatus, EventTemplate } from "@/lib/types";
 import {
   getStoredEvents, setStoredEvents, getStoredCompanies,
   getEventsForTenant, getStoredTenants,
+  getStoredTemplates, setStoredTemplates, getTemplatesForTenant,
 } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
+import { logAudit } from "@/lib/audit";
 import { inputCls, TIER_COLORS } from "./adminUtils";
 
 type EventSortKey = "default" | "date-desc" | "date-asc" | "name-asc" | "name-desc" | "photos-desc";
@@ -30,6 +32,11 @@ export default function EventsTab({ onSave, tenantId }: Props) {
   const [qrEventId, setQrEventId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [templates, setTemplatesState] = useState<EventTemplate[]>([]);
+  const [templateNameInput, setTemplateNameInput] = useState<string | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const [sortKey, setSortKey] = useState<EventSortKey>("default");
   const [filterText, setFilterText] = useState("");
@@ -83,6 +90,7 @@ export default function EventsTab({ onSave, tenantId }: Props) {
   useEffect(() => {
     setEvents(tenantId ? getEventsForTenant(tenantId) : getStoredEvents());
     setCompanies(getStoredCompanies());
+    setTemplatesState(tenantId ? getTemplatesForTenant(tenantId) : getStoredTemplates());
   }, [tenantId]);
 
   const tenantInfo = tenantId ? getStoredTenants().find((t) => t.id === tenantId) : null;
@@ -151,14 +159,88 @@ export default function EventsTab({ onSave, tenantId }: Props) {
     setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
     setEditing(null);
     onSave("イベントを保存しました");
+    if (editing === "__new__") {
+      const created = updatedAll[updatedAll.length - 1];
+      logAudit("event_create", { type: "event", id: created.id, name: created.name });
+    } else {
+      const updated = updatedAll.find((e) => e.id === editing);
+      if (updated) logAudit("event_update", { type: "event", id: updated.id, name: updated.name });
+    }
   };
 
   const remove = (id: string) => {
     const allEvents = getStoredEvents();
+    const target = allEvents.find((e) => e.id === id);
     const updatedAll = allEvents.filter((e) => e.id !== id);
     setStoredEvents(updatedAll);
     setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
     onSave("イベントを削除しました");
+    logAudit("event_delete", { type: "event", id, name: target?.name });
+  };
+
+  const cloneEvent = (evt: EventData) => {
+    if (maxEventsReached) return;
+    setEditing("__new__");
+    setForm({
+      name: `${evt.name} (コピー)`,
+      date: "",
+      venue: evt.venue || "",
+      description: evt.description,
+      password: "",
+      companyIds: evt.companyIds || [],
+      slug: "",
+      notifyEmail: evt.notifyEmail || "",
+    });
+    onSave("イベントを複製しました。日付とパスワードを入力してください");
+    logAudit("event_clone", { type: "event", id: evt.id, name: evt.name });
+  };
+
+  const saveAsTemplate = (evt: EventData) => {
+    if (!templateName.trim()) return;
+    const tmpl: EventTemplate = {
+      id: `tmpl-${Date.now()}`,
+      name: templateName.trim(),
+      description: evt.description || undefined,
+      venue: evt.venue || undefined,
+      companyIds: evt.companyIds,
+      surveyQuestions: evt.surveyQuestions,
+      tenantId: tenantId || undefined,
+      createdAt: Date.now(),
+    };
+    const allTemplates = getStoredTemplates();
+    const updated = [...allTemplates, tmpl];
+    setStoredTemplates(updated);
+    setTemplatesState(tenantId ? updated.filter((t) => t.tenantId === tenantId) : updated);
+    setTemplateNameInput(null);
+    setTemplateName("");
+    onSave("テンプレートを保存しました");
+    logAudit("event_create", { type: "template", id: tmpl.id, name: tmpl.name });
+  };
+
+  const createFromTemplate = (tmpl: EventTemplate) => {
+    if (maxEventsReached) return;
+    setEditing("__new__");
+    setForm({
+      name: tmpl.name,
+      date: "",
+      venue: tmpl.venue || "",
+      description: tmpl.description || "",
+      password: "",
+      companyIds: tmpl.companyIds || [],
+      slug: "",
+      notifyEmail: "",
+    });
+    onSave("テンプレートを読み込みました。日付とパスワードを入力してください");
+  };
+
+  const removeTemplate = (id: string) => {
+    const allTemplates = getStoredTemplates();
+    const target = allTemplates.find((t) => t.id === id);
+    const updated = allTemplates.filter((t) => t.id !== id);
+    setStoredTemplates(updated);
+    setTemplatesState(tenantId ? updated.filter((t) => t.tenantId === tenantId) : updated);
+    onSave("テンプレートを削除しました");
+    logAudit("event_delete", { type: "template", id, name: target?.name });
   };
 
   const filtered = events.filter((evt) => {
@@ -265,6 +347,7 @@ export default function EventsTab({ onSave, tenantId }: Props) {
     setStoredEvents(updatedAll);
     setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
     onSave(`公開期限を${days}日延長しました`);
+    logAudit("event_update", { type: "event", id: evtId }, { field: "expiry", days });
   };
 
   const setExpiryDate = (evtId: string, dateStr: string) => {
@@ -278,6 +361,7 @@ export default function EventsTab({ onSave, tenantId }: Props) {
     setStoredEvents(updatedAll);
     setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
     onSave("公開期限を設定しました");
+    logAudit("event_update", { type: "event", id: evtId }, { field: "expiry", date: dateStr });
   };
 
   const archiveEvent = (evtId: string) => {
@@ -288,6 +372,7 @@ export default function EventsTab({ onSave, tenantId }: Props) {
     setStoredEvents(updatedAll);
     setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
     onSave("イベントをアーカイブしました");
+    logAudit("event_update", { type: "event", id: evtId }, { field: "archive" });
   };
 
   return (
@@ -305,9 +390,28 @@ export default function EventsTab({ onSave, tenantId }: Props) {
             {pdfGenerating ? "PDF生成中..." : `QR一括PDF (${events.length}件)`}
           </button>
           {!IS_DEMO_MODE && (
-            <Button size="sm" onClick={startNew} disabled={maxEventsReached}>
-              + 新規作成{maxEventsReached ? ` (上限${tenantInfo?.maxEvents}件)` : ""}
-            </Button>
+            <>
+              {templates.length > 0 && (
+                <select
+                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 focus:border-[#6EC6FF] focus:outline-none"
+                  aria-label="テンプレートから作成"
+                  value=""
+                  onChange={(e) => {
+                    const tmpl = templates.find((t) => t.id === e.target.value);
+                    if (tmpl) createFromTemplate(tmpl);
+                  }}
+                  disabled={maxEventsReached}
+                >
+                  <option value="" disabled>テンプレートから作成</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              )}
+              <Button size="sm" onClick={startNew} disabled={maxEventsReached}>
+                + 新規作成{maxEventsReached ? ` (上限${tenantInfo?.maxEvents}件)` : ""}
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -436,6 +540,8 @@ export default function EventsTab({ onSave, tenantId }: Props) {
               <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-full">
                 {evt.photos.length}枚
               </span>
+              {!IS_DEMO_MODE && <button onClick={() => cloneEvent(evt)} aria-label={`${evt.name}をクローン`} className="text-xs text-purple-500 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 rounded">クローン</button>}
+              {!IS_DEMO_MODE && <button onClick={() => { setTemplateNameInput(evt.id); setTemplateName(`${evt.name}テンプレート`); }} aria-label={`${evt.name}をテンプレート保存`} className="text-xs text-green-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded">テンプレ保存</button>}
               {!IS_DEMO_MODE && <button onClick={() => startEdit(evt)} aria-label={`${evt.name}を編集`} className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">編集</button>}
               {!IS_DEMO_MODE && <button onClick={() => remove(evt.id)} aria-label={`${evt.name}を削除`} className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">削除</button>}
             </div>
@@ -456,6 +562,24 @@ export default function EventsTab({ onSave, tenantId }: Props) {
               })
             )}
           </div>
+
+          {/* Template name inline dialog */}
+          {templateNameInput === evt.id && (
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <div className="flex items-center gap-2">
+                <input
+                  className={inputCls + " flex-1"}
+                  placeholder="テンプレート名"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") saveAsTemplate(evt); if (e.key === "Escape") setTemplateNameInput(null); }}
+                />
+                <Button size="sm" onClick={() => saveAsTemplate(evt)}>保存</Button>
+                <Button size="sm" variant="secondary" onClick={() => setTemplateNameInput(null)}>取消</Button>
+              </div>
+            </div>
+          )}
 
           {/* Publish period & status */}
           <div className="mt-2 flex items-center gap-2 flex-wrap">
@@ -572,6 +696,63 @@ export default function EventsTab({ onSave, tenantId }: Props) {
           </div>
         </Card>
       ))}
+
+      {/* Template management section */}
+      {!IS_DEMO_MODE && templates.length > 0 && (
+        <div className="mt-6">
+          <button
+            onClick={() => setShowTemplates(!showTemplates)}
+            className="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
+            aria-expanded={showTemplates}
+          >
+            <span className={`transform transition-transform ${showTemplates ? "rotate-90" : ""}`}>&#9654;</span>
+            テンプレート一覧 ({templates.length}件)
+          </button>
+          <AnimatePresence>
+            {showTemplates && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden mt-3 space-y-2"
+              >
+                {templates.map((tmpl) => (
+                  <Card key={tmpl.id}>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-700">{tmpl.name}</h4>
+                        <p className="text-xs text-gray-400">
+                          {tmpl.venue && `${tmpl.venue} · `}
+                          {tmpl.description && `${tmpl.description} · `}
+                          作成: {new Date(tmpl.createdAt).toLocaleDateString("ja-JP")}
+                          {tmpl.companyIds && tmpl.companyIds.length > 0 && ` · CM企業${tmpl.companyIds.length}社`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => createFromTemplate(tmpl)}
+                          disabled={maxEventsReached}
+                          aria-label={`${tmpl.name}を使ってイベント作成`}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-[#6EC6FF] text-white hover:bg-blue-400 font-medium transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
+                        >
+                          使う
+                        </button>
+                        <button
+                          onClick={() => removeTemplate(tmpl.id)}
+                          aria-label={`${tmpl.name}テンプレートを削除`}
+                          className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

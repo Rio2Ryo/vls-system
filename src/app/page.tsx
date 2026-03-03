@@ -3,15 +3,26 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { getEventByPassword, addAnalyticsRecord } from "@/lib/store";
+import { trackPageView, trackPageLeave, trackFormSubmit } from "@/lib/tracker";
 
 function TopPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations("Login");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  // Behavior tracking
+  useEffect(() => {
+    trackPageView("/");
+    const enterTime = Date.now();
+    return () => trackPageLeave("/", enterTime);
+  }, []);
 
   // Auto-fill password from ?pw= query parameter
   useEffect(() => {
@@ -21,27 +32,28 @@ function TopPageInner() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    trackFormSubmit("/");
     setError("");
 
     const trimmed = password.trim();
     if (!trimmed) {
-      setError("パスワードを入力してください");
+      setError(t("errorEmpty"));
       return;
     }
 
     const event = getEventByPassword(trimmed);
     if (!event) {
-      setError("パスワードが違います");
+      setError(t("errorWrong"));
       return;
     }
 
     // Check publish period
     if (event.status === "archived") {
-      setError("このイベントの写真は長期保存中のため現在ご覧いただけません");
+      setError(t("errorArchived"));
       return;
     }
     if (event.expiresAt && event.expiresAt < Date.now() && event.status !== "active") {
-      setError("このイベントの写真公開期間は終了しました");
+      setError(t("errorExpired"));
       return;
     }
 
@@ -74,6 +86,11 @@ function TopPageInner() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6">
+      {/* Language switcher */}
+      <div className="fixed top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
+
       {/* Logo + Title */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -86,13 +103,13 @@ function TopPageInner() {
           className="mb-3"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mirai.svg" alt="未来開発ラボ ロゴ" className="w-20 h-20 mx-auto" />
+          <img src="/logo-mirai.svg" alt={`${t("brandName")} ロゴ`} className="w-20 h-20 mx-auto" />
         </motion.div>
         <h1 className="text-3xl md:text-4xl font-black text-[#1a237e]">
-          未来開発ラボ
+          {t("brandName")}
         </h1>
         <p className="text-gray-500 mt-1 text-sm">
-          イベント写真ダウンロードサービス
+          {t("subtitle")}
         </p>
       </motion.div>
 
@@ -104,14 +121,14 @@ function TopPageInner() {
               htmlFor="password"
               className="block text-sm font-bold text-gray-600 mb-2"
             >
-              アクセスパスワード
+              {t("passwordLabel")}
             </label>
             <input
               id="password"
               type="text"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="例: SUMMER2026"
+              placeholder={t("passwordPlaceholder")}
               className="w-full px-4 py-3 rounded-xl border border-gray-200
                          focus:border-[#6EC6FF] focus:ring-2 focus:ring-blue-100
                          focus:outline-none text-center text-lg font-mono
@@ -134,7 +151,7 @@ function TopPageInner() {
 
           <div className="text-center">
             <Button type="submit" size="lg">
-              写真を見る →
+              {t("submit")}
             </Button>
           </div>
         </form>
@@ -147,7 +164,7 @@ function TopPageInner() {
         transition={{ delay: 1 }}
         className="text-xs text-gray-300 mt-6"
       >
-        イベント主催者からお知らせされたパスワードを入力してください
+        {t("hint")}
       </motion.p>
     </main>
   );

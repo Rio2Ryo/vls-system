@@ -6,6 +6,7 @@ import Card from "@/components/ui/Card";
 import { Company, CompanyTier, InterestTag } from "@/lib/types";
 import { getStoredCompanies, setStoredCompanies } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
+import { logAudit } from "@/lib/audit";
 import { inputCls, TIER_COLORS, uploadFileToR2, readAsDataUrl, extractYouTubeId } from "./adminUtils";
 
 interface Props {
@@ -18,7 +19,7 @@ export default function CompaniesTab({ onSave }: Props) {
   const [form, setForm] = useState({
     name: "", tier: "gold" as CompanyTier, tags: "" as string,
     cm15: "", cm30: "", cm60: "",
-    offerText: "", offerUrl: "", couponCode: "",
+    offerText: "", offerUrl: "", couponCode: "", portalPassword: "",
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
@@ -28,7 +29,7 @@ export default function CompaniesTab({ onSave }: Props) {
 
   const startNew = () => {
     setEditing("__new__");
-    setForm({ name: "", tier: "gold", tags: "", cm15: "", cm30: "", cm60: "", offerText: "", offerUrl: "", couponCode: "" });
+    setForm({ name: "", tier: "gold", tags: "", cm15: "", cm30: "", cm60: "", offerText: "", offerUrl: "", couponCode: "", portalPassword: "" });
     setLogoFile(null);
     setLogoPreview("");
   };
@@ -39,6 +40,7 @@ export default function CompaniesTab({ onSave }: Props) {
       name: c.name, tier: c.tier, tags: c.tags.join(", "),
       cm15: c.videos.cm15, cm30: c.videos.cm30, cm60: c.videos.cm60,
       offerText: c.offerText, offerUrl: c.offerUrl, couponCode: c.couponCode || "",
+      portalPassword: c.portalPassword || "",
     });
     setLogoFile(null);
     setLogoPreview(c.logoUrl);
@@ -87,6 +89,7 @@ export default function CompaniesTab({ onSave }: Props) {
           offerText: form.offerText,
           offerUrl: form.offerUrl,
           couponCode: form.couponCode || undefined,
+          portalPassword: form.portalPassword || undefined,
         };
         updated = [...companies, newCo];
       } else {
@@ -105,6 +108,7 @@ export default function CompaniesTab({ onSave }: Props) {
             videos: { cm15: form.cm15, cm30: form.cm30, cm60: form.cm60 },
             offerText: form.offerText, offerUrl: form.offerUrl,
             couponCode: form.couponCode || undefined,
+            portalPassword: form.portalPassword || undefined,
           };
         });
       }
@@ -112,16 +116,25 @@ export default function CompaniesTab({ onSave }: Props) {
       setCompanies(updated);
       setEditing(null);
       onSave("企業情報を保存しました");
+      if (editing === "__new__") {
+        const created = updated[updated.length - 1];
+        logAudit("company_create", { type: "company", id: created.id, name: created.name });
+      } else {
+        const target = updated.find((c) => c.id === editing);
+        if (target) logAudit("company_update", { type: "company", id: target.id, name: target.name });
+      }
     } finally {
       setSaving(false);
     }
   };
 
   const remove = (id: string) => {
+    const target = companies.find((c) => c.id === id);
     const updated = companies.filter((c) => c.id !== id);
     setStoredCompanies(updated);
     setCompanies(updated);
     onSave("企業を削除しました");
+    logAudit("company_delete", { type: "company", id, name: target?.name });
   };
 
   return (
@@ -173,6 +186,7 @@ export default function CompaniesTab({ onSave }: Props) {
             <input className={inputCls} placeholder="オファーテキスト" aria-label="オファーテキスト" value={form.offerText} onChange={(e) => setForm({ ...form, offerText: e.target.value })} />
             <input className={inputCls} placeholder="オファーURL" aria-label="オファーURL" value={form.offerUrl} onChange={(e) => setForm({ ...form, offerUrl: e.target.value })} />
             <input className={inputCls + " font-mono"} placeholder="クーポンコード（任意）" aria-label="クーポンコード" value={form.couponCode} onChange={(e) => setForm({ ...form, couponCode: e.target.value })} />
+            <input className={inputCls + " font-mono"} placeholder="ポータルパスワード（任意）" aria-label="ポータルパスワード" value={form.portalPassword} onChange={(e) => setForm({ ...form, portalPassword: e.target.value })} />
             <div className="flex gap-2">
               <Button size="sm" onClick={save} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
               <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>キャンセル</Button>

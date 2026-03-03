@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Card from "@/components/ui/Card";
-import { EventData, PhotoClassification, PhotoData } from "@/lib/types";
-import { getStoredEvents, setStoredEvents, getEventsForTenant } from "@/lib/store";
+import { EventData, PhotoClassification, PhotoData, FaceGroup } from "@/lib/types";
+import { getStoredEvents, setStoredEvents, getEventsForTenant, getFaceGroups, setFaceGroups } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
-import { inputCls, uploadFileToR2, createThumbnailBlob, readAsDataUrl } from "./adminUtils";
+import { logAudit } from "@/lib/audit";
+import { inputCls, uploadFileToR2, createThumbnailBlobAR, readAsDataUrl, resizeImageBlob, validateImageFiles } from "./adminUtils";
 import { csrfHeaders } from "@/lib/csrf";
 
 interface Props {
@@ -39,6 +40,14 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const [classifying, setClassifying] = useState(false);
   const [classifyProgress, setClassifyProgress] = useState({ current: 0, total: 0 });
   const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
+  const [scoring, setScoring] = useState(false);
+  const [scoreProgress, setScoreProgress] = useState({ current: 0, total: 0 });
+  const [detecting, setDetecting] = useState(false);
+  const [detectProgress, setDetectProgress] = useState({ current: 0, total: 0 });
+  const [grouping, setGrouping] = useState(false);
+  const [faceGroups, setFaceGroupsState] = useState<FaceGroup[]>([]);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  const [uploadFileNames, setUploadFileNames] = useState<string[]>([]);
 
   useEffect(() => {
     const evts = tenantId ? getEventsForTenant(tenantId) : getStoredEvents();
@@ -49,6 +58,12 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
       setSelectedEventId(evts[0].id);
     }
   }, [activeEventId, tenantId]);
+
+  useEffect(() => {
+    if (selectedEventId) {
+      setFaceGroupsState(getFaceGroups(selectedEventId));
+    }
+  }, [selectedEventId]);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
@@ -62,20 +77,33 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     if (!selectedEvent) return;
 
     const fileArray = Array.from(files);
+    const { valid, errors } = validateImageFiles(fileArray);
+    setUploadErrors(errors);
+
+    if (valid.length === 0) {
+      if (errors.length > 0) onSave("アップロード可能なファイルがありません");
+      return;
+    }
+
     setUploading(true);
-    setUploadProgress({ current: 0, total: fileArray.length });
+    setUploadProgress({ current: 0, total: valid.length });
+    setUploadFileNames(valid.map((f) => f.name));
 
     const newPhotos: PhotoData[] = [];
 
-    for (let i = 0; i < fileArray.length; i++) {
-      const file = fileArray[i];
-      setUploadProgress({ current: i + 1, total: fileArray.length });
+    for (let i = 0; i < valid.length; i++) {
+      const file = valid[i];
+      setUploadProgress({ current: i + 1, total: valid.length });
 
-      const originalResult = await uploadFileToR2(file, selectedEventId, "photos");
+      // Client-side resize original to max 2048px
+      const resizedBlob = await resizeImageBlob(file, 2048);
+      const resizedFile = new File([resizedBlob], file.name, { type: "image/jpeg" });
+
+      const originalResult = await uploadFileToR2(resizedFile, selectedEventId, "photos");
 
       let thumbResult: { key: string; url: string } | null = null;
       if (originalResult) {
-        const thumbBlob = await createThumbnailBlob(file);
+        const thumbBlob = await createThumbnailBlobAR(file, 400, 400);
         const thumbFile = new File([thumbBlob], file.name, { type: "image/jpeg" });
         thumbResult = await uploadFileToR2(thumbFile, selectedEventId, "thumbs");
       }
@@ -86,16 +114,22 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
           originalUrl: originalResult.url,
           thumbnailUrl: thumbResult.url,
           watermarked: true,
+          uploadedAt: Date.now(),
+          originalSize: file.size,
+          optimizedSize: resizedBlob.size,
         });
       } else {
-        const dataUrl = await readAsDataUrl(file);
-        const thumbBlob = await createThumbnailBlob(file);
+        const dataUrl = await readAsDataUrl(resizedFile);
+        const thumbBlob = await createThumbnailBlobAR(file, 400, 400);
         const thumbDataUrl = await readAsDataUrl(new File([thumbBlob], file.name));
         newPhotos.push({
           id: `uploaded-${Date.now()}-${i}`,
           originalUrl: dataUrl,
           thumbnailUrl: thumbDataUrl,
           watermarked: true,
+          uploadedAt: Date.now(),
+          originalSize: file.size,
+          optimizedSize: resizedBlob.size,
         });
       }
     }
@@ -108,7 +142,15 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     persistEvents(updated);
     setUploading(false);
     setUploadProgress({ current: 0, total: 0 });
-    onSave(`${newPhotos.length}枚の写真を追加しました`);
+    setUploadFileNames([]);
+
+    // Calculate total savings
+    const totalOriginal = newPhotos.reduce((s, p) => s + (p.originalSize || 0), 0);
+    const totalOptimized = newPhotos.reduce((s, p) => s + (p.optimizedSize || 0), 0);
+    const savedPct = totalOriginal > 0 ? Math.round((1 - totalOptimized / totalOriginal) * 100) : 0;
+    const savedMsg = savedPct > 0 ? ` (${savedPct}%圧縮)` : "";
+    onSave(`${newPhotos.length}枚の写真を追加しました${savedMsg}`);
+    logAudit("photo_upload", { type: "photo", id: selectedEventId, name: selectedEvent?.name }, { count: newPhotos.length });
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -129,6 +171,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     );
     persistEvents(updated);
     onSave("写真を削除しました");
+    logAudit("photo_delete", { type: "photo", id: photoId });
   };
 
   // --- Classification ---
@@ -151,6 +194,155 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     } catch {
       return null;
     }
+  };
+
+  /** Score a single photo's quality via API */
+  const scoreOne = async (imageUrl: string): Promise<{ total: number } | null> => {
+    try {
+      const res = await fetch("/api/score-photo", {
+        method: "POST",
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (res.status === 503) return null;
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  };
+
+  /** Auto-score all unscored photos in the selected event */
+  const handleAutoScore = async () => {
+    if (!selectedEvent || scoring) return;
+    const unscored = selectedEvent.photos.filter((p) => p.qualityScore === undefined);
+    if (unscored.length === 0) {
+      onSave("全写真がスコアリング済みです");
+      return;
+    }
+    setScoring(true);
+    setScoreProgress({ current: 0, total: unscored.length });
+    let currentEvents = [...events];
+    let scored = 0;
+    for (let i = 0; i < unscored.length; i++) {
+      setScoreProgress({ current: i + 1, total: unscored.length });
+      const photo = unscored[i];
+      const result = await scoreOne(photo.thumbnailUrl);
+      if (result) {
+        scored++;
+        currentEvents = currentEvents.map((e) =>
+          e.id === selectedEventId
+            ? { ...e, photos: e.photos.map((p) => p.id === photo.id ? { ...p, qualityScore: result.total } : p) }
+            : e
+        );
+        persistEvents(currentEvents);
+      } else {
+        break; // API not available
+      }
+    }
+    setScoring(false);
+    setScoreProgress({ current: 0, total: 0 });
+    onSave(scored > 0 ? `${scored}枚の品質スコアリングが完了しました` : "ANTHROPIC_API_KEY が未設定のためスコアリングできません");
+    if (scored > 0) logAudit("photo_score", { type: "photo", id: selectedEventId, name: selectedEvent?.name }, { scored });
+  };
+
+  /** Detect faces in a single photo */
+  const detectFacesOne = async (imageUrl: string): Promise<{ faceCount: number; descriptions: string[] } | null> => {
+    try {
+      const res = await fetch("/api/detect-faces", {
+        method: "POST",
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (res.status === 503) return null;
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  };
+
+  /** Auto-detect faces in all undetected photos */
+  const handleFaceDetect = async () => {
+    if (!selectedEvent || detecting) return;
+    const undetected = selectedEvent.photos.filter((p) => p.faceCount === undefined);
+    if (undetected.length === 0) {
+      onSave("全写真が顔検出済みです");
+      return;
+    }
+    setDetecting(true);
+    setDetectProgress({ current: 0, total: undetected.length });
+    let currentEvents = [...events];
+    let detected = 0;
+    for (let i = 0; i < undetected.length; i++) {
+      setDetectProgress({ current: i + 1, total: undetected.length });
+      const photo = undetected[i];
+      const result = await detectFacesOne(photo.thumbnailUrl);
+      if (result) {
+        detected++;
+        currentEvents = currentEvents.map((e) =>
+          e.id === selectedEventId
+            ? { ...e, photos: e.photos.map((p) => p.id === photo.id ? { ...p, faceCount: result.faceCount, faceDescriptions: result.descriptions } : p) }
+            : e
+        );
+        persistEvents(currentEvents);
+      } else {
+        break;
+      }
+    }
+    setDetecting(false);
+    setDetectProgress({ current: 0, total: 0 });
+    onSave(detected > 0 ? `${detected}枚の顔検出が完了しました` : "ANTHROPIC_API_KEY が未設定のため顔検出できません");
+  };
+
+  /** Group photos by detected faces via API */
+  const handleFaceGroup = async () => {
+    if (!selectedEvent || grouping) return;
+    const withFaces = selectedEvent.photos.filter((p) => p.faceCount && p.faceCount > 0 && p.faceDescriptions);
+    if (withFaces.length === 0) {
+      onSave("顔が検出された写真がありません。先に顔検出を実行してください");
+      return;
+    }
+    setGrouping(true);
+    try {
+      const res = await fetch("/api/group-faces", {
+        method: "POST",
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          photos: withFaces.map((p) => ({ photoId: p.id, descriptions: p.faceDescriptions })),
+        }),
+      });
+      if (!res.ok) {
+        onSave("グルーピングに失敗しました");
+        setGrouping(false);
+        return;
+      }
+      const data = await res.json();
+      const groups: FaceGroup[] = data.groups || [];
+
+      // Save face groups
+      setFaceGroups(selectedEventId, groups);
+      setFaceGroupsState(groups);
+
+      // Update photo faceGroupId
+      let currentEvents = [...events];
+      currentEvents = currentEvents.map((e) => {
+        if (e.id !== selectedEventId) return e;
+        return {
+          ...e,
+          photos: e.photos.map((p) => {
+            const group = groups.find((g) => g.photoIds.includes(p.id));
+            return group ? { ...p, faceGroupId: group.id } : p;
+          }),
+        };
+      });
+      persistEvents(currentEvents);
+      onSave(`${groups.length}グループに分類しました`);
+      logAudit("photo_classify", { type: "photo", id: selectedEventId, name: selectedEvent?.name }, { groups: groups.length, action: "face_group" });
+    } catch {
+      onSave("グルーピングに失敗しました");
+    }
+    setGrouping(false);
   };
 
   /** Auto-classify all unclassified photos in the selected event */
@@ -205,6 +397,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
         ? "ANTHROPIC_API_KEY が未設定です。手動分類をご利用ください"
         : `${classified}枚を自動分類しました`
     );
+    if (classified > 0) logAudit("photo_classify", { type: "photo", id: selectedEventId, name: selectedEvent?.name }, { classified });
   };
 
   /** Manually set classification for a photo */
@@ -312,12 +505,48 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
                 <div className="text-4xl mb-2">📁</div>
                 <p className="font-medium text-gray-600">写真をドラッグ＆ドロップ</p>
                 <p className="text-xs text-gray-400 mt-1">またはクリックしてファイルを選択</p>
+                <p className="text-[10px] text-gray-300 dark:text-gray-500 mt-2">JPEG, PNG, WebP, HEIC対応 ・ 最大20MB/枚</p>
               </>
             )}
+
+            {/* Upload progress - per file */}
+            {uploading && uploadFileNames.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {uploadFileNames.map((name, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded-full text-[10px] ${
+                      i < uploadProgress.current - 1 ? "bg-green-100 text-green-600" :
+                      i === uploadProgress.current - 1 ? "bg-blue-100 text-blue-600 animate-pulse" :
+                      "bg-gray-100 text-gray-400"
+                    }`}>
+                      {i < uploadProgress.current - 1 ? "\u2713" : i === uploadProgress.current - 1 ? "\u2191" : "\u00b7"}
+                    </span>
+                    <span className={`truncate max-w-[200px] ${
+                      i < uploadProgress.current - 1 ? "text-gray-500 dark:text-gray-400" :
+                      i === uploadProgress.current - 1 ? "text-blue-600 dark:text-blue-400 font-medium" :
+                      "text-gray-300 dark:text-gray-600"
+                    }`}>{name}</span>
+                    {i === uploadProgress.current - 1 && (
+                      <span className="text-[10px] text-blue-400">リサイズ+アップロード中...</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Validation errors */}
+            {uploadErrors.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {uploadErrors.map((err, i) => (
+                  <p key={i} className="text-xs text-red-500 dark:text-red-400">{err}</p>
+                ))}
+              </div>
+            )}
+
             <input
               id="photo-file-input"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,.heic,.heif"
               multiple
               className="hidden"
               onChange={handleFileSelect}
@@ -364,6 +593,102 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
                 className="bg-gradient-to-r from-blue-400 to-purple-400 h-1.5 rounded-full transition-all"
                 style={{ width: `${(classifyProgress.current / classifyProgress.total) * 100}%` }}
               />
+            </div>
+          )}
+
+          {/* Quality scoring controls */}
+          <div className="flex items-center justify-between mb-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">品質スコアリング</h3>
+            <div className="flex items-center gap-2">
+              {scoring ? (
+                <div className="flex items-center gap-2 text-xs text-blue-600">
+                  <span className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full" aria-hidden="true" />
+                  採点中... ({scoreProgress.current}/{scoreProgress.total})
+                </div>
+              ) : (
+                <button
+                  onClick={handleAutoScore}
+                  disabled={!selectedEvent || selectedEvent.photos.filter((p) => p.qualityScore === undefined).length === 0}
+                  aria-label="未採点写真を一括品質スコアリング"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-medium hover:from-yellow-600 hover:to-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                >
+                  一括スコアリング ({selectedEvent ? selectedEvent.photos.filter((p) => p.qualityScore === undefined).length : 0}枚)
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Scoring progress bar */}
+          {scoring && scoreProgress.total > 0 && (
+            <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
+              <div
+                className="bg-gradient-to-r from-yellow-400 to-orange-400 h-1.5 rounded-full transition-all"
+                style={{ width: `${(scoreProgress.current / scoreProgress.total) * 100}%` }}
+              />
+            </div>
+          )}
+
+          {/* Face detection & grouping controls */}
+          <div className="flex items-center justify-between mb-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">顔検出＆グルーピング</h3>
+            <div className="flex items-center gap-2">
+              {detecting ? (
+                <div className="flex items-center gap-2 text-xs text-blue-600">
+                  <span className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full" aria-hidden="true" />
+                  検出中... ({detectProgress.current}/{detectProgress.total})
+                </div>
+              ) : (
+                <button
+                  onClick={handleFaceDetect}
+                  disabled={!selectedEvent || selectedEvent.photos.filter((p) => p.faceCount === undefined).length === 0}
+                  aria-label="未検出写真の顔を一括検出"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:from-cyan-600 hover:to-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  顔検出 ({selectedEvent ? selectedEvent.photos.filter((p) => p.faceCount === undefined).length : 0}枚)
+                </button>
+              )}
+              {grouping ? (
+                <div className="flex items-center gap-2 text-xs text-purple-600">
+                  <span className="animate-spin h-3 w-3 border-2 border-purple-500 border-t-transparent rounded-full" aria-hidden="true" />
+                  グルーピング中...
+                </div>
+              ) : (
+                <button
+                  onClick={handleFaceGroup}
+                  disabled={!selectedEvent || selectedEvent.photos.filter((p) => p.faceCount && p.faceCount > 0).length === 0}
+                  aria-label="検出済み写真を人物別にグルーピング"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                >
+                  グルーピング
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Face detection progress bar */}
+          {detecting && detectProgress.total > 0 && (
+            <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
+              <div
+                className="bg-gradient-to-r from-cyan-400 to-blue-400 h-1.5 rounded-full transition-all"
+                style={{ width: `${(detectProgress.current / detectProgress.total) * 100}%` }}
+              />
+            </div>
+          )}
+
+          {/* Face groups display */}
+          {faceGroups.length > 0 && (
+            <div className="mb-3 pt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-2">検出グループ ({faceGroups.length}人)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {faceGroups.map((g) => (
+                  <span
+                    key={g.id}
+                    className="text-[10px] px-2 py-1 rounded-full bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 font-medium"
+                  >
+                    {g.label} ({g.photoIds.length}枚)
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 
@@ -416,6 +741,28 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
                     className={`absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${CLASS_META[p.classification].bg} ${CLASS_META[p.classification].color}`}
                   >
                     {CLASS_META[p.classification].label}
+                  </span>
+                )}
+
+                {/* Face count badge */}
+                {p.faceCount !== undefined && p.faceCount > 0 && (
+                  <span className="absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-cyan-100 text-cyan-700 shadow-sm">
+                    {p.faceCount}人
+                  </span>
+                )}
+
+                {/* Quality score badge */}
+                {p.qualityScore !== undefined && (
+                  <span
+                    className={`absolute top-1 right-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-sm ${
+                      p.qualityScore >= 80
+                        ? "bg-yellow-400 text-yellow-900"
+                        : p.qualityScore >= 50
+                          ? "bg-gray-200 text-gray-700"
+                          : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {p.qualityScore}点
                   </span>
                 )}
 

@@ -7,12 +7,14 @@ import QRCode from "qrcode";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import AdminHeader from "@/components/admin/AdminHeader";
-import { Company, EventData } from "@/lib/types";
+import { Company, EventData, EventTemplate } from "@/lib/types";
 import { IS_DEMO_MODE } from "@/lib/demo";
 import {
   getStoredEvents, setStoredEvents,
   getStoredCompanies,
   getStoredAnalytics,
+  getStoredTemplates, setStoredTemplates,
+  getTemplatesForTenant,
 } from "@/lib/store";
 import { AnalyticsRecord } from "@/lib/types";
 
@@ -38,6 +40,10 @@ export default function EventsPage() {
   const [qrEventId, setQrEventId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [activeEventId, setActiveEventId] = useState<string>("");
+  const [templates, setTemplates] = useState<EventTemplate[]>([]);
+  const [templateNameInput, setTemplateNameInput] = useState<string | null>(null); // event ID being saved as template
+  const [templateName, setTemplateName] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const tenantId = session?.user?.tenantId ?? (typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") : null) ?? null;
@@ -55,6 +61,7 @@ export default function EventsPage() {
     setCompanies(getStoredCompanies());
     const tenantEventIds = new Set(evts.map((e) => e.id));
     setAnalytics(tenantId ? getStoredAnalytics().filter((a) => tenantEventIds.has(a.eventId)) : getStoredAnalytics());
+    setTemplates(tenantId ? getTemplatesForTenant(tenantId) : getStoredTemplates());
     if (evts.length > 0 && !activeEventId) setActiveEventId(evts[0].id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tenantId]);
@@ -170,6 +177,67 @@ export default function EventsPage() {
     showToast("イベントを削除しました");
   };
 
+  // --- Clone ---
+  const cloneEvent = (evt: EventData) => {
+    setEditing("__new__");
+    setForm({
+      name: `${evt.name} (コピー)`,
+      date: "",
+      venue: evt.venue || "",
+      description: evt.description,
+      password: "",
+      companyIds: evt.companyIds || [],
+      notifyEmail: evt.notifyEmail || "",
+    });
+    showToast("イベントを複製しました。日付とパスワードを入力してください");
+  };
+
+  // --- Template save ---
+  const saveAsTemplate = (evt: EventData) => {
+    if (!templateName.trim()) return;
+    const tmpl: EventTemplate = {
+      id: `tmpl-${Date.now()}`,
+      name: templateName.trim(),
+      description: evt.description || undefined,
+      venue: evt.venue || undefined,
+      companyIds: evt.companyIds,
+      surveyQuestions: evt.surveyQuestions,
+      tenantId: tenantId || undefined,
+      createdAt: Date.now(),
+    };
+    const allTemplates = getStoredTemplates();
+    const updated = [...allTemplates, tmpl];
+    setStoredTemplates(updated);
+    setTemplates(tenantId ? updated.filter((t) => t.tenantId === tenantId) : updated);
+    setTemplateNameInput(null);
+    setTemplateName("");
+    showToast("テンプレートを保存しました");
+  };
+
+  // --- Create from template ---
+  const createFromTemplate = (tmpl: EventTemplate) => {
+    setEditing("__new__");
+    setForm({
+      name: tmpl.name,
+      date: "",
+      venue: tmpl.venue || "",
+      description: tmpl.description || "",
+      password: "",
+      companyIds: tmpl.companyIds || [],
+      notifyEmail: "",
+    });
+    showToast("テンプレートを読み込みました。日付とパスワードを入力してください");
+  };
+
+  // --- Delete template ---
+  const removeTemplate = (id: string) => {
+    const allTemplates = getStoredTemplates();
+    const updated = allTemplates.filter((t) => t.id !== id);
+    setStoredTemplates(updated);
+    setTemplates(tenantId ? updated.filter((t) => t.tenantId === tenantId) : updated);
+    showToast("テンプレートを削除しました");
+  };
+
   // --- Per-event stats ---
   const getEventStats = (eventId: string) => {
     const recs = analytics.filter((r) => r.eventId === eventId);
@@ -233,7 +301,27 @@ export default function EventsPage() {
         {/* New event button + form */}
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">イベント一覧</h2>
-          {!IS_DEMO_MODE && <Button size="sm" onClick={startNew}>+ 新規イベント作成</Button>}
+          {!IS_DEMO_MODE && (
+            <div className="flex gap-2 items-center">
+              {templates.length > 0 && (
+                <select
+                  className="text-xs px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 focus:border-[#6EC6FF] focus:outline-none"
+                  aria-label="テンプレートから作成"
+                  value=""
+                  onChange={(e) => {
+                    const tmpl = templates.find((t) => t.id === e.target.value);
+                    if (tmpl) createFromTemplate(tmpl);
+                  }}
+                >
+                  <option value="" disabled>テンプレートから作成</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              )}
+              <Button size="sm" onClick={startNew}>+ 新規イベント作成</Button>
+            </div>
+          )}
         </div>
 
         <AnimatePresence>
@@ -370,10 +458,30 @@ export default function EventsPage() {
 
                     <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                       <button onClick={() => setActiveEventId(evt.id)} aria-label={`${evt.name}を操作対象に選択`} className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">選択</button>
+                      {!IS_DEMO_MODE && <button onClick={() => cloneEvent(evt)} aria-label={`${evt.name}をクローン`} className="text-xs text-purple-500 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 rounded">クローン</button>}
+                      {!IS_DEMO_MODE && <button onClick={() => { setTemplateNameInput(evt.id); setTemplateName(`${evt.name}テンプレート`); }} aria-label={`${evt.name}をテンプレート保存`} className="text-xs text-green-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded">テンプレ保存</button>}
                       {!IS_DEMO_MODE && <button onClick={() => startEdit(evt)} aria-label={`${evt.name}を編集`} className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">編集</button>}
                       {!IS_DEMO_MODE && <button onClick={() => remove(evt.id)} aria-label={`${evt.name}を削除`} className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">削除</button>}
                     </div>
                   </div>
+
+                  {/* Template name inline dialog */}
+                  {templateNameInput === evt.id && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                      <div className="flex items-center gap-2">
+                        <input
+                          className={inputCls + " flex-1"}
+                          placeholder="テンプレート名"
+                          value={templateName}
+                          onChange={(e) => setTemplateName(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") saveAsTemplate(evt); if (e.key === "Escape") setTemplateNameInput(null); }}
+                        />
+                        <Button size="sm" onClick={() => saveAsTemplate(evt)}>保存</Button>
+                        <Button size="sm" variant="secondary" onClick={() => setTemplateNameInput(null)}>取消</Button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Shareable URL */}
                   <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
@@ -433,6 +541,62 @@ export default function EventsPage() {
                 </Card>
               );
             })}
+          </div>
+        )}
+
+        {/* Template management section */}
+        {!IS_DEMO_MODE && templates.length > 0 && (
+          <div className="mt-8">
+            <button
+              onClick={() => setShowTemplates(!showTemplates)}
+              className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
+              aria-expanded={showTemplates}
+            >
+              <span className={`transform transition-transform ${showTemplates ? "rotate-90" : ""}`}>&#9654;</span>
+              テンプレート一覧 ({templates.length}件)
+            </button>
+            <AnimatePresence>
+              {showTemplates && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden mt-3 space-y-2"
+                >
+                  {templates.map((tmpl) => (
+                    <Card key={tmpl.id}>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200">{tmpl.name}</h4>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                            {tmpl.venue && `${tmpl.venue} · `}
+                            {tmpl.description && `${tmpl.description} · `}
+                            作成: {new Date(tmpl.createdAt).toLocaleDateString("ja-JP")}
+                            {tmpl.companyIds && tmpl.companyIds.length > 0 && ` · CM企業${tmpl.companyIds.length}社`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => createFromTemplate(tmpl)}
+                            aria-label={`${tmpl.name}を使ってイベント作成`}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-[#6EC6FF] text-white hover:bg-blue-400 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
+                          >
+                            使う
+                          </button>
+                          <button
+                            onClick={() => removeTemplate(tmpl.id)}
+                            aria-label={`${tmpl.name}テンプレートを削除`}
+                            className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>

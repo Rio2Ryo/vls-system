@@ -1,13 +1,13 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { PhotoData } from "@/lib/types";
 import { useRef, useEffect, useCallback } from "react";
 
 interface PhotoModalProps {
   photo: PhotoData | null;
   onClose: () => void;
-  onDownload?: (photo: PhotoData) => void;
 }
 
 function LargeWatermarkedImage({ src }: { src: string }) {
@@ -34,21 +34,21 @@ function LargeWatermarkedImage({ src }: { src: string }) {
       ctx.drawImage(canvas, 0, 0);
       ctx.filter = "none";
 
-      // Watermark in 3x3 grid
+      // Watermark in 2x2 grid
       ctx.save();
-      ctx.globalAlpha = 0.30;
+      ctx.globalAlpha = 0.18;
       ctx.fillStyle = "#000";
-      const fontSize = Math.max(w / 10, 18);
+      const fontSize = Math.max(w / 18, 14);
       ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.rotate(-Math.PI / 6);
 
-      const stepX = w / 3;
-      const stepY = h / 3;
-      for (let row = -1; row <= 3; row++) {
-        for (let col = -1; col <= 3; col++) {
-          ctx.fillText("© 未来発見ラボ", col * stepX + stepX / 2, row * stepY + stepY / 2);
+      const stepX = w / 2;
+      const stepY = h / 2;
+      for (let row = -1; row <= 2; row++) {
+        for (let col = -1; col <= 2; col++) {
+          ctx.fillText("© みらい発見ラボ", col * stepX + stepX / 2, row * stepY + stepY / 2);
         }
       }
       ctx.restore();
@@ -59,7 +59,8 @@ function LargeWatermarkedImage({ src }: { src: string }) {
   return <canvas ref={canvasRef} className="max-w-full max-h-[70vh] rounded-2xl" />;
 }
 
-export default function PhotoModal({ photo, onClose, onDownload }: PhotoModalProps) {
+export default function PhotoModal({ photo, onClose }: PhotoModalProps) {
+  const t = useTranslations("Photos");
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -87,7 +88,7 @@ export default function PhotoModal({ photo, onClose, onDownload }: PhotoModalPro
           data-testid="photo-modal"
           role="dialog"
           aria-modal="true"
-          aria-label="写真プレビュー"
+          aria-label={t("modalLabel")}
         >
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
@@ -106,7 +107,7 @@ export default function PhotoModal({ photo, onClose, onDownload }: PhotoModalPro
             <button
               ref={closeButtonRef}
               onClick={onClose}
-              aria-label="閉じる"
+              aria-label={t("modalClose")}
               className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-md
                          flex items-center justify-center text-gray-500 hover:text-gray-800 text-lg
                          focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
@@ -115,22 +116,10 @@ export default function PhotoModal({ photo, onClose, onDownload }: PhotoModalPro
               ×
             </button>
 
-            <div className="text-center mt-4 space-y-2">
+            <div className="text-center mt-4">
               <span className="text-xs text-white/70 bg-black/30 px-3 py-1 rounded-full">
-                透かし入りプレビュー
+                {t("watermarkPreview")}
               </span>
-              {onDownload && (
-                <button
-                  onClick={() => onDownload(photo)}
-                  className="block mx-auto mt-3 px-6 py-3 rounded-xl font-bold text-white
-                             bg-gradient-to-r from-[#6EC6FF] to-[#a78bfa] shadow-lg
-                             hover:shadow-xl active:scale-95 transition-all text-sm
-                             focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
-                  data-testid="photo-download-btn"
-                >
-                  この写真の高画質データを生成 →
-                </button>
-              )}
             </div>
           </motion.div>
         </motion.div>

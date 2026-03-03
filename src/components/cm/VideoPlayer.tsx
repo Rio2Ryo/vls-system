@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { addVideoPlayRecord } from "@/lib/store";
 import { VideoPlayRecord } from "@/lib/types";
 
@@ -26,6 +27,7 @@ export default function VideoPlayer({
   onComplete,
   tracking,
 }: VideoPlayerProps) {
+  const t = useTranslations("VideoPlayer");
   const [timeLeft, setTimeLeft] = useState(duration);
   const [muted, setMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -152,7 +154,7 @@ export default function VideoPlayer({
           src={`https://www.youtube.com/embed/${videoId}?${ytParams}`}
           className="w-full h-full"
           allow="autoplay; encrypted-media"
-          title="CM動画"
+          title={t("cmVideo")}
           tabIndex={-1}
         />
         {/* Overlay to block direct video interaction + unmute control */}
@@ -164,7 +166,7 @@ export default function VideoPlayer({
         >
           <button
             onClick={toggleMute}
-            aria-label={muted ? "音声をオンにする" : "ミュートにする"}
+            aria-label={muted ? t("unmuteAria") : t("muteAria")}
             aria-pressed={!muted}
             className="absolute bottom-3 left-3 flex items-center gap-1.5 px-3 py-1.5
                        rounded-full bg-black/60 text-white text-xs font-medium
@@ -173,13 +175,13 @@ export default function VideoPlayer({
             data-testid="video-mute-btn"
           >
             <span className="text-sm">{muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}</span>
-            {muted ? "タップで音声ON" : "ミュート"}
+            {muted ? t("tapUnmute") : t("mute")}
           </button>
         </div>
       </div>
       <div className="mt-2 text-center" aria-live="polite" aria-atomic="true">
         <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
-          あと {timeLeft}秒
+          {t("timeLeft", { seconds: timeLeft })}
         </span>
       </div>
     </motion.div>

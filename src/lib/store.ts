@@ -1,6 +1,7 @@
-import { AnalyticsRecord, Company, EventData, InvoiceData, NotificationLog, Participant, SurveyQuestion, Tenant, VideoPlayRecord, WebhookConfig, WebhookLog } from "./types";
+import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Company, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, ScheduledTask, SurveyQuestion, TaskExecutionLog, Tenant, VideoPlayRecord, WebhookConfig, WebhookLog } from "./types";
 import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
 import { csrfHeaders } from "./csrf";
+import { fetchWithRetry } from "./fetchWithRetry";
 
 const KEYS = {
   events: "vls_admin_events",
@@ -14,6 +15,18 @@ const KEYS = {
   notificationLog: "vls_notification_log",
   webhooks: "vls_webhooks",
   webhookLog: "vls_webhook_log",
+  eventTemplates: "vls_event_templates",
+  mySessions: "vls_my_sessions",
+  npsResponses: "vls_nps_responses",
+  auditLog: "vls_audit_log",
+  faceGroups: "vls_face_groups",
+  abTests: "vls_ab_tests",
+  abAssignments: "vls_ab_assignments",
+  behaviorEvents: "vls_behavior_events",
+  offerInteractions: "vls_offer_interactions",
+  scheduledTasks: "vls_scheduled_tasks",
+  taskExecutionLogs: "vls_task_execution_logs",
+  adminUsers: "vls_admin_users",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -43,12 +56,12 @@ function persistToD1(key: string, value: string): void {
     return;
   }
 
-  fetch("/api/db", {
+  fetchWithRetry("/api/db", {
     method: "PUT",
     headers: csrfHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ key, value }),
-  }).catch(() => {
-    // Network error — queue for sync when back online
+  }, { retries: 1, timeout: 8000 }).catch(() => {
+    // Network error or repeated failure — queue for sync when back online
     queueForSync(key, value);
   });
 }
@@ -72,17 +85,13 @@ function safeSet(key: string, value: unknown): void {
 export async function syncFromDb(): Promise<void> {
   if (typeof window === "undefined") return;
   if (window.localStorage.getItem("__skip_d1_sync")) return;
-  try {
-    const res = await fetch("/api/db");
-    if (!res.ok) return;
-    const data = await res.json() as Record<string, string>;
-    for (const [key, value] of Object.entries(data)) {
-      if (typeof value === "string" && value.length > 0) {
-        localStorage.setItem(key, value);
-      }
+  const res = await fetchWithRetry("/api/db", undefined, { retries: 2, timeout: 8000 });
+  if (!res.ok) return;
+  const data = await res.json() as Record<string, string>;
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof value === "string" && value.length > 0) {
+      localStorage.setItem(key, value);
     }
-  } catch {
-    // D1 sync failed — fall back to existing localStorage data
   }
 }
 
@@ -353,6 +362,19 @@ export function deleteTenantCascade(tenantId: string): TenantDeleteSummary | nul
   return summary;
 }
 
+// --- Event Templates ---
+export function getStoredTemplates(): EventTemplate[] {
+  return safeGet(KEYS.eventTemplates, []);
+}
+
+export function setStoredTemplates(templates: EventTemplate[]): void {
+  safeSet(KEYS.eventTemplates, templates);
+}
+
+export function getTemplatesForTenant(tenantId: string): EventTemplate[] {
+  return getStoredTemplates().filter((t) => t.tenantId === tenantId);
+}
+
 // --- Webhooks ---
 export function getStoredWebhooks(): WebhookConfig[] {
   return safeGet(KEYS.webhooks, []);
@@ -378,6 +400,270 @@ export function addWebhookLog(entry: WebhookLog): void {
   log.push(entry);
   if (log.length > 200) log.splice(0, log.length - 200);
   safeSet(KEYS.webhookLog, log);
+}
+
+// --- My Portal Sessions ---
+export function getStoredMySessions(): MyPortalSession[] {
+  return safeGet(KEYS.mySessions, []);
+}
+
+export function setStoredMySessions(sessions: MyPortalSession[]): void {
+  safeSet(KEYS.mySessions, sessions);
+}
+
+// --- Sponsor Portal Login ---
+export function getCompanyByPortalLogin(companyId: string, password: string): Company | null {
+  const companies = getStoredCompanies();
+  const company = companies.find((c) => c.id === companyId);
+  if (!company || !company.portalPassword) return null;
+  if (company.portalPassword !== password) return null;
+  return company;
+}
+
+// --- NPS Responses ---
+export function getStoredNpsResponses(): NpsResponse[] {
+  return safeGet(KEYS.npsResponses, []);
+}
+
+export function setStoredNpsResponses(responses: NpsResponse[]): void {
+  safeSet(KEYS.npsResponses, responses);
+}
+
+export function addNpsResponse(response: NpsResponse): void {
+  const responses = getStoredNpsResponses();
+  responses.push(response);
+  safeSet(KEYS.npsResponses, responses);
+}
+
+export function updateNpsResponse(token: string, update: Partial<NpsResponse>): boolean {
+  const responses = getStoredNpsResponses();
+  const idx = responses.findIndex((r) => r.token === token);
+  if (idx === -1) return false;
+  responses[idx] = { ...responses[idx], ...update };
+  safeSet(KEYS.npsResponses, responses);
+  return true;
+}
+
+export function getNpsForEvent(eventId: string): NpsResponse[] {
+  return getStoredNpsResponses().filter((r) => r.eventId === eventId);
+}
+
+export function getNpsForTenant(tenantId: string): NpsResponse[] {
+  const tenantEventIds = new Set(getEventsForTenant(tenantId).map((e) => e.id));
+  return getStoredNpsResponses().filter((r) => tenantEventIds.has(r.eventId));
+}
+
+// --- Audit Log ---
+export function getStoredAuditLogs(): AuditLog[] {
+  return safeGet<AuditLog[]>(KEYS.auditLog, []);
+}
+
+export function setStoredAuditLogs(logs: AuditLog[]): void {
+  safeSet(KEYS.auditLog, logs);
+}
+
+export function addAuditLog(log: AuditLog): void {
+  const logs = getStoredAuditLogs();
+  logs.unshift(log); // newest first
+  // Keep last 1000 entries to prevent localStorage bloat
+  if (logs.length > 1000) logs.length = 1000;
+  safeSet(KEYS.auditLog, logs);
+}
+
+export function getAuditLogsForTenant(tenantId: string): AuditLog[] {
+  return getStoredAuditLogs().filter((l) => l.tenantId === tenantId);
+}
+
+// --- Face Groups ---
+export function getFaceGroups(eventId: string): FaceGroup[] {
+  const all = safeGet<Record<string, FaceGroup[]>>(KEYS.faceGroups, {});
+  return all[eventId] || [];
+}
+
+export function setFaceGroups(eventId: string, groups: FaceGroup[]): void {
+  const all = safeGet<Record<string, FaceGroup[]>>(KEYS.faceGroups, {});
+  all[eventId] = groups;
+  safeSet(KEYS.faceGroups, all);
+}
+
+// --- A/B Tests ---
+export function getStoredABTests(): ABTest[] {
+  return safeGet<ABTest[]>(KEYS.abTests, []);
+}
+
+export function setStoredABTests(tests: ABTest[]): void {
+  safeSet(KEYS.abTests, tests);
+}
+
+export function addABTest(test: ABTest): void {
+  const tests = getStoredABTests();
+  tests.push(test);
+  safeSet(KEYS.abTests, tests);
+}
+
+export function updateABTest(testId: string, update: Partial<ABTest>): void {
+  const tests = getStoredABTests();
+  const idx = tests.findIndex((t) => t.id === testId);
+  if (idx !== -1) {
+    tests[idx] = { ...tests[idx], ...update };
+    safeSet(KEYS.abTests, tests);
+  }
+}
+
+export function getABTestsForTenant(tenantId: string): ABTest[] {
+  return getStoredABTests().filter((t) => t.tenantId === tenantId);
+}
+
+export function getStoredABAssignments(): ABAssignment[] {
+  return safeGet<ABAssignment[]>(KEYS.abAssignments, []);
+}
+
+export function addABAssignment(assignment: ABAssignment): void {
+  const assignments = getStoredABAssignments();
+  assignments.push(assignment);
+  if (assignments.length > 5000) assignments.splice(0, assignments.length - 5000);
+  safeSet(KEYS.abAssignments, assignments);
+}
+
+export function getABAssignmentsForTest(testId: string): ABAssignment[] {
+  return getStoredABAssignments().filter((a) => a.testId === testId);
+}
+
+export function updateABAssignment(assignmentId: string, update: Partial<ABAssignment>): void {
+  const assignments = getStoredABAssignments();
+  const idx = assignments.findIndex((a) => a.id === assignmentId);
+  if (idx !== -1) {
+    assignments[idx] = { ...assignments[idx], ...update };
+    safeSet(KEYS.abAssignments, assignments);
+  }
+}
+
+// --- Behavior Events ---
+export function getStoredBehaviorEvents(): BehaviorEvent[] {
+  return safeGet<BehaviorEvent[]>(KEYS.behaviorEvents, []);
+}
+
+export function addBehaviorEvent(event: BehaviorEvent): void {
+  const events = getStoredBehaviorEvents();
+  events.push(event);
+  // Keep last 5000 entries to prevent bloat
+  if (events.length > 5000) events.splice(0, events.length - 5000);
+  safeSet(KEYS.behaviorEvents, events);
+}
+
+export function getBehaviorEventsForEvent(eventId: string): BehaviorEvent[] {
+  return getStoredBehaviorEvents().filter((e) => e.eventId === eventId);
+}
+
+// --- Offer Interactions ---
+export function getStoredOfferInteractions(): OfferInteraction[] {
+  return safeGet<OfferInteraction[]>(KEYS.offerInteractions, []);
+}
+
+export function addOfferInteraction(interaction: OfferInteraction): void {
+  const interactions = getStoredOfferInteractions();
+  interactions.push(interaction);
+  if (interactions.length > 5000) interactions.splice(0, interactions.length - 5000);
+  safeSet(KEYS.offerInteractions, interactions);
+}
+
+export function getOfferInteractionsForEvent(eventId: string): OfferInteraction[] {
+  return getStoredOfferInteractions().filter((i) => i.eventId === eventId);
+}
+
+export function getOfferInteractionsForCompany(companyId: string): OfferInteraction[] {
+  return getStoredOfferInteractions().filter((i) => i.companyId === companyId);
+}
+
+// --- Scheduled Tasks ---
+export function getStoredScheduledTasks(): ScheduledTask[] {
+  return safeGet(KEYS.scheduledTasks, []);
+}
+
+export function setStoredScheduledTasks(tasks: ScheduledTask[]): void {
+  safeSet(KEYS.scheduledTasks, tasks);
+}
+
+export function addScheduledTask(task: ScheduledTask): void {
+  const tasks = getStoredScheduledTasks();
+  tasks.push(task);
+  safeSet(KEYS.scheduledTasks, tasks);
+}
+
+export function updateScheduledTask(id: string, updates: Partial<ScheduledTask>): void {
+  const tasks = getStoredScheduledTasks();
+  const idx = tasks.findIndex((t) => t.id === id);
+  if (idx === -1) return;
+  tasks[idx] = { ...tasks[idx], ...updates };
+  safeSet(KEYS.scheduledTasks, tasks);
+}
+
+export function deleteScheduledTask(id: string): void {
+  const tasks = getStoredScheduledTasks().filter((t) => t.id !== id);
+  safeSet(KEYS.scheduledTasks, tasks);
+}
+
+export function getScheduledTasksForEvent(eventId: string): ScheduledTask[] {
+  return getStoredScheduledTasks().filter((t) => t.eventId === eventId);
+}
+
+export function getPendingScheduledTasks(): ScheduledTask[] {
+  const now = Date.now();
+  return getStoredScheduledTasks().filter(
+    (t) => t.status === "pending" && t.scheduledAt <= now
+  );
+}
+
+// --- Task Execution Logs ---
+export function getStoredTaskExecutionLogs(): TaskExecutionLog[] {
+  return safeGet(KEYS.taskExecutionLogs, []);
+}
+
+export function addTaskExecutionLog(log: TaskExecutionLog): void {
+  const logs = getStoredTaskExecutionLogs();
+  logs.push(log);
+  if (logs.length > 2000) logs.splice(0, logs.length - 2000);
+  safeSet(KEYS.taskExecutionLogs, logs);
+}
+
+export function getTaskExecutionLogsForTask(taskId: string): TaskExecutionLog[] {
+  return getStoredTaskExecutionLogs().filter((l) => l.taskId === taskId);
+}
+
+// --- Admin Users (RBAC) ---
+export function getStoredAdminUsers(): AdminUser[] {
+  return safeGet(KEYS.adminUsers, []);
+}
+
+export function setStoredAdminUsers(users: AdminUser[]): void {
+  safeSet(KEYS.adminUsers, users);
+}
+
+export function addAdminUser(user: AdminUser): void {
+  const users = getStoredAdminUsers();
+  users.push(user);
+  safeSet(KEYS.adminUsers, users);
+}
+
+export function updateAdminUser(id: string, updates: Partial<AdminUser>): void {
+  const users = getStoredAdminUsers();
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx === -1) return;
+  users[idx] = { ...users[idx], ...updates };
+  safeSet(KEYS.adminUsers, users);
+}
+
+export function deleteAdminUser(id: string): void {
+  const users = getStoredAdminUsers().filter((u) => u.id !== id);
+  safeSet(KEYS.adminUsers, users);
+}
+
+export function getAdminUserByPassword(password: string): AdminUser | null {
+  return getStoredAdminUsers().find((u) => u.password === password && u.isActive) || null;
+}
+
+export function getAdminUsersForTenant(tenantId: string): AdminUser[] {
+  return getStoredAdminUsers().filter((u) => u.tenantId === tenantId);
 }
 
 // --- Reset to defaults ---

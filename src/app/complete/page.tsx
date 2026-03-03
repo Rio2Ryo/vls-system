@@ -3,13 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { getStoredEvents, updateAnalyticsRecord } from "@/lib/store";
 import { Company, PhotoData } from "@/lib/types";
 import { fireWebhook } from "@/lib/webhook";
+import { csrfHeaders } from "@/lib/csrf";
+import { trackPageView, trackPageLeave, trackTap } from "@/lib/tracker";
+import { trackOfferView, trackOfferClick, trackCouponView, trackCouponCopy } from "@/lib/offerTracker";
 
 function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string; selectedPhotos: PhotoData[] }) {
+  const t = useTranslations("Complete");
   const [emailName, setEmailName] = useState("");
   const [emailAddr, setEmailAddr] = useState("");
   const [emailSent, setEmailSent] = useState(false);
@@ -18,7 +24,7 @@ function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string
 
   const handleSendEmail = async () => {
     if (!emailName.trim() || !emailAddr.trim()) {
-      setEmailError("名前とメールアドレスを入力してください");
+      setEmailError(t("emailValidation"));
       return;
     }
     setEmailError("");
@@ -35,7 +41,7 @@ function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string
       if (!res.ok) throw new Error();
       setEmailSent(true);
     } catch {
-      setEmailError("送信に失敗しました。もう一度お試しください。");
+      setEmailError(t("emailFailed"));
     }
     setEmailSending(false);
   };
@@ -44,42 +50,132 @@ function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string
     return (
       <Card className="text-center">
         <p className="text-sm text-green-600 font-medium">
-          📧 {emailName}様にメールを送りました
+          📧 {t("emailSent", { name: emailName })}
         </p>
-        <p className="text-xs text-gray-400 mt-1">7日以内にダウンロードしてください</p>
+        <p className="text-xs text-gray-400 mt-1">{t("emailSentHint")}</p>
       </Card>
     );
   }
 
   return (
     <Card>
-      <p className="text-sm font-bold text-gray-700 mb-2">後でメールで受け取る</p>
-      <p className="text-xs text-gray-400 mb-3">ダウンロードリンクをメールでお送りします（7日間有効）</p>
+      <p className="text-sm font-bold text-gray-700 mb-2">{t("emailTitle")}</p>
+      <p className="text-xs text-gray-400 mb-3">{t("emailDesc")}</p>
       <div className="space-y-2">
         <input
           type="text"
-          placeholder="お名前"
+          placeholder={t("emailNamePlaceholder")}
           value={emailName}
           onChange={(e) => setEmailName(e.target.value)}
           className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm"
         />
         <input
           type="email"
-          placeholder="メールアドレス"
+          placeholder={t("emailPlaceholder")}
           value={emailAddr}
           onChange={(e) => setEmailAddr(e.target.value)}
           className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm"
         />
         {emailError && <p className="text-xs text-red-400">{emailError}</p>}
         <Button onClick={handleSendEmail} disabled={emailSending} size="sm" variant="secondary" className="w-full">
-          {emailSending ? "送信中..." : "メールで受け取る"}
+          {emailSending ? t("emailSending") : t("emailSend")}
         </Button>
       </div>
     </Card>
   );
 }
 
+function AlbumShareSection({ eventName, selectedPhotos, platinumCompanies, matchedCompany }: {
+  eventName: string;
+  selectedPhotos: PhotoData[];
+  platinumCompanies: Company[];
+  matchedCompany: Company | null;
+}) {
+  const t = useTranslations("Complete");
+  const [shareUrl, setShareUrl] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleCreate = async () => {
+    if (creating) return;
+    setCreating(true);
+    setError("");
+
+    try {
+      const eventId = sessionStorage.getItem("eventId") || "";
+      const creatorName = sessionStorage.getItem("respondentName") || "保護者";
+      const photoIds = selectedPhotos.map((p) => p.id);
+      const sponsorIds = platinumCompanies.map((c) => c.id);
+
+      const res = await fetch("/api/album", {
+        method: "POST",
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          eventId,
+          eventName,
+          photoIds,
+          creatorName,
+          sponsorIds,
+          matchedCompanyId: matchedCompany?.id,
+        }),
+      });
+
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      const url = `${window.location.origin}/album/${json.token}`;
+      setShareUrl(url);
+    } catch {
+      setError(t("shareFailed"));
+    }
+    setCreating(false);
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback: select text
+    }
+  };
+
+  if (shareUrl) {
+    return (
+      <Card>
+        <p className="text-sm font-bold text-gray-700 mb-2">{t("shareReady")}</p>
+        <p className="text-xs text-gray-400 mb-3">{t("shareReadyDesc")}</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            readOnly
+            value={shareUrl}
+            className="flex-1 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs truncate"
+            onClick={(e) => (e.target as HTMLInputElement).select()}
+          />
+          <Button onClick={handleCopy} size="sm" variant={copied ? "secondary" : "primary"}>
+            {copied ? t("copied") : t("copy")}
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <p className="text-sm font-bold text-gray-700 mb-2">{t("shareTitle")}</p>
+      <p className="text-xs text-gray-400 mb-3">{t("shareDesc")}</p>
+      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+      <Button onClick={handleCreate} disabled={creating || selectedPhotos.length === 0} size="sm" variant="secondary" className="w-full">
+        {creating ? t("shareCreating") : t("shareCreate")}
+      </Button>
+    </Card>
+  );
+}
+
 function FrameCanvasPreview({ photo, companyName }: { photo: PhotoData | null; companyName: string }) {
+  const t = useTranslations("Complete");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [drawn, setDrawn] = useState(false);
 
@@ -114,7 +210,7 @@ function FrameCanvasPreview({ photo, companyName }: { photo: PhotoData | null; c
 
   return (
     <Card className="text-center">
-      <p className="text-xs text-gray-400 mb-2">フレーム合成プレビュー</p>
+      <p className="text-xs text-gray-400 mb-2">{t("framePreview")}</p>
       <div className="rounded-xl overflow-hidden">
         {photo ? (
           <canvas
@@ -130,7 +226,7 @@ function FrameCanvasPreview({ photo, companyName }: { photo: PhotoData | null; c
         )}
       </div>
       <p className="text-xs text-gray-500 mt-2">
-        📷 {companyName} 提供のフレームが全ての写真に合成されます
+        📷 {t("frameInfo", { name: companyName })}
       </p>
     </Card>
   );
@@ -157,11 +253,19 @@ async function downloadImage(url: string, filename: string): Promise<void> {
 
 export default function CompletePage() {
   const router = useRouter();
+  const t = useTranslations("Complete");
   const [photosDownloaded, setPhotosDownloaded] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [eventName, setEventName] = useState("");
   const [photoCount, setPhotoCount] = useState(0);
   const [selectedPhotos, setSelectedPhotos] = useState<PhotoData[]>([]);
+
+  // Behavior tracking
+  useEffect(() => {
+    trackPageView("/complete");
+    const enterTime = Date.now();
+    return () => trackPageLeave("/complete", enterTime);
+  }, []);
 
   useEffect(() => {
     if (!sessionStorage.getItem("eventId")) router.replace("/");
@@ -197,6 +301,16 @@ export default function CompletePage() {
     }
   }, []);
 
+  // Track offer/coupon views
+  useEffect(() => {
+    if (matchedCompany) {
+      trackOfferView(matchedCompany.id, matchedCompany.name);
+      if (matchedCompany.couponCode) {
+        trackCouponView(matchedCompany.id, matchedCompany.name, matchedCompany.couponCode);
+      }
+    }
+  }, [matchedCompany]);
+
   useEffect(() => {
     setEventName(sessionStorage.getItem("eventName") || "イベント");
     try {
@@ -220,6 +334,7 @@ export default function CompletePage() {
 
   const handleDownloadPhotos = async () => {
     if (downloading) return;
+    trackTap("/complete", "download-button");
     setDownloading(true);
 
     let didDownload = false;
@@ -259,6 +374,11 @@ export default function CompletePage() {
   return (
     <main className="min-h-screen p-6 pt-10">
       <div className="max-w-lg mx-auto space-y-6">
+        {/* Language switcher */}
+        <div className="fixed top-4 right-4 z-50">
+          <LanguageSwitcher />
+        </div>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -273,11 +393,11 @@ export default function CompletePage() {
             🎉
           </motion.div>
           <h1 className="text-2xl font-bold text-gray-800">
-            写真の準備ができました！
+            {t("title")}
           </h1>
           {photoCount > 0 && (
             <p className="text-gray-400 text-sm mt-1" data-testid="photo-count-label">
-              {photoCount}枚の写真が選択されています
+              {t("selectedCount", { count: photoCount })}
             </p>
           )}
         </motion.div>
@@ -294,8 +414,8 @@ export default function CompletePage() {
         <Card className="text-center">
           <p className="text-sm text-gray-600 mb-3">
             {photoCount > 1
-              ? `${photoCount}枚の高画質写真をまとめてダウンロード`
-              : "高画質写真をダウンロード"}
+              ? t("downloadMulti", { count: photoCount })
+              : t("downloadSingle")}
           </p>
           <Button
             onClick={handleDownloadPhotos}
@@ -304,15 +424,23 @@ export default function CompletePage() {
             variant={photosDownloaded ? "secondary" : "primary"}
           >
             {downloading
-              ? "ダウンロード中..."
+              ? t("downloading")
               : photosDownloaded
-                ? "✓ ダウンロード済み"
-                : "写真をダウンロード"}
+                ? t("downloaded")
+                : t("download")}
           </Button>
         </Card>
 
         {/* Email download link */}
         <EmailDownloadSection eventName={eventName} selectedPhotos={selectedPhotos} />
+
+        {/* Album share link */}
+        <AlbumShareSection
+          eventName={eventName}
+          selectedPhotos={selectedPhotos}
+          platinumCompanies={platinumCompanies}
+          matchedCompany={matchedCompany}
+        />
 
         {/* Offer cards */}
         {matchedCompany && (
@@ -331,7 +459,7 @@ export default function CompletePage() {
                 />
                 <div>
                   <p className="font-bold text-gray-700 text-sm">{matchedCompany.name}</p>
-                  <p className="text-xs text-gray-400">限定オファー</p>
+                  <p className="text-xs text-gray-400">{t("limitedOffer")}</p>
                 </div>
               </div>
 
@@ -339,7 +467,26 @@ export default function CompletePage() {
                 <p className="font-bold text-gray-700">{matchedCompany.offerText}</p>
                 {matchedCompany.couponCode && (
                   <p className="text-xs text-gray-500 mt-1">
-                    クーポンコード: <code className="bg-white px-2 py-0.5 rounded font-mono">{matchedCompany.couponCode}</code>
+                    {t("couponCode")}{" "}
+                    <code
+                      className="bg-white px-2 py-0.5 rounded font-mono cursor-pointer hover:bg-gray-100 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      aria-label="クーポンコードをコピー"
+                      onClick={() => {
+                        navigator.clipboard.writeText(matchedCompany.couponCode!).catch(() => {});
+                        trackCouponCopy(matchedCompany.id, matchedCompany.name, matchedCompany.couponCode!);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigator.clipboard.writeText(matchedCompany.couponCode!).catch(() => {});
+                          trackCouponCopy(matchedCompany.id, matchedCompany.name, matchedCompany.couponCode!);
+                        }
+                      }}
+                    >
+                      {matchedCompany.couponCode}
+                    </code>
                   </p>
                 )}
               </div>
@@ -349,9 +496,10 @@ export default function CompletePage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="offer-link"
+                onClick={() => trackOfferClick(matchedCompany.id, matchedCompany.name)}
               >
                 <Button variant="secondary" size="sm" className="w-full">
-                  詳しく見る →
+                  {t("viewDetails")}
                 </Button>
               </a>
             </Card>
@@ -367,10 +515,10 @@ export default function CompletePage() {
         >
           <button
             onClick={() => (window.location.href = "/")}
-            aria-label="トップページに戻る"
+            aria-label={t("backToTopAria")}
             className="text-sm text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
           >
-            トップに戻る
+            {t("backToTop")}
           </button>
         </motion.div>
       </div>
@@ -379,7 +527,7 @@ export default function CompletePage() {
       {platinumCompanies.length > 0 && (
         <div className="sticky bottom-0 z-10 bg-white/90 backdrop-blur border-t border-gray-100 py-2 px-4">
           <div className="max-w-lg mx-auto flex items-center justify-center gap-4">
-            <span className="text-[10px] text-gray-400 flex-shrink-0">提供スポンサー</span>
+            <span className="text-[10px] text-gray-400 flex-shrink-0">{t("sponsors")}</span>
             {platinumCompanies.map((c) => (
               <div key={c.id} className="flex items-center gap-1.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

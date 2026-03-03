@@ -91,7 +91,7 @@ export default function DownloadLinkPage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6">
       {status === "loading" && (
-        <div className="text-center">
+        <div className="text-center" role="status" aria-label="読み込み中">
           <div className="inline-flex items-center gap-1.5 mb-3">
             {[0, 1, 2].map((i) => (
               <div key={i} className="w-2.5 h-2.5 rounded-full bg-[#6EC6FF] animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />

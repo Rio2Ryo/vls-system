@@ -9,6 +9,7 @@ const ADMIN_PAGES = [
   "/admin/users",
   "/admin/import",
   "/admin/checkin",
+  "/admin/roi",
 ];
 
 /** API mutation methods requiring CSRF validation. */
@@ -61,6 +62,21 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // 2.5 Viewer role restriction — viewers cannot use mutation APIs
+  if (
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/auth/") &&
+    CSRF_METHODS.has(request.method)
+  ) {
+    const viewerToken = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (viewerToken?.role === "viewer") {
+      return NextResponse.json(
+        { error: "Forbidden: viewer role cannot perform write operations" },
+        { status: 403 }
+      );
+    }
+  }
+
   // 3. CSRF validation for mutation API routes
   if (
     pathname.startsWith("/api/") &&
@@ -90,6 +106,19 @@ export async function middleware(request: NextRequest) {
     });
   }
 
+  // 5. Set locale cookie if not present (i18n — Accept-Language detection)
+  if (!request.cookies.has("locale")) {
+    const acceptLang = request.headers.get("accept-language") || "";
+    const locale = /^en/i.test(acceptLang) ? "en" : "ja";
+    response.cookies.set("locale", locale, {
+      httpOnly: false,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  }
+
   return response;
 }
 
@@ -106,5 +135,8 @@ export const config = {
     "/e/:path*",
     "/demo",
     "/scan",
+    "/album/:path*",
+    "/my/:path*",
+    "/sponsor",
   ],
 };

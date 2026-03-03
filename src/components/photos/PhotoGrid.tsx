@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { PhotoData } from "@/lib/types";
 import { useRef, useEffect } from "react";
 
@@ -52,7 +53,7 @@ function WatermarkedImage({ src, alt }: { src: string; alt: string }) {
       const stepY = h / 3;
       for (let row = -1; row <= 3; row++) {
         for (let col = -1; col <= 3; col++) {
-          ctx.fillText("© 未来発見ラボ", col * stepX + stepX / 2, row * stepY + stepY / 2);
+          ctx.fillText("© みらい発見ラボ", col * stepX + stepX / 2, row * stepY + stepY / 2);
         }
       }
       ctx.restore();
@@ -70,6 +71,8 @@ function WatermarkedImage({ src, alt }: { src: string; alt: string }) {
 }
 
 export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPreview }: PhotoGridProps) {
+  const t = useTranslations("Photos");
+
   return (
     <div
       className="grid grid-cols-3 md:grid-cols-4 gap-3 no-save"
@@ -83,7 +86,7 @@ export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPrevi
             key={photo.id}
             role="checkbox"
             aria-checked={isSelected}
-            aria-label={`写真 ${i + 1}${isSelected ? "（選択中）" : ""}`}
+            aria-label={`${t("photoN", { n: i + 1 })}${isSelected ? t("photoSelected") : ""}`}
             tabIndex={0}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -96,7 +99,14 @@ export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPrevi
                        }`}
             data-testid={`photo-${photo.id}`}
           >
-            <WatermarkedImage src={photo.thumbnailUrl} alt={`写真 ${i + 1}`} />
+            <WatermarkedImage src={photo.thumbnailUrl} alt={t("photoN", { n: i + 1 })} />
+
+            {/* Quality badge */}
+            {photo.qualityScore !== undefined && photo.qualityScore >= 80 && (
+              <span className="absolute top-1.5 left-1.5 text-[9px] px-1.5 py-0.5 rounded-full bg-yellow-400 text-yellow-900 font-bold shadow-sm z-10">
+                おすすめ
+              </span>
+            )}
 
             {/* Button bar */}
             <div className="absolute bottom-0 left-0 right-0 flex">
@@ -109,17 +119,17 @@ export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPrevi
                 aria-hidden="true"
                 data-testid={`check-${photo.id}`}
               >
-                {isSelected ? "✓ 選択中" : "選択する"}
+                {isSelected ? t("selected") : t("select")}
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onPreview(photo); }}
-                aria-label={`写真 ${i + 1} をプレビュー`}
+                aria-label={t("previewAria", { n: i + 1 })}
                 className="flex-1 py-2 text-xs font-bold text-center bg-black/50 text-white
                            hover:bg-black/60 transition-colors
                            focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-inset"
                 data-testid={`preview-${photo.id}`}
               >
-                プレビュー
+                {t("preview")}
               </button>
             </div>
           </motion.div>

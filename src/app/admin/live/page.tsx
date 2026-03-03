@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Card from "@/components/ui/Card";
 import AdminHeader from "@/components/admin/AdminHeader";
+import { useEventStream } from "@/hooks/useEventStream";
 import { AnalyticsRecord, EventData, Participant, VideoPlayRecord } from "@/lib/types";
 import {
   getStoredEvents,
@@ -150,12 +151,18 @@ export default function LiveDashboardPage() {
     refreshData();
   }, [status, refreshData]);
 
-  // Polling
+  // SSE-based data stream (falls back to polling if SSE unavailable)
+  const { connected: sseConnected, mode: sseMode, lastEvent: sseLastEvent } = useEventStream({
+    keys: ["vls_admin_events", "vls_analytics", "vls_video_plays", "vls_participants"],
+    onData: refreshData,
+    enabled: status === "authenticated" && polling,
+    fallbackInterval: POLL_INTERVAL,
+  });
+
+  // Update lastUpdate from SSE events
   useEffect(() => {
-    if (status !== "authenticated" || !polling) return;
-    const timer = setInterval(refreshData, POLL_INTERVAL);
-    return () => clearInterval(timer);
-  }, [status, polling, refreshData]);
+    if (sseLastEvent) setLastUpdate(sseLastEvent);
+  }, [sseLastEvent]);
 
   // Fullscreen change listener
   useEffect(() => {
@@ -248,7 +255,7 @@ export default function LiveDashboardPage() {
               }`}
             >
               <span className={`w-2 h-2 rounded-full ${polling ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
-              {polling ? "LIVE" : "停止中"}
+              {polling ? (sseMode === "sse" && sseConnected ? "SSE" : "LIVE") : "停止中"}
             </button>
 
             {/* Manual refresh */}

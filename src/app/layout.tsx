@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import AuthProvider from "@/components/providers/SessionProvider";
 import DbSyncProvider from "@/components/providers/DbSyncProvider";
 import ServiceWorkerProvider from "@/components/providers/ServiceWorkerProvider";
@@ -44,13 +46,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="ja">
+    <html lang={locale}>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -58,18 +63,20 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased">
         <SkipToContent />
-        <AuthProvider>
-          <DbSyncProvider>
-            <ServiceWorkerProvider>
-              <DarkModeProvider>
-                <TenantBrandingProvider>
-                  <div id="main-content">{children}</div>
-                  <OfflineIndicator />
-                </TenantBrandingProvider>
-              </DarkModeProvider>
-            </ServiceWorkerProvider>
-          </DbSyncProvider>
-        </AuthProvider>
+        <NextIntlClientProvider messages={messages}>
+          <AuthProvider>
+            <DbSyncProvider>
+              <ServiceWorkerProvider>
+                <DarkModeProvider>
+                  <TenantBrandingProvider>
+                    <div id="main-content">{children}</div>
+                    <OfflineIndicator />
+                  </TenantBrandingProvider>
+                </DarkModeProvider>
+              </ServiceWorkerProvider>
+            </DbSyncProvider>
+          </AuthProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

@@ -1,4 +1,4 @@
-import { Company, EventData, SurveyQuestion, Tenant } from "./types";
+import { AdminUser, Company, EventData, SurveyQuestion, Tenant } from "./types";
 
 // --- Demo Companies (22 companies, diverse sectors) ---
 export const COMPANIES: Company[] = [
@@ -13,6 +13,7 @@ export const COMPANIES: Company[] = [
     offerText: "無料体験レッスン1ヶ月分プレゼント！",
     offerUrl: "https://example.com/kids-learning",
     couponCode: "VLSKIDS2026",
+    portalPassword: "KIDS2026",
   },
   {
     id: "co-platinum-2",
@@ -24,6 +25,7 @@ export const COMPANIES: Company[] = [
     offerText: "こども保険プラン初月無料！",
     offerUrl: "https://example.com/sukoyaka-insurance",
     couponCode: "VLSINS2026",
+    portalPassword: "SUKOYAKA2026",
   },
   // === Gold (3) ===
   {
@@ -36,6 +38,7 @@ export const COMPANIES: Company[] = [
     offerText: "家族旅行10%OFFクーポン",
     offerUrl: "https://example.com/family-travel",
     couponCode: "VLSTRIP2026",
+    portalPassword: "FAMILY2026",
   },
   {
     id: "co-gold-2",
@@ -47,6 +50,7 @@ export const COMPANIES: Company[] = [
     offerText: "プログラミング無料体験クラス！",
     offerUrl: "https://example.com/tech-kids-lab",
     couponCode: "VLSTECH2026",
+    portalPassword: "TECHKIDS2026",
   },
   {
     id: "co-gold-3",
@@ -58,6 +62,7 @@ export const COMPANIES: Company[] = [
     offerText: "キッズカメラ20%OFFクーポン",
     offerUrl: "https://example.com/pashari-camera",
     couponCode: "VLSCAM2026",
+    portalPassword: "PASHARI2026",
   },
   // === Silver (4) ===
   {
@@ -410,6 +415,29 @@ export const TENANTS: Tenant[] = [
     licenseEnd: "2027-03-31",
     maxEvents: 50,
     isActive: true,
+  },
+];
+
+export const DEFAULT_ADMIN_USERS: AdminUser[] = [
+  {
+    id: "viewer-sakura",
+    name: "さくら学園 閲覧者",
+    password: "VIEW_SAKURA",
+    role: "viewer",
+    tenantId: "tenant-sakura",
+    permissions: ["events.read", "companies.read", "photos.read", "users.read", "analytics.read"],
+    isActive: true,
+    createdAt: Date.now(),
+  },
+  {
+    id: "viewer-himawari",
+    name: "ひまわり幼稚園 閲覧者",
+    password: "VIEW_HIMAWARI",
+    role: "viewer",
+    tenantId: "tenant-himawari",
+    permissions: ["events.read", "companies.read", "photos.read", "users.read", "analytics.read"],
+    isActive: true,
+    createdAt: Date.now(),
   },
 ];
 

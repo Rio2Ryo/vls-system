@@ -3,23 +3,35 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import ProgressBar from "@/components/ui/ProgressBar";
 import LoadingAnimation from "@/components/ui/LoadingAnimation";
 import VideoPlayer from "@/components/cm/VideoPlayer";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { getCMMatch } from "@/lib/matching";
 import { updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
 import { sendNotification } from "@/lib/notify";
 import { fireWebhook } from "@/lib/webhook";
+import { findActiveABTest, assignVariant, recordABCompletion } from "@/lib/abtest";
+import { trackPageView, trackPageLeave } from "@/lib/tracker";
 
 const TOTAL_SECONDS = 45;
 
 export default function ProcessingPage() {
   const router = useRouter();
+  const t = useTranslations("Processing");
   const [elapsed, setElapsed] = useState(0);
   const [phase, setPhase] = useState<"platinum" | "matched" | "waiting">("platinum");
+
+  // Behavior tracking
+  useEffect(() => {
+    trackPageView("/processing");
+    const enterTime = Date.now();
+    return () => trackPageLeave("/processing", enterTime);
+  }, []);
 
   useEffect(() => {
     if (!sessionStorage.getItem("eventId")) router.replace("/");
@@ -43,6 +55,44 @@ export default function ProcessingPage() {
       return getCMMatch([]);
     }
   }, []);
+
+  // A/B test variant assignment
+  const abTestInfo = useMemo(() => {
+    if (typeof window === "undefined" || !cmMatch.matchedCM) return null;
+    const eventId = sessionStorage.getItem("eventId") || "";
+    const test = findActiveABTest(cmMatch.matchedCM.id, eventId);
+    if (!test) return null;
+    const userId = sessionStorage.getItem("analyticsId") || `anon-${Date.now()}`;
+    const { variant, assignment } = assignVariant(test, userId, eventId);
+    // Store assignment ID for later completion tracking
+    sessionStorage.setItem("abTestId", test.id);
+    sessionStorage.setItem("abAssignmentId", assignment.id);
+    return { test, variant, assignment };
+  }, [cmMatch.matchedCM]);
+
+  // Determine which CM to show for the matched company
+  const matchedVideoId = useMemo(() => {
+    if (!cmMatch.matchedCM) return "";
+    if (abTestInfo) {
+      // Use A/B test assigned variant
+      return cmMatch.matchedCM.videos[abTestInfo.variant.cmType];
+    }
+    // Default: show 30s CM
+    return cmMatch.matchedCM.videos.cm30;
+  }, [cmMatch.matchedCM, abTestInfo]);
+
+  const matchedDuration = useMemo(() => {
+    if (abTestInfo) {
+      const durations: Record<string, number> = { cm15: 15, cm30: 30, cm60: 60 };
+      return durations[abTestInfo.variant.cmType] || 30;
+    }
+    return 30;
+  }, [abTestInfo]);
+
+  const matchedCmType = useMemo(() => {
+    if (abTestInfo) return abTestInfo.variant.cmType;
+    return "cm30" as const;
+  }, [abTestInfo]);
 
   // Set correct initial phase based on available CMs
   useEffect(() => {
@@ -96,8 +146,13 @@ export default function ProcessingPage() {
   }, [cmMatch.matchedCM]);
 
   const handleMatchedDone = useCallback(() => {
+    // Record A/B test completion if applicable
+    if (abTestInfo) {
+      const userId = sessionStorage.getItem("analyticsId") || "";
+      if (userId) recordABCompletion(abTestInfo.test.id, userId);
+    }
     setPhase("waiting");
-  }, []);
+  }, [abTestInfo]);
 
   const handleNext = () => {
     // Record CM viewed step
@@ -132,19 +187,24 @@ export default function ProcessingPage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center p-6 pt-10">
+      {/* Language switcher */}
+      <div className="fixed top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-6"
       >
         <h1 className="text-2xl font-bold text-gray-800">
-          イベントの全写真データを読み込んでいます...
+          {t("title")}
         </h1>
-        <p className="text-gray-400 text-sm mt-1">しばらくお待ちください</p>
+        <p className="text-gray-400 text-sm mt-1">{t("subtitle")}</p>
       </motion.div>
 
       <div className="w-full max-w-lg mb-6">
-        <ProgressBar progress={progress} label="読み込み中" />
+        <ProgressBar progress={progress} label={t("progressLabel")} />
       </div>
 
       <div className="w-full max-w-lg space-y-4">
@@ -152,12 +212,12 @@ export default function ProcessingPage() {
         {phase === "platinum" && cmMatch.platinumCM && (
           <Card>
             <p className="text-xs text-center text-gray-400 mb-2">
-              今日の写真は <span className="font-bold text-[#6EC6FF]">{cmMatch.platinumCM.name}</span> からのプレゼントです！
+              {t("sponsorPresent", { name: cmMatch.platinumCM.name })}
             </p>
             <VideoPlayer
               videoId={cmMatch.platinumCM.videos.cm15}
               duration={15}
-              label="提供CM"
+              label={t("cmLabel")}
               onComplete={handlePlatinumDone}
               tracking={{
                 companyId: cmMatch.platinumCM.id,
@@ -169,18 +229,23 @@ export default function ProcessingPage() {
           </Card>
         )}
 
-        {/* Matched CM - 30s */}
+        {/* Matched CM — A/B test variant or default 30s */}
         {phase === "matched" && cmMatch.matchedCM && (
           <Card>
+            {abTestInfo && (
+              <p className="text-[10px] text-center text-purple-400 mb-1">
+                A/Bテスト: {abTestInfo.variant.label}
+              </p>
+            )}
             <VideoPlayer
-              videoId={cmMatch.matchedCM.videos.cm30}
-              duration={30}
-              label={`${cmMatch.matchedCM.name} のおすすめ`}
+              videoId={matchedVideoId}
+              duration={matchedDuration}
+              label={t("recommendLabel", { name: cmMatch.matchedCM.name })}
               onComplete={handleMatchedDone}
               tracking={{
                 companyId: cmMatch.matchedCM.id,
                 companyName: cmMatch.matchedCM.name,
-                cmType: "cm30",
+                cmType: matchedCmType,
                 eventId: (typeof window !== "undefined" && sessionStorage.getItem("eventId")) || "",
               }}
             />
@@ -206,7 +271,7 @@ export default function ProcessingPage() {
         className="mt-8"
       >
         <Button onClick={handleNext} disabled={!canProceed} size="lg">
-          写真を見る →
+          {t("viewPhotos")}
         </Button>
       </motion.div>
     </main>

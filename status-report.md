@@ -1,13 +1,13 @@
 # VLS System — Status Report
 
-**最終更新**: 2026-03-01
+**最終更新**: 2026-03-03
 **ブランチ**: main (`f797e1e`)
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
 ---
 
-## 完成済み機能一覧 (28件)
+## 完成済み機能一覧 (61件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -21,8 +21,11 @@
 | 6 | デモ体験 | `/demo` | パスワード不要5ステップウォークスルー (CM 5秒短縮、analytics無し) |
 | 7 | モバイルQRチェックイン | `/scan` | html5-qrcode カメラ読取 + 手動選択 + ワンタップチェックイン |
 | 8 | メールDLリンク | `/dl/[token]` | 後日メール送付 (Resend) + 7日有効トークン + 写真DLページ |
+| 9 | アルバム共有リンク | `/album/[token]` | パスワード不要家族共有 (30日有効) + 閲覧カウンター + スポンサーバナー + オファー表示 |
+| 10 | 参加者マイページ | `/my`, `/my/[token]` | メールアドレスでマジックリンクログイン → 過去の参加イベント・DL済み写真一覧 + 再ダウンロード (7日間有効トークン) |
+| 11 | NPSアンケート | `/survey-nps/[token]` | イベント後フォローアップ。0-10スコア + 自由記述。7日間有効トークン。Resendメール送信 |
 
-### 管理画面 (14タブ + 8サブページ)
+### 管理画面 (14タブ + 18サブページ)
 
 | # | 機能 | パス/タブ | 概要 |
 |---|------|----------|------|
@@ -35,13 +38,22 @@
 | 14 | チェックイン | `/admin/checkin` | イベント選択 → 検索 → ワンクリックチェックイン → バルク操作 |
 | 15 | ライブダッシュボード | `/admin/live` | 当日リアルタイムKPI (5秒ポーリング) + フルスクリーン + チェックイン進捗リング + アラート通知 |
 | 16 | 統合管理センター | `/admin/command` | マルチイベント横断KPI + 異常検知ハイライト + 日付フィルター + 10秒ポーリング |
+| 17 | スポンサーROIダッシュボード | `/admin/roi` | CPV・CVR・属性別効果分析 (Recharts) + A/BテストCM尺比較 + 月次ROIレポートメール送信 |
+| 18 | スポンサー効果比較 | `/admin/sponsor-compare` | Tier別/イベント別CPV・CVR・完了率横比較。散布図+ヒートマップ+CSV/PDFエクスポート |
+| 19 | アンケートリアルタイム集計 | `/admin/survey-live` | 5秒ポーリング + タグクラウド + 回答速度グラフ + ライブフィード + フルスクリーン |
+| 20 | NPSダッシュボード | `/admin/nps` | NPSスコア集計 + 推奨者/批判者分類 + イベント比較 + メール送信 + コメント一覧 |
+| 21 | 管理者監査ログ | `/admin/audit` | 全admin操作をD1記録。KPIカード (総数/今日/実行者数/最頻操作) + アクション別・期間別フィルター + テーブル (50件/ページ) + CSV出力。EventsTab/CompaniesTab/PhotosTab連携 |
+| 22 | 参加者行動ヒートマップ | `/admin/heatmap` | ユーザー操作ログ (PV/離脱/タップ/スクロール) をD1記録 → ステップファネルヒートマップ + 時間帯別PVチャート + タップ頻度テーブル + 離脱分析 + CSV出力 |
+| 23 | スポンサーオファー効果測定 | `/admin/offers` | クーポン配布・コピー・クリック追跡 + 企業別CTR/コピー率テーブル + Rechartsバーチャート + 最適化レコメンド + CSV出力 |
+| 24 | イベント比較レポートPDF | `/admin/event-compare` | 複数イベント横断KPI比較 (参加率/CM視聴率/DL率/NPS) + jsPDF A4横PDF自動生成 + Resendメール送信 |
+| 25 | イベントスケジューラー | `/admin/scheduler` | Cron的タスクマネージャー。ScheduledTask (5種別) + 30秒自動チェック + 手動実行 + 実行ログ + CSV出力 |
 
 ### インフラ・基盤
 
 | # | 機能 | 概要 |
 |---|------|------|
 | 16 | マルチテナント | 3テナント (さくら学園/ひまわり幼稚園/イベントプロ) + Super Admin。データ分離 + ライセンス管理 |
-| 17 | Cloudflare D1 永続化 | localStorage キャッシュ + D1 KVストア (9キー)。DbSyncProvider で起動時同期 |
+| 17 | Cloudflare D1 永続化 | localStorage キャッシュ + D1 KVストア (23キー)。DbSyncProvider で起動時同期 |
 | 18 | Cloudflare R2 ストレージ | テナントスコープ写真アップロード/一覧/削除 + HMAC署名付きPresigned URL |
 | 19 | CMスコアリングマッチング | テーマ15pt + サービス20pt + 年齢25pt + Tier30pt + 広範囲15pt (22社4Tier) |
 | 20 | 請求書PDF生成 | jsPDF日本語対応。企業別請求書自動生成 |
@@ -64,12 +76,33 @@
 | 32 | PWAオフラインモード | Service Worker (app shell cache) + IndexedDB (offline D1 sync queue) + OfflineIndicator UI |
 | 33 | 写真AI自動分類 | Claude Vision API (Haiku) で写真シーン分類 (個人/グループ/会場/アクティビティ)。フィルター + 手動分類 + 一括AI分類 |
 | 34 | スポンサーレポートPDF | 企業別CM再生数・完了率・平均視聴秒・属性分布・CPV試算。jsPDF A4 PDF即DL |
-| 35 | 写真プレビュー低画質化 | 30%解像度 + blur(1.5px) + "© 未来発見ラボ" 3x3グリッド透かし (alpha 0.30) |
+| 35 | 写真プレビュー低画質化 | 30%解像度 + blur(1.5px) + "© みらい発見ラボ" 2x2グリッド透かし (alpha 0.18, fontSize w/18)。モーダルは閲覧専用 (DLボタン廃止) |
 | 36 | フレーム合成プレビュー | Canvas描画で選択写真 + frame-template.svg を合成プレビュー表示。DLボタン廃止 |
 | 37 | プラチナスポンサーバナー | platinumCMs全社 (max3) を complete/downloading 画面に sticky bottom 表示 |
 | 38 | 写真公開期間管理 | EventData に publishedAt/expiresAt/status 追加。期限UI + アーカイブ + ログイン時期限チェック |
 | 39 | メール後日DL送付 | /api/send-download-link (Resend) + /dl/[token] DLページ + 7日有効トークン |
 | 40 | Webhook外部連携 | /admin 設定タブ Webhook設定UI。チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知。リトライ3回+配信ログ |
+| 41 | イベントテンプレート＋クローン | `/admin/events` + EventsTab。イベントクローン (ワンクリック複製) + テンプレート保存/読込/削除。アンケート・スポンサー割当丸ごとコピー |
+| 42 | 多言語対応 (i18n) | next-intl (non-routing mode)。ja/en 切替 (cookie + Accept-Language)。ユーザーフロー6ページ + 子コンポーネント3個の全UI文言を翻訳。LanguageSwitcher で即時切替。既存URL構造・E2Eテスト影響なし |
+| 43 | スポンサーセルフポータル | `/sponsor` — 企業ID+パスワード認証 → 3タブ (CM素材管理/再生レポート/オファー編集)。Company.portalPassword追加。Platinum2社+Gold3社にパスワード設定。/api/sponsor/update PUT API |
+| 44 | アクセシビリティ改善 (Phase2) | sponsor, roi, album, my, dl ページにrole=tablist/tab/aria-selected、focus-visible:ring、aria-live/role=status、role=contentinfo、loading状態aria-label追加 |
+| 45 | Error Boundaries強化 (H2) | fetchWithRetry (3回リトライ+exponential backoff+timeout)。DbSyncProvider失敗時オフラインバナー。全新ページにloading.tsx追加 (sponsor/demo/scan/my/dl/album) |
+| 46 | スポンサー効果比較ダッシュボード | `/admin/sponsor-compare` — Tier別/イベント別/期間別のCPV・CVR・完了率横比較。Recharts散布図 (CPV vs 完了率) + ヒートマップ (Event×Company) + Tier比較棒グラフ。CSV/PDFエクスポート |
+| 47 | アンケート回答リアルタイム集計 | `/admin/survey-live` — 5秒ポーリング + タグクラウド (動的フォントサイズ12-36px) + 回答速度グラフ (5分バケットLineChart) + 質問別回答分布 (BarChart) + 新着フラッシュ通知 + 最新回答フィード (AnimatePresence) + フルスクリーン対応 |
+| 48 | 参加者NPSフォローアップ | `/survey-nps/[token]` 公開回答ページ (0-10スコア+自由記述) + `/admin/nps` ダッシュボード (NPSゲージ/推奨者・中立者・批判者PieChart/スコア分布/イベント比較/週次トレンド/コメント一覧) + `/api/nps` (GET/POST) + `/api/send-nps` (Resendメール送信) |
+| 49 | 写真AI品質スコアリング | Claude Vision API (Haiku) で品質採点 (sharpness 40%+exposure 30%+composition 30%)。`/api/score-photo` API。PhotosTab一括スコアリングボタン+スコアバッジ (80↑黄/50↑灰/50↓赤)。PhotoGrid「おすすめ」バッジ。photos/page.tsx おすすめ順ソート |
+| 50 | 管理者監査ログ | `logAudit()` ヘルパー (fire-and-forget)。AuditLog型 (20アクション種別)。`/api/audit` GET/POST。`/admin/audit` ダッシュボード (KPI+フィルター+テーブル+CSV)。EventsTab (9箇所) + CompaniesTab (3箇所) + PhotosTab (4箇所) に監査ログ連携 |
+| 51 | SSEリアルタイム通知 | `/api/sse` Edge Runtime SSEエンドポイント (D1 3秒ポーリング+変更差分プッシュ+ハートビート)。`useEventStream` カスタムフック (SSE自動接続+3回リトライ後ポーリングフォールバック)。`/admin/live` + `/admin/survey-live` を SSE化。LIVE表示が SSE/LIVE/停止中 に |
+| 52 | 写真顔認識グルーピング | Claude Vision (Haiku) で顔検出 (`/api/detect-faces`) + 人物特徴ベース自動グルーピング (`/api/group-faces`)。PhotosTab: 一括顔検出+グルーピングボタン+顔数バッジ+グループ表示。/photos: 人物別フィルターピル (全員/人物A/人物B...)。PhotoData に faceCount/faceDescriptions/faceGroupId、FaceGroup型追加 |
+| 53 | スポンサーA/Bテストエンジン | ABTest/ABVariant/ABAssignment型。`/lib/abtest.ts` (ランダムバリアント割当+χ²有意差検定)。`/admin/ab-test` ダッシュボード (テスト作成/バリアント比較BarChart/完了率・CVR表/有意差判定/サンプルサイズ進捗)。`/processing` CM再生時にバリアント自動割当+完了記録 |
+| 54 | 参加者行動ヒートマップ | BehaviorEvent型 (page_view/page_leave/tap/scroll/form_submit)。`/lib/tracker.ts` クライアント計測ライブラリ。全ユーザーページ (/, /survey, /processing, /photos, /complete) にPV/離脱/スクロール/タップ計測統合。`/api/behavior` D1取得API。`/admin/heatmap` ダッシュボード (KPI+ステップファネルヒートマップ+時間帯PVチャート+タップ頻度Top20+離脱分析+CSV) |
+| 55 | スポンサーオファー効果測定 | OfferInteraction型 (offer_view/offer_click/coupon_view/coupon_copy/coupon_redeem)。`/lib/offerTracker.ts` クライアント計測ライブラリ。complete/page.tsx にオファー表示/クリック/クーポンコピー計測統合 (コードclick-to-copy対応)。`/api/coupon` D1取得API。`/admin/offers` ダッシュボード (KPI+企業別テーブル+BarChart+最適化レコメンド+CSV) |
+| 56 | イベント比較レポートPDF | `EventKPI` インターフェース。`/lib/eventCompareReport.ts` (KPI算出+jsPDF A4横PDF生成+base64出力)。`/admin/event-compare` ダッシュボード (イベント複数選択+KPI比較テーブル (ベスト値ハイライト)+CSSファネル比較+PDFダウンロード+メール送信+CSV出力)。`/api/send-report` (Resend/SendGrid PDF添付メール送信、3段フォールバック) |
+| 57 | 写真一括アップロード+自動最適化 | PhotosTab ドラッグ&ドロップ強化。`adminUtils.ts` に `resizeImageBlob()` (Canvas 2048px JPEG 0.85) + `createThumbnailBlobAR()` (アスペクト比維持400px) + `validateImageFiles()` (JPEG/PNG/WebP/HEIC, 30MB上限)。ファイル別進捗UI (✓/↑/· アイコン) + バリデーションエラー表示 + 圧縮率トースト。PhotoData に uploadedAt/originalSize/optimizedSize 追加 |
+| 58 | イベントスケジュール自動化 | ScheduledTask型 (photo_publish/photo_archive/nps_send/report_generate/event_expire) + TaskExecutionLog型。store.ts CRUD (10関数)。`/admin/scheduler` ダッシュボード (KPIカード+3タブ: タスク一覧/新規作成/実行ログ+30秒自動チェック+CSV出力)。`/api/lifecycle` POST (タスク実行エンドポイント) |
+| 59 | 管理者ロール・権限管理 (RBAC) | AdminRole (super_admin/tenant_admin/viewer) + Permission (9種) + ROLE_PERMISSIONS定数 + AdminUser型。store.ts CRUD (7関数)。auth.ts viewer認証対応 (DEFAULT_ADMIN_USERS)。middleware.ts viewer書込禁止 (POST/PUT/DELETE→403)。AdminHeader ロール別ナビ表示制御。/admin/users ロール管理UI (追加/編集/有効無効/削除+権限凡例) |
+| 60 | ランディングページ | `/lp` — プロダクト紹介LP。ヒーロー (グラデーション+CTA) + 5ステップフロー + 主要機能5カード + 料金プラン3カラム + CTA + フッター。framer-motion whileInView アニメーション。認証不要パブリックページ |
+| 61 | 参加者エンゲージメントスコア | EngagementScore型 (PV回数/滞在時間/CM視聴完了/写真DL数/NPS回答/クーポン利用を重み付け合算)。`/lib/engagement.ts` スコア算出 (PV 10%+滞在15%+CM 25%+DL 25%+NPS 15%+クーポン10%)。`/admin/engagement` ダッシュボード (KPIカード+スコア分布ヒストグラム+イベント比較+上位参加者テーブル+ランク分布バー+CSVエクスポート) |
 
 ---
 
@@ -92,7 +125,7 @@
 |----|--------|------|------|
 | L3 | LOW | 実CM動画差替え | 現在はパブリックYouTube動画 (Rick Astley等)。実スポンサーCM素材待ち |
 | L4 | LOW | 実企業ロゴ差替え | 現在は ui-avatars.com テキストアイコン。実ロゴ画像待ち |
-| A2 | LONG-TERM | 認証強化 | パスワード文字列比較のみ → NextAuth/Clerk sessions + RBAC |
+| A2 | ✅ LONG-TERM | 認証強化 (RBAC) | AdminRole (3ロール) + Permission (9権限) + viewer書込禁止 + AdminHeader権限フィルタ + /admin/usersロール管理 |
 | M1 | ✅ MEDIUM | モバイル最適化 | Admin テーブル横スクロール + touch-pan-x (`89ffa4c`) |
 
 ### 環境設定のみ (コード変更不要)
@@ -103,23 +136,31 @@
 | SendGrid設定 | `vercel env add SENDGRID_API_KEY` | Resend のみ有効 |
 | 写真AI分類有効化 | `vercel env add ANTHROPIC_API_KEY` | 未設定時は手動分類のみ |
 
-### tasks.txt 残タスク
+### tasks.txt 完了済みフェーズ
 
-| タスク | 状態 |
-|--------|------|
-| matching.ts platinum枠ランダム抽選化 | ✅ 完了 (`783ba6d`) |
+| フェーズ | タスク | 状態 |
+|----------|--------|------|
+| — | matching.ts platinum枠ランダム抽選化 | ✅ 完了 (`783ba6d`) |
+| Phase3 | 保護者向けアルバム共有 / ROIダッシュボード / テンプレート+クローン | ✅ 全3件完了 |
+| Phase4 | 参加者マイページ / 多言語対応 / スポンサーポータル | ✅ 全3件完了 |
+| Phase5 | アクセシビリティ改善P2 / スポンサー比較 / アンケートライブ / Error Boundaries | ✅ 全4件完了 |
+| Phase6 | NPSフォローアップ / AI品質スコアリング / 監査ログ | ✅ 全3件完了 |
+| Phase7 | SSEリアルタイム / 顔認識グルーピング / A/Bテスト | ✅ 全3件完了 |
+| Phase8 | 行動ヒートマップ / オファー効果測定 / イベント比較PDF | ✅ 全3件完了 |
+| Phase9 | 写真アップロード最適化 / スケジュール自動化 / RBAC権限管理 | ✅ 全3件完了 |
 
 ---
 
-## Phase 2 — 次フェーズ機能提案 (ビジネスインパクト順)
+## Phase 2 — 初期提案 (全完了)
 
-| # | 機能 | ページ | 概要 | Why |
-|---|------|--------|------|-----|
-| P2-1 | スポンサーレポートPDF | `/admin/reports` | 企業別CM再生数・完了率・属性分布・CPV試算をPDF自動生成。jsPDF + Chart.js canvas export活用 | 営業資料自動化 → 契約更新率UP |
-| P2-2 | ライブイベントダッシュボード | `/admin/live` | 当日リアルタイム画面。チェックイン進捗・CM視聴中人数・DL完了数 (5秒ポーリング) + フルスクリーン + アラート通知 | イベント当日の即時状況判断 |
-| P2-3 | Webhook外部連携 | `/admin` 設定タブ | チェックイン/DL完了/CM視聴/アンケート回答時にPOST通知。Slack/LINE/Zapier連携。リトライ3回 + ログ | 既存業務フロー組み込み |
-| P2-4 | 写真AI自動分類 | `/admin/photos` | R2アップロード時にClaude Vision APIでシーン分類 + 顔検出カウント → ギャラリーフィルター | 写真探し時間削減 → DL率UP |
-| P2-5 | マルチイベント統合管理 | `/admin/command` | 同日複数イベントの横断KPI表示 (チェックイン率/CM視聴率/DL率) + 異常検知ハイライト | 複数会場並行運営対応 |
+| # | 機能 | 状態 |
+|---|------|------|
+| P2-1 | ✅ スポンサーレポートPDF | 完了 (`87b86b5`) |
+| P2-2 | ✅ ライブイベントダッシュボード | 完了 (`b12a99e`) |
+| P2-3 | ✅ Webhook外部連携 | 完了 (`b884b66`) |
+| P2-4 | ✅ 写真AI自動分類 | 完了 (`73bf4bf`) |
+| P2-5 | ✅ マルチイベント統合管理 | 完了 (`49b98e9`) |
+| P2-6 | ✅ PWAオフラインモード | 完了 (`ee11fc2`) |
 
 ---
 
@@ -136,9 +177,11 @@
 | QR | qrcode + html5-qrcode |
 | Storage | Cloudflare R2 + D1 |
 | Auth | NextAuth (credentials) + JWT |
-| AI | Claude Haiku 4.5 Vision (写真分類) |
+| AI | Claude Haiku 4.5 Vision (写真分類+品質スコアリング+顔検出+グルーピング) |
+| Analytics | 行動トラッキング (PV/離脱/タップ/スクロール) + オファー効果測定 + A/Bテスト (χ²検定) |
 | Monitoring | Sentry + D1エラーログ |
 | Testing | Playwright (67 tests) |
+| i18n | next-intl (non-routing, cookie-based ja/en) |
 | PWA | Service Worker + IndexedDB (offline sync queue) |
 | Deploy | Vercel (本番 + デモ 2プロジェクト) |
 
@@ -148,6 +191,26 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-03 | — | #61 参加者エンゲージメントスコア — EngagementScore型 + /lib/engagement.ts スコア算出 + /admin/engagement ダッシュボード (3ファイル) |
+| 2026-03-03 | — | #60 ランディングページ `/lp` — ヒーロー+5ステップ+機能カード+料金プラン+CTA (1ファイル新規) |
+| 2026-03-03 | — | Phase9-3 管理者ロール・権限管理 (RBAC) — AdminRole/Permission/AdminUser型 + auth.ts viewer認証 + middleware viewer書込禁止 + AdminHeader権限フィルタ + /admin/users ロール管理UI (7ファイル) |
+| 2026-03-03 | — | Phase9-2 イベントスケジュール自動化 — ScheduledTask/TaskExecutionLog型 + store CRUD + /admin/scheduler ダッシュボード + /api/lifecycle POST (5ファイル) |
+| 2026-03-03 | — | Phase9-1 写真一括アップロード+自動最適化 — adminUtils.ts (resizeImageBlob/createThumbnailBlobAR/validateImageFiles) + PhotosTab進捗UI強化 + PhotoData型拡張 (3ファイル) |
+| 2026-03-03 | — | Phase8-3 イベント比較レポートPDF — /lib/eventCompareReport.ts + /admin/event-compare + /api/send-report (5ファイル) |
+| 2026-03-03 | — | Phase8-2 スポンサーオファー効果測定 — /lib/offerTracker.ts + /api/coupon + /admin/offers ダッシュボード + complete/page.tsx計測統合 (8ファイル) |
+| 2026-03-03 | — | Phase8-1 参加者行動ヒートマップ — /lib/tracker.ts + /api/behavior + /admin/heatmap ダッシュボード + 全5ユーザーページ計測統合 (10ファイル) |
+| 2026-03-03 | — | Phase7-3 スポンサーA/Bテストエンジン — /lib/abtest.ts + /admin/ab-test ダッシュボード + /processing バリアント割当連携 (5ファイル) |
+| 2026-03-03 | — | Phase7-2 写真顔認識グルーピング — /api/detect-faces + /api/group-faces + PhotosTab顔検出UI + /photos人物フィルター (6ファイル) |
+| 2026-03-03 | — | Phase7-1 SSEリアルタイム通知 — /api/sse Edge SSE + useEventStream フック + /admin/live, /admin/survey-live SSE化 (4ファイル) |
+| 2026-03-02 | — | Phase6-3 管理者監査ログ — /lib/audit.ts + /api/audit + /admin/audit ダッシュボード + EventsTab/CompaniesTab/PhotosTab連携 (8ファイル) |
+| 2026-03-02 | — | Phase6-2 写真AI品質スコアリング — /api/score-photo + PhotoGrid「おすすめ」バッジ + photos/page おすすめ順ソート + PhotosTab一括スコアリング (4ファイル) |
+| 2026-03-02 | — | Phase6-1 参加者NPSフォローアップ — /survey-nps/[token] + /admin/nps + /api/nps + /api/send-nps (8ファイル) |
+| 2026-03-02 | — | Phase5-2 スポンサー効果比較 `/admin/sponsor-compare` — 散布図+ヒートマップ+CSV/PDFエクスポート (2ファイル) |
+| 2026-03-02 | — | Phase5-3 アンケートリアルタイム集計 `/admin/survey-live` — タグクラウド+回答速度グラフ+フルスクリーン (2ファイル) |
+| 2026-03-02 | — | H2 Error Boundaries強化 — fetchWithRetry + DbSyncProvider失敗UI + loading.tsx×6 (10ファイル) |
+| 2026-03-02 | — | アクセシビリティ改善 Phase2 — sponsor/roi/album/my/dl全7ファイル a11y強化 |
+| 2026-03-02 | — | Phase4-3 スポンサーセルフポータル `/sponsor` — 3タブ (CM管理/レポート/オファー) (8ファイル) |
+| 2026-03-02 | — | Phase4-2 多言語対応 (i18n) — next-intl ja/en 切替 (17ファイル変更) |
 | 2026-03-01 | `f797e1e` | アクセシビリティ改善 — aria-label/focus-visible/role=meter追加 (6ファイル) |
 | 2026-03-01 | `89ffa4c` | M1 モバイル最適化 — 全Adminテーブル横スクロール + touch-pan-x (13ファイル) |
 | 2026-03-01 | `49b98e9` | P2-5 マルチイベント統合管理 /admin/command |

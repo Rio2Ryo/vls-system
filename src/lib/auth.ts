@@ -1,6 +1,6 @@
 import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { ADMIN_PASSWORD, TENANTS } from "@/lib/data";
+import { ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, TENANTS } from "@/lib/data";
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -19,6 +19,18 @@ export const authOptions: AuthOptions = {
           if (tenant.isActive === false) return null;
           if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) return null;
           return { id: tenant.id, name: tenant.name, role: "tenant_admin", tenantId: tenant.id, tenantName: tenant.name };
+        }
+        // RBAC: Check admin users (viewers and custom roles)
+        const adminUser = DEFAULT_ADMIN_USERS.find((u) => u.password === pw && u.isActive);
+        if (adminUser) {
+          const userTenant = adminUser.tenantId ? TENANTS.find((t) => t.id === adminUser.tenantId) : null;
+          return {
+            id: adminUser.id,
+            name: adminUser.name,
+            role: adminUser.role,
+            tenantId: adminUser.tenantId || null,
+            tenantName: userTenant?.name || null,
+          };
         }
         return null;
       },

@@ -4,20 +4,27 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getStoredTenants } from "@/lib/store";
-import { Tenant } from "@/lib/types";
+import { Tenant, ROLE_PERMISSIONS, AdminRole } from "@/lib/types";
 import { useTenantBranding } from "@/components/providers/TenantBrandingProvider";
 import { useDarkMode } from "@/components/providers/DarkModeProvider";
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  requiredPermission?: string;  // permission needed to see this nav item
+}
+
+const NAV_ITEMS: NavItem[] = [
   { href: "/admin", label: "Admin" },
-  { href: "/admin/events", label: "イベント" },
-  { href: "/admin/analytics", label: "アンケート" },
-  { href: "/admin/stats", label: "CM統計" },
-  { href: "/admin/users", label: "ユーザー" },
-  { href: "/admin/import", label: "インポート" },
-  { href: "/admin/checkin", label: "チェックイン" },
-  { href: "/admin/live", label: "ライブ" },
-  { href: "/admin/command", label: "統合管理" },
+  { href: "/admin/events", label: "イベント", requiredPermission: "events.read" },
+  { href: "/admin/analytics", label: "アンケート", requiredPermission: "analytics.read" },
+  { href: "/admin/stats", label: "CM統計", requiredPermission: "analytics.read" },
+  { href: "/admin/users", label: "ユーザー", requiredPermission: "users.read" },
+  { href: "/admin/import", label: "インポート", requiredPermission: "import.write" },
+  { href: "/admin/checkin", label: "チェックイン", requiredPermission: "events.write" },
+  { href: "/admin/live", label: "ライブ", requiredPermission: "analytics.read" },
+  { href: "/admin/command", label: "統合管理", requiredPermission: "analytics.read" },
+  { href: "/admin/roi", label: "ROI", requiredPermission: "analytics.read" },
 ];
 
 interface AdminHeaderProps {
@@ -36,6 +43,11 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
   const { logoUrl } = useTenantBranding();
   const { isDark, toggle: toggleDark } = useDarkMode();
   const isSuperAdmin = session?.user?.role === "super_admin";
+  const userRole = (session?.user?.role || "viewer") as AdminRole;
+  const userPermissions = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS.viewer;
+  const visibleNavItems = NAV_ITEMS.filter(
+    (item) => !item.requiredPermission || userPermissions.includes(item.requiredPermission as typeof userPermissions[number])
+  );
 
   useEffect(() => {
     const tid = sessionStorage.getItem("adminTenantId") || null;
@@ -118,7 +130,7 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
         {/* Navigation */}
         <nav aria-label="管理画面ナビゲーション">
           <div className="flex gap-1 mt-2 overflow-x-auto pb-0.5 -mx-1 px-1">
-            {NAV_ITEMS.map((item) => {
+            {visibleNavItems.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <a

@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import ProgressBar from "@/components/ui/ProgressBar";
 import LoadingAnimation from "@/components/ui/LoadingAnimation";
 import VideoPlayer from "@/components/cm/VideoPlayer";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { Company } from "@/lib/types";
 
 const TOTAL_SECONDS = 60;
@@ -24,6 +26,7 @@ function useSelectedPhotoCount(): number {
 
 export default function DownloadingPage() {
   const router = useRouter();
+  const t = useTranslations("Downloading");
   const [elapsed, setElapsed] = useState(0);
   const [videoDone, setVideoDone] = useState(false);
   const photoCount = useSelectedPhotoCount();
@@ -75,23 +78,28 @@ export default function DownloadingPage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center p-6 pt-10">
+      {/* Language switcher */}
+      <div className="fixed top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-6"
       >
         <h1 className="text-2xl font-bold text-gray-800">
-          高画質データを生成中...
+          {t("title")}
         </h1>
         <p className="text-gray-400 text-sm mt-1">
           {photoCount > 0
-            ? `${photoCount}枚の写真を処理中...もうすぐ完了します`
-            : "もうすぐ完了します"}
+            ? t("processingPhotos", { count: photoCount })
+            : t("almostDone")}
         </p>
       </motion.div>
 
       <div className="w-full max-w-lg mb-6">
-        <ProgressBar progress={progress} label="データ生成中" />
+        <ProgressBar progress={progress} label={t("progressLabel")} />
       </div>
 
       <div className="w-full max-w-lg">
@@ -100,7 +108,7 @@ export default function DownloadingPage() {
             <VideoPlayer
               videoId={matchedCompany.videos.cm60}
               duration={60}
-              label={`${matchedCompany.name} からのメッセージ`}
+              label={t("videoLabel", { name: matchedCompany.name })}
               onComplete={handleVideoDone}
               tracking={{
                 companyId: matchedCompany.id,
@@ -127,7 +135,7 @@ export default function DownloadingPage() {
         className="mt-8"
       >
         <Button onClick={handleNext} disabled={!canProceed} size="lg">
-          ダウンロードへ →
+          {t("proceed")}
         </Button>
       </motion.div>
 
