@@ -397,13 +397,41 @@ export interface OfferInteraction {
   metadata?: Record<string, string>;
 }
 
+// Data retention policy
+export type RetentionDays = 30 | 60 | 90 | 180 | 365 | 0; // 0 = unlimited
+
+export interface RetentionPolicy {
+  analytics: RetentionDays;
+  videoPlays: RetentionDays;
+  behaviorEvents: RetentionDays;
+  offerInteractions: RetentionDays;
+  auditLog: RetentionDays;
+  notificationLog: RetentionDays;
+  pushLogs: RetentionDays;
+  npsResponses: RetentionDays;
+  lastCleanupAt?: number;
+}
+
+export const DEFAULT_RETENTION_POLICY: RetentionPolicy = {
+  analytics: 0,
+  videoPlays: 0,
+  behaviorEvents: 90,
+  offerInteractions: 90,
+  auditLog: 180,
+  notificationLog: 90,
+  pushLogs: 90,
+  npsResponses: 0,
+};
+
 // Scheduled task types
 export type ScheduledTaskType =
   | "photo_publish"     // 写真公開
   | "photo_archive"     // 写真アーカイブ
   | "nps_send"          // NPSアンケート送信
   | "report_generate"   // レポート生成
-  | "event_expire";     // イベント期限チェック
+  | "event_expire"      // イベント期限チェック
+  | "weekly_digest"     // 週次ダイジェストメール
+  | "data_cleanup";     // データクリーンアップ
 
 export type ScheduledTaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
@@ -492,6 +520,166 @@ export interface EngagementScore {
   // Weighted total (0–100)
   totalScore: number;
   calculatedAt: number;
+}
+
+// Pricing plan for photo purchases
+export interface PricingPlan {
+  id: string;
+  name: string;                // e.g. "写真5枚セット"
+  description: string;
+  priceYen: number;            // JPY (integer)
+  photoCount: number;          // max photos (0 = unlimited)
+  features: string[];          // bullet points
+  isActive: boolean;
+  sortOrder: number;
+  tenantId?: string;
+  createdAt: number;
+}
+
+// Purchase record
+export type PurchaseStatus = "pending" | "completed" | "failed" | "refunded";
+
+export interface Purchase {
+  id: string;
+  eventId: string;
+  eventName: string;
+  participantName: string;
+  participantEmail: string;
+  planId: string;
+  planName: string;
+  amount: number;              // JPY
+  status: PurchaseStatus;
+  stripeSessionId?: string;
+  stripePaymentIntentId?: string;
+  photoIds: string[];
+  tenantId?: string;
+  createdAt: number;
+  completedAt?: number;
+}
+
+// Web Push subscription
+export type PushTrigger = "photo_publish" | "nps_request" | "offer_expiry" | "event_reminder" | "custom";
+
+export interface PushSubscriptionRecord {
+  id: string;
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  eventId?: string;
+  participantName?: string;
+  tenantId?: string;
+  createdAt: number;
+}
+
+export interface PushLog {
+  id: string;
+  trigger: PushTrigger;
+  title: string;
+  body: string;
+  targetCount: number;
+  successCount: number;
+  failCount: number;
+  sentBy: string;
+  tenantId?: string;
+  timestamp: number;
+}
+
+// Admin real-time notification
+export type AdminNotificationType = "checkin" | "download" | "nps_response" | "purchase";
+
+export interface AdminNotification {
+  id: string;
+  type: AdminNotificationType;
+  title: string;
+  message: string;
+  timestamp: number;
+  read: boolean;
+}
+
+// Participant segment condition types
+export type SegmentConditionType =
+  | "score_range"       // engagement score min/max
+  | "survey_tag"        // has specific survey answer tag
+  | "event"             // belongs to specific event
+  | "checked_in"        // checked in (true/false)
+  | "downloaded"        // completed photo download (true/false)
+  | "cm_viewed"         // viewed CM video (true/false)
+  | "nps_responded";    // responded to NPS survey (true/false)
+
+export interface SegmentCondition {
+  type: SegmentConditionType;
+  // For score_range
+  scoreMin?: number;
+  scoreMax?: number;
+  // For survey_tag
+  tag?: InterestTag;
+  // For event
+  eventId?: string;
+  // For boolean conditions (checked_in, downloaded, cm_viewed, nps_responded)
+  value?: boolean;
+}
+
+export interface Segment {
+  id: string;
+  name: string;
+  description?: string;
+  conditions: SegmentCondition[];
+  tenantId?: string;
+  createdAt: number;
+  createdBy: string;
+}
+
+// Campaign delivery
+export type CampaignChannel = "push" | "email";
+export type CampaignStatus = "draft" | "sent" | "failed";
+
+export interface Campaign {
+  id: string;
+  segmentId: string;
+  segmentName: string;
+  channel: CampaignChannel;
+  title: string;
+  body: string;
+  targetCount: number;
+  sentCount: number;
+  failCount: number;
+  status: CampaignStatus;
+  tenantId?: string;
+  sentAt: number;
+  sentBy: string;
+}
+
+// Sponsor report share link (30-day public token)
+export interface SponsorReportShare {
+  id: string;
+  token: string;
+  companyId?: string;       // specific company or all
+  companyName?: string;
+  eventId?: string;         // specific event or all
+  eventName?: string;
+  dateFrom?: string;        // ISO date filter
+  dateTo?: string;
+  tenantId?: string;
+  createdBy: string;
+  createdAt: number;
+  expiresAt: number;        // 30日有効
+  viewCount: number;
+}
+
+// Real-time collaboration — admin presence + edit lock
+export interface AdminPresence {
+  userId: string;
+  userName: string;
+  page: string;          // current admin page path
+  color: string;         // avatar color
+  lastSeen: number;      // Unix ms (heartbeat)
+}
+
+export interface EditLock {
+  recordType: string;    // e.g. "event", "company", "participant"
+  recordId: string;
+  lockedBy: string;      // userId
+  lockedByName: string;
+  lockedAt: number;
 }
 
 export interface AdminUser {

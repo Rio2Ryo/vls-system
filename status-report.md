@@ -7,7 +7,7 @@
 
 ---
 
-## 完成済み機能一覧 (61件)
+## 完成済み機能一覧 (74件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -103,6 +103,19 @@
 | 59 | 管理者ロール・権限管理 (RBAC) | AdminRole (super_admin/tenant_admin/viewer) + Permission (9種) + ROLE_PERMISSIONS定数 + AdminUser型。store.ts CRUD (7関数)。auth.ts viewer認証対応 (DEFAULT_ADMIN_USERS)。middleware.ts viewer書込禁止 (POST/PUT/DELETE→403)。AdminHeader ロール別ナビ表示制御。/admin/users ロール管理UI (追加/編集/有効無効/削除+権限凡例) |
 | 60 | ランディングページ | `/lp` — プロダクト紹介LP。ヒーロー (グラデーション+CTA) + 5ステップフロー + 主要機能5カード + 料金プラン3カラム + CTA + フッター。framer-motion whileInView アニメーション。認証不要パブリックページ |
 | 61 | 参加者エンゲージメントスコア | EngagementScore型 (PV回数/滞在時間/CM視聴完了/写真DL数/NPS回答/クーポン利用を重み付け合算)。`/lib/engagement.ts` スコア算出 (PV 10%+滞在15%+CM 25%+DL 25%+NPS 15%+クーポン10%)。`/admin/engagement` ダッシュボード (KPIカード+スコア分布ヒストグラム+イベント比較+上位参加者テーブル+ランク分布バー+CSVエクスポート) |
+| 62 | Stripe決済連携 | PricingPlan/Purchase型。`/api/checkout` (Stripe Checkout Session作成、デモモード対応)。`/api/webhook/stripe` (Stripe Webhook受信、CSRF除外)。`/api/purchases` (D1 CRUD)。`/admin/purchases` ダッシュボード (売上KPI+日別売上チャート+購入履歴テーブル+料金プラン管理+領収書PDF生成)。store.ts CRUD (デフォルト3プラン: 無料/ベーシック¥1,980/プレミアム¥3,980)。`/lib/receipt.ts` jsPDF領収書 |
+| 63 | Web Push通知 | PushSubscriptionRecord/PushLog型。`sw.js` push/notificationclick イベントハンドラ。`/api/push-subscribe` (VAPID鍵配布+サブスクリプション登録/解除)。`/api/push-send` (web-push配信+デモモード+期限切れ自動クリーンアップ)。`/admin/push` ダッシュボード (3タブ: 通知送信テンプレート4種+登録デバイス一覧+配信ログ+KPI4種)。`usePushSubscription` フック。VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY環境変数で本番有効化 |
+| 64 | カスタムダッシュボード | `/admin/dashboard` — react-grid-layout v2 ドラッグ&ドロップウィジェット配置。11ウィジェット (4 KPI + 3チャート + 1テーブル + 3追加KPI)。3プリセット (概要/分析/運用)。ウィジェット表示/非表示トグル。レイアウト localStorage 永続化。ResizeObserver コンテナ幅自動計測。レスポンシブ cols (4/8/12) |
+| 65 | リアルタイム通知バナー | SSE (`/api/sse`) 活用リアルタイム通知。`useAdminNotifications` フック (SSE接続+ID追跡+差分検出)。`NotificationBanner` コンポーネント (トースト自動消去5秒+履歴パネル最大50件+未読バッジ+音声設定)。対応イベント4種: チェックイン/DL完了/NPS回答/決済完了。Web Audio APIビープ音。AdminHeader全ページ統合 |
+| 66 | データエクスポート一括ダウンロード | `/admin/export` — 13データ種別 (イベント/企業/参加者/分析/CM再生/アンケート/購入/NPS/監査ログ/通知ログ/Push配信/行動イベント/オファー) をCSV/JSON選択→JSZip一括ZIP生成。日付範囲フィルター+テナントスコープ+件数プレビュー+プログレスバー+BOM付きUTF-8 CSV (Excel対応)+メタデータJSON |
+| 67 | 管理画面グローバル検索 | Cmd+K / Ctrl+K キーボードショートカットで検索モーダル起動。`GlobalSearchModal` コンポーネント (イベント名/企業名/参加者名/21管理ページを横断fuzzy検索)。スコアリング付きfuzzy match+部分一致ハイライト+キーボードナビゲーション (↑↓/Enter/ESC)+最近の検索履歴8件 (localStorage永続化)+AdminHeader全ページ統合 |
+| 68 | APIレート制限+ブルートフォース対策 | `middleware.ts` にIPベーススライディングウィンドウ方式レート制限追加。4ティア: ログイン試行5回/分 (超過→60秒ロックアウト)、API mutation 30回/分、公開POST 10回/分、公開GET 120回/分。429レスポンス+X-RateLimit-Remaining/Reset/Retry-Afterヘッダー返却。定期クリーンアップ (60秒間隔) |
+| 69 | 自動週次ダイジェストメール | `/api/digest` GET (KPIプレビュー) + POST (メール送信)。D1から前週/前々週KPI集計 (新規アクセス数/DL完了数/CM視聴完了率/NPS平均/売上合計) + 前週比較 (増減%+矢印)。テナント別HTMLメールテンプレート (インラインCSS)。Resend送信。スケジューラーに `weekly_digest` タスクタイプ追加+手動トリガーボタン |
+| 70 | バックアップ＆リストア | `/admin/export` にインポートタブ追加。#66 ZIPエクスポートと対になるZIPインポート機能。`_export_meta.json` 検証 (形式/テナントスコープ)。データ種別ごとに既存件数 vs インポート件数プレビュー。マージ (ID重複スキップ) or 上書き (完全置換) 選択。確認ダイアログ (上書き時は赤警告)。D1同期。ドラッグ&ドロップ対応。JSON形式のみインポート対応 (CSV形式は警告表示) |
+| 71 | 参加者セグメント＋ターゲット配信 | `/admin/segments` — AND条件ビルダー (スコア範囲/アンケートタグ/イベント/チェックイン/DL/CM視聴/NPS回答の7条件)。エンゲージメントスコア連携。セグメント作成/編集/削除。条件マッチプレビュー (上位5名+スコア)。キャンペーン送信 (Push/Email)。配信履歴テーブル。KPIカード4種 |
+| 74 | リアルタイムコラボレーション | `/api/presence` SSEエンドポイント (Edge Runtime)。In-memoryプレゼンス管理 (15s TTL) + 編集ロック (60s auto-expire)。`useAdminPresence` フック (5秒heartbeat + sendBeacon離脱通知)。`AdminPresenceBar` コンポーネント (アバター表示+ページ別ユーザー一覧+ロックインジケーター)。AdminHeader全ページ統合。EventsTab編集ロック連携 (acquireLock/releaseLock/ロック警告/ロックアイコン)。POST: heartbeat/lock/unlock/leave。GET: SSE stream (2秒間隔)。409 Conflict応答で同時編集防止 |
+| 73 | データ保持ポリシー＋自動クリーンアップ | `/admin` 設定タブにデータ保持ポリシーセクション追加。8データ種別 (分析/CM再生/行動/オファー/監査/通知/Push/NPS) ごとに保持期間設定 (30/60/90/180/365日/無制限)。削除プレビュー (総件数/削除対象/残件数テーブル)。確認ダイアログ (赤警告+件数表示)。`runDataCleanup()` 一括削除。スケジューラーに `data_cleanup` タスクタイプ追加。`RetentionPolicy` 型+`DEFAULT_RETENTION_POLICY` |
+| 72 | スポンサー向けレポート共有リンク | `/report/[token]` — 公開ROIレポートページ (30日有効)。企業別パフォーマンステーブル (再生数/完了率/平均視聴秒/推定費用) + Tier別Pie + CM尺別Bar + イベント別比較。`/api/sponsor-report` POST (共有作成) + GET (トークン検証+D1データ取得)。`/admin/roi` に共有リンク発行ボタン+URLコピー。SponsorReportShare型+store CRUD。フィルター条件 (企業/イベント/期間) をトークンに保存 |
 
 ---
 
@@ -118,6 +131,14 @@
 | P2-4 | ✅ 写真AI自動分類 | `/admin/photos` | Claude Vision APIでシーン分類 + ギャラリーフィルター (`73bf4bf`) |
 | P2-5 | ✅ マルチイベント統合管理 | `/admin/command` | 同日複数イベント横断KPI + 異常検知ハイライト (`49b98e9`) |
 | P2-6 | ✅ PWAオフラインモード | 全ページ | Service Worker + IndexedDB。オフラインチェックイン対応、オンライン復帰時D1自動同期 (`ee11fc2`) |
+
+### Phase 12 — 次フェーズ提案
+
+| ID | 優先度 | 内容 | 概要 |
+|----|--------|------|------|
+| Phase12-1 | ✅ HIGH | APIレート制限+ブルートフォース対策 | middleware.ts IPベーススライディングウィンドウ。ログイン5回/分、API mutation 30回/分、公開GET 120回/分。429+ロックアウト+X-RateLimitヘッダー |
+| Phase12-2 | ✅ MEDIUM | 自動週次ダイジェストメール | /api/digest 前週KPI集計 (アクセス/DL/CM視聴/NPS/売上) + 前々週比較。Resendテナント管理者送信。スケジューラーweekly_digestタスク。手動トリガー |
+| Phase12-3 | ✅ MEDIUM | バックアップ＆リストア | /admin/export インポートタブ追加。#66 ZIPエクスポートの逆操作。meta検証→プレビュー→マージ/上書き選択→D1復元 |
 
 ### その他 (未着手)
 
@@ -148,6 +169,11 @@
 | Phase7 | SSEリアルタイム / 顔認識グルーピング / A/Bテスト | ✅ 全3件完了 |
 | Phase8 | 行動ヒートマップ / オファー効果測定 / イベント比較PDF | ✅ 全3件完了 |
 | Phase9 | 写真アップロード最適化 / スケジュール自動化 / RBAC権限管理 | ✅ 全3件完了 |
+| Phase10 | Stripe決済連携 / Web Push通知 / カスタムダッシュボード | ✅ 全3件完了 |
+| Phase11 | リアルタイム通知バナー / データエクスポート / グローバル検索 | ✅ 全3件完了 |
+| Phase12 | APIレート制限 / 週次ダイジェスト / バックアップ＆リストア | ✅ 全3件完了 |
+| Phase13 | 参加者セグメント / スポンサーレポート共有 / データ保持ポリシー | ✅ 全3件完了 |
+| Phase14 | リアルタイムコラボ / カレンダー / ウォーターマーク | 1/3完了 |
 
 ---
 
@@ -191,6 +217,16 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-03 | — | #74 リアルタイムコラボレーション — /api/presence SSE + useAdminPresence フック + AdminPresenceBar + EventsTab編集ロック (6ファイル) |
+| 2026-03-03 | — | #73 データ保持ポリシー＋自動クリーンアップ — SettingsTab保持期間設定 + プレビュー + 確認ダイアログ + runDataCleanup() + スケジューラーdata_cleanup (4ファイル) |
+| 2026-03-03 | — | #72 スポンサー向けレポート共有リンク — /report/[token] 公開ROIレポート + /api/sponsor-report + /admin/roi 共有リンク発行 (4ファイル) |
+| 2026-03-03 | — | #71 参加者セグメント＋ターゲット配信 — /admin/segments + AND条件ビルダー7種 + エンゲージメントスコア連携 + キャンペーン送信 (Push/Email) + 配信履歴 (4ファイル) |
+| 2026-03-03 | — | #67 管理画面グローバル検索 — Cmd+K検索モーダル + fuzzy match + 21ページ/イベント/企業/参加者横断 + キーボードナビ + 検索履歴 (2ファイル) |
+| 2026-03-03 | — | #66 データエクスポート一括ダウンロード — /admin/export + 13種別CSV/JSON→ZIP + JSZip + 日付フィルター + テナントスコープ (1ファイル) |
+| 2026-03-03 | — | #65 リアルタイム通知バナー — SSE活用 + useAdminNotifications + NotificationBanner (トースト+履歴+未読バッジ+音声) + AdminHeader統合 (3ファイル) |
+| 2026-03-03 | — | #64 カスタムダッシュボード — react-grid-layout v2 + 11ウィジェット + 3プリセット + D&Dレイアウト永続化 (1ファイル) |
+| 2026-03-03 | — | #63 Web Push通知 — sw.js pushハンドラ + /api/push-subscribe + /api/push-send + /admin/push ダッシュボード + usePushSubscriptionフック (6ファイル) |
+| 2026-03-03 | — | #62 Stripe決済連携 — PricingPlan/Purchase型 + /api/checkout + /api/webhook/stripe + /api/purchases + /admin/purchases ダッシュボード + /lib/receipt.ts 領収書PDF (7ファイル) |
 | 2026-03-03 | — | #61 参加者エンゲージメントスコア — EngagementScore型 + /lib/engagement.ts スコア算出 + /admin/engagement ダッシュボード (3ファイル) |
 | 2026-03-03 | — | #60 ランディングページ `/lp` — ヒーロー+5ステップ+機能カード+料金プラン+CTA (1ファイル新規) |
 | 2026-03-03 | — | Phase9-3 管理者ロール・権限管理 (RBAC) — AdminRole/Permission/AdminUser型 + auth.ts viewer認証 + middleware viewer書込禁止 + AdminHeader権限フィルタ + /admin/users ロール管理UI (7ファイル) |

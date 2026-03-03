@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { getStoredTenants, setStoredTenants, getStoredWebhooks, setStoredWebhooks, getStoredWebhookLog } from "@/lib/store";
-import { WebhookConfig, WebhookEventType, WebhookLog } from "@/lib/types";
+import { getStoredTenants, setStoredTenants, getStoredWebhooks, setStoredWebhooks, getStoredWebhookLog, getRetentionPolicy, setRetentionPolicy, previewDataCleanup, runDataCleanup } from "@/lib/store";
+import { RetentionDays, RetentionPolicy, WebhookConfig, WebhookEventType, WebhookLog } from "@/lib/types";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100";
 
@@ -351,6 +351,246 @@ function WebhookSection({ tenantId, onSave }: { tenantId: string | null; onSave:
   );
 }
 
+/* ─── Retention Policy ─── */
+
+const RETENTION_OPTIONS: { value: RetentionDays; label: string }[] = [
+  { value: 0, label: "無制限" },
+  { value: 30, label: "30日" },
+  { value: 60, label: "60日" },
+  { value: 90, label: "90日" },
+  { value: 180, label: "180日" },
+  { value: 365, label: "1年" },
+];
+
+const DATA_TYPE_LABELS: Record<string, string> = {
+  vls_analytics: "アクセス分析",
+  vls_video_plays: "CM再生ログ",
+  vls_behavior_events: "行動イベント",
+  vls_offer_interactions: "オファー操作",
+  vls_audit_log: "監査ログ",
+  vls_notification_log: "通知ログ",
+  vls_push_logs: "Push配信ログ",
+  vls_nps_responses: "NPS回答",
+};
+
+const POLICY_KEYS: (keyof Omit<RetentionPolicy, "lastCleanupAt">)[] = [
+  "analytics", "videoPlays", "behaviorEvents", "offerInteractions",
+  "auditLog", "notificationLog", "pushLogs", "npsResponses",
+];
+
+const KEY_TO_STORE_KEY: Record<string, string> = {
+  analytics: "vls_analytics",
+  videoPlays: "vls_video_plays",
+  behaviorEvents: "vls_behavior_events",
+  offerInteractions: "vls_offer_interactions",
+  auditLog: "vls_audit_log",
+  notificationLog: "vls_notification_log",
+  pushLogs: "vls_push_logs",
+  npsResponses: "vls_nps_responses",
+};
+
+function RetentionPolicySection({ onSave }: { onSave: (msg: string) => void }) {
+  const [policy, setPolicy] = useState<RetentionPolicy>(getRetentionPolicy);
+  const [preview, setPreview] = useState<Record<string, { total: number; expired: number }> | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+
+  const handlePolicyChange = (key: keyof Omit<RetentionPolicy, "lastCleanupAt">, value: RetentionDays) => {
+    const updated = { ...policy, [key]: value };
+    setPolicy(updated);
+    setRetentionPolicy(updated);
+    setPreview(null);
+    onSave("保持ポリシーを更新しました");
+  };
+
+  const handlePreview = () => {
+    setPreview(previewDataCleanup());
+  };
+
+  const totalExpired = preview
+    ? Object.values(preview).reduce((sum, v) => sum + v.expired, 0)
+    : 0;
+
+  const handleCleanup = () => {
+    setCleaning(true);
+    const results = runDataCleanup();
+    const total = Object.values(results).reduce((sum, v) => sum + v, 0);
+    onSave(`クリーンアップ完了: ${total}件のレコードを削除しました`);
+    setPolicy(getRetentionPolicy());
+    setPreview(null);
+    setShowConfirm(false);
+    setCleaning(false);
+  };
+
+  const formatDate = (ts?: number) => {
+    if (!ts) return "未実行";
+    const d = new Date(ts);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">データ保持ポリシー</h2>
+        <span className="text-xs text-gray-400 dark:text-gray-500">
+          最終クリーンアップ: {formatDate(policy.lastCleanupAt)}
+        </span>
+      </div>
+
+      <p className="text-xs text-gray-400 dark:text-gray-500">
+        各データ種別の保持期間を設定します。期限を過ぎたレコードは手動またはスケジューラーで削除されます。
+      </p>
+
+      {/* Policy settings */}
+      <Card>
+        <div className="overflow-x-auto touch-pan-x">
+          <table className="w-full text-sm min-w-[500px]" aria-label="データ保持ポリシー設定">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">データ種別</th>
+                <th className="text-center py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">保持期間</th>
+              </tr>
+            </thead>
+            <tbody>
+              {POLICY_KEYS.map((key) => (
+                <tr key={key} className="border-b border-gray-50 dark:border-gray-700">
+                  <td className="py-2.5 px-2 text-gray-700 dark:text-gray-200">
+                    {DATA_TYPE_LABELS[KEY_TO_STORE_KEY[key]] || key}
+                  </td>
+                  <td className="py-2.5 px-2 text-center">
+                    <select
+                      value={policy[key]}
+                      onChange={(e) => handlePolicyChange(key, Number(e.target.value) as RetentionDays)}
+                      aria-label={`${DATA_TYPE_LABELS[KEY_TO_STORE_KEY[key]]}の保持期間`}
+                      className="text-sm px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] bg-white dark:bg-gray-700 dark:text-gray-100"
+                    >
+                      {RETENTION_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Preview + Cleanup */}
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={handlePreview}
+          aria-label="削除対象をプレビュー"
+          className="px-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-xl text-sm font-medium hover:bg-yellow-100 dark:hover:bg-yellow-900/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"
+        >
+          削除対象をプレビュー
+        </button>
+        <button
+          onClick={() => { handlePreview(); setShowConfirm(true); }}
+          disabled={cleaning}
+          aria-label="今すぐクリーンアップ実行"
+          className="px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+        >
+          {cleaning ? "実行中..." : "今すぐクリーンアップ"}
+        </button>
+      </div>
+
+      {/* Preview Table */}
+      {preview && !showConfirm && (
+        <Card>
+          <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">削除プレビュー</h3>
+          <div className="overflow-x-auto touch-pan-x">
+            <table className="w-full text-sm min-w-[400px]" aria-label="削除プレビュー">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400">データ種別</th>
+                  <th className="text-center py-2 px-2 text-gray-500 dark:text-gray-400">総件数</th>
+                  <th className="text-center py-2 px-2 text-gray-500 dark:text-gray-400">削除対象</th>
+                  <th className="text-center py-2 px-2 text-gray-500 dark:text-gray-400">残件数</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(preview).map(([key, { total, expired }]) => (
+                  <tr key={key} className="border-b border-gray-50 dark:border-gray-700">
+                    <td className="py-2 px-2 text-gray-700 dark:text-gray-200">{DATA_TYPE_LABELS[key] || key}</td>
+                    <td className="py-2 px-2 text-center font-mono text-gray-600 dark:text-gray-300">{total}</td>
+                    <td className={`py-2 px-2 text-center font-mono font-bold ${expired > 0 ? "text-red-500" : "text-gray-400"}`}>
+                      {expired > 0 ? `-${expired}` : "0"}
+                    </td>
+                    <td className="py-2 px-2 text-center font-mono text-gray-600 dark:text-gray-300">{total - expired}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {totalExpired === 0 && (
+            <p className="text-xs text-green-500 mt-2 text-center">削除対象のレコードはありません。</p>
+          )}
+        </Card>
+      )}
+
+      {/* Confirmation Dialog */}
+      {showConfirm && preview && (
+        <Card className="border-2 border-red-200 dark:border-red-800">
+          <h3 className="font-bold text-red-600 dark:text-red-400 mb-3">クリーンアップ確認</h3>
+          {totalExpired > 0 ? (
+            <>
+              <div className="overflow-x-auto touch-pan-x mb-4">
+                <table className="w-full text-sm min-w-[400px]" aria-label="クリーンアップ確認">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400">データ種別</th>
+                      <th className="text-center py-2 px-2 text-red-500">削除件数</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(preview)
+                      .filter(([, { expired }]) => expired > 0)
+                      .map(([key, { expired }]) => (
+                        <tr key={key} className="border-b border-gray-50 dark:border-gray-700">
+                          <td className="py-2 px-2 text-gray-700 dark:text-gray-200">{DATA_TYPE_LABELS[key] || key}</td>
+                          <td className="py-2 px-2 text-center font-mono font-bold text-red-500">{expired}件</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-red-500 mb-4">
+                合計 <strong>{totalExpired}件</strong> のレコードが完全に削除されます。この操作は取り消せません。
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCleanup}
+                  disabled={cleaning}
+                  className="px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                >
+                  {cleaning ? "削除中..." : "削除を実行"}
+                </button>
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-green-500 mb-3">削除対象のレコードはありません。</p>
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                閉じる
+              </button>
+            </>
+          )}
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsTab({ onSave, tenantId }: { onSave: (msg: string) => void; tenantId?: string | null }) {
   const { data: session } = useSession();
   const [logoUrl, setLogoUrl] = useState("");
@@ -502,6 +742,12 @@ export default function SettingsTab({ onSave, tenantId }: { onSave: (msg: string
 
       {/* Webhook settings */}
       <WebhookSection tenantId={activeTenantId} onSave={onSave} />
+
+      {/* Divider */}
+      <hr className="border-gray-200 dark:border-gray-700" />
+
+      {/* Data retention policy */}
+      <RetentionPolicySection onSave={onSave} />
     </div>
   );
 }

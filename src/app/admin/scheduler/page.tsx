@@ -27,6 +27,8 @@ const TASK_TYPE_MAP: Record<ScheduledTaskType, { label: string; color: string; i
   nps_send: { label: "NPS送信", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400", icon: "\u{1F4CA}" },
   report_generate: { label: "レポート生成", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400", icon: "\u{1F4C4}" },
   event_expire: { label: "期限チェック", color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400", icon: "\u23F0" },
+  weekly_digest: { label: "週次ダイジェスト", color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400", icon: "\u{1F4E7}" },
+  data_cleanup: { label: "データクリーンアップ", color: "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400", icon: "\u{1F9F9}" },
 };
 
 const STATUS_MAP: Record<ScheduledTaskStatus, { label: string; color: string }> = {
@@ -43,6 +45,8 @@ const TASK_TYPES: ScheduledTaskType[] = [
   "nps_send",
   "report_generate",
   "event_expire",
+  "weekly_digest",
+  "data_cleanup",
 ];
 
 const inputCls =
@@ -92,6 +96,7 @@ export default function SchedulerPage() {
   const [tab, setTab] = useState<TabKey>("list");
   const [form, setForm] = useState<TaskForm>(EMPTY_FORM);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [digestSending, setDigestSending] = useState(false);
 
   const tenantId =
     session?.user?.tenantId ??
@@ -317,6 +322,31 @@ export default function SchedulerPage() {
     URL.revokeObjectURL(url);
   }, [logs]);
 
+  // -- Manual digest send --
+  const sendDigestNow = useCallback(async () => {
+    setDigestSending(true);
+    try {
+      const res = await fetch("/api/digest", {
+        method: "POST",
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ tenantId: tenantId || undefined }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const sentCount = (data.results as { status: string }[]).filter(
+          (r) => r.status === "sent" || r.status === "logged",
+        ).length;
+        showToast(`週次ダイジェストを${sentCount}件送信しました (${data.weekLabel})`, "success");
+      } else {
+        showToast(`ダイジェスト送信失敗: ${data.error || "不明なエラー"}`, "error");
+      }
+    } catch (err) {
+      showToast(`ダイジェスト送信失敗: ${err instanceof Error ? err.message : "通信エラー"}`, "error");
+    } finally {
+      setDigestSending(false);
+    }
+  }, [tenantId, showToast]);
+
   // -- Event name lookup --
   const eventName = useCallback(
     (eventId?: string) => {
@@ -390,6 +420,28 @@ export default function SchedulerPage() {
           </div>
         )}
 
+        {/* Quick Actions */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={sendDigestNow}
+            disabled={digestSending}
+            aria-label="週次ダイジェストを今すぐ送信"
+            className="text-sm px-4 py-2 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 flex items-center gap-2"
+          >
+            {digestSending ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                送信中...
+              </>
+            ) : (
+              <>📧 週次ダイジェスト送信</>
+            )}
+          </button>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            テナント管理者にKPIサマリーメールを即時送信
+          </span>
+        </div>
+
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
@@ -438,7 +490,7 @@ export default function SchedulerPage() {
                 </p>
               ) : (
                 <div className="overflow-x-auto touch-pan-x">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm" aria-label="スケジュールタスク一覧">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
                         <th className="pb-2 pr-3 text-xs font-medium text-gray-500 dark:text-gray-400">ステータス</th>
@@ -672,7 +724,7 @@ export default function SchedulerPage() {
                 </p>
               ) : (
                 <div className="overflow-x-auto touch-pan-x">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm" aria-label="タスク実行ログ">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
                         <th className="pb-2 pr-3 text-xs font-medium text-gray-500 dark:text-gray-400">結果</th>

@@ -63,6 +63,11 @@ export default function RoiPage() {
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // Share link
+  const [shareCreating, setShareCreating] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+
   const tenantId = session?.user?.tenantId ?? (typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") : null) ?? null;
 
   const reload = useCallback(() => {
@@ -294,6 +299,46 @@ export default function RoiPage() {
     }
   };
 
+  // --- Share link ---
+  const handleCreateShareLink = async () => {
+    if (shareCreating) return;
+    setShareCreating(true);
+    setShareUrl(null);
+    setShareCopied(false);
+    try {
+      const selectedCompany = filterCompany !== "all" ? companies.find((c) => c.id === filterCompany) : null;
+      const selectedEvent = filterEvent !== "all" ? events.find((e) => e.id === filterEvent) : null;
+      const res = await fetch("/api/sponsor-report", {
+        method: "POST",
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          companyId: filterCompany !== "all" ? filterCompany : undefined,
+          companyName: selectedCompany?.name,
+          eventId: filterEvent !== "all" ? filterEvent : undefined,
+          eventName: selectedEvent?.name,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+          tenantId: tenantId || undefined,
+          createdBy: session?.user?.name || "admin",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        const url = `${window.location.origin}/report/${data.token}`;
+        setShareUrl(url);
+      }
+    } catch { /* ignore */ }
+    setShareCreating(false);
+  };
+
+  const handleCopyShareUrl = () => {
+    if (!shareUrl) return;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    });
+  };
+
   // --- Loading ---
   if (status === "loading") {
     return (
@@ -455,7 +500,7 @@ export default function RoiPage() {
 
               {/* Summary table */}
               <div className="overflow-x-auto touch-pan-x mt-4">
-                <table className="w-full text-xs min-w-[500px]">
+                <table className="w-full text-xs min-w-[500px]" aria-label="CM尺別A/Bテスト比較">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-600">
                       <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400">CM尺</th>
@@ -487,7 +532,7 @@ export default function RoiPage() {
                   {companies.find((c) => c.id === filterCompany)?.name || filterCompany} — CM尺別内訳
                 </h3>
                 <div className="overflow-x-auto touch-pan-x">
-                  <table className="w-full text-xs min-w-[400px]">
+                  <table className="w-full text-xs min-w-[400px]" aria-label="企業別CM尺内訳">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-600">
                         <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400">CM尺</th>
@@ -545,6 +590,44 @@ export default function RoiPage() {
                   {sendResult.msg}
                 </p>
               )}
+            </Card>
+
+            {/* ===== E. Share Link ===== */}
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">レポート共有リンク</h2>
+
+            <Card>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                現在のフィルター条件でスポンサー向け閲覧専用リンクを発行します (30日間有効)。
+              </p>
+              <div className="flex flex-wrap gap-3 items-center">
+                <button
+                  onClick={handleCreateShareLink}
+                  disabled={shareCreating}
+                  aria-label="共有リンクを発行"
+                  className="px-6 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-xl font-bold text-sm hover:from-green-600 hover:to-teal-600 disabled:opacity-50 transition-all shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+                >
+                  {shareCreating ? "作成中..." : "共有リンクを発行"}
+                </button>
+                {shareUrl && (
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <input
+                      type="text"
+                      readOnly
+                      value={shareUrl}
+                      className={inputCls + " flex-1 min-w-0 font-mono text-xs"}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      aria-label="共有リンクURL"
+                    />
+                    <button
+                      onClick={handleCopyShareUrl}
+                      aria-label="リンクをコピー"
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
+                    >
+                      {shareCopied ? "✓ コピー済み" : "コピー"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </Card>
           </>
         )}

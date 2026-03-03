@@ -1,4 +1,4 @@
-import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Company, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, ScheduledTask, SurveyQuestion, TaskExecutionLog, Tenant, VideoPlayRecord, WebhookConfig, WebhookLog } from "./types";
+import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, Company, DEFAULT_RETENTION_POLICY, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, VideoPlayRecord, WebhookConfig, WebhookLog } from "./types";
 import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
 import { csrfHeaders } from "./csrf";
 import { fetchWithRetry } from "./fetchWithRetry";
@@ -27,6 +27,14 @@ const KEYS = {
   scheduledTasks: "vls_scheduled_tasks",
   taskExecutionLogs: "vls_task_execution_logs",
   adminUsers: "vls_admin_users",
+  pricingPlans: "vls_pricing_plans",
+  purchases: "vls_purchases",
+  pushSubscriptions: "vls_push_subscriptions",
+  pushLogs: "vls_push_logs",
+  segments: "vls_segments",
+  campaigns: "vls_campaigns",
+  reportShares: "vls_report_shares",
+  retentionPolicy: "vls_retention_policy",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -258,6 +266,10 @@ export function updateNotificationLog(id: string, update: Partial<NotificationLo
     log[idx] = { ...log[idx], ...update };
     safeSet(KEYS.notificationLog, log);
   }
+}
+
+export function setStoredNotificationLog(logs: NotificationLog[]): void {
+  safeSet(KEYS.notificationLog, logs);
 }
 
 // --- Tenant-scoped data access ---
@@ -551,6 +563,10 @@ export function addBehaviorEvent(event: BehaviorEvent): void {
   safeSet(KEYS.behaviorEvents, events);
 }
 
+export function setStoredBehaviorEvents(events: BehaviorEvent[]): void {
+  safeSet(KEYS.behaviorEvents, events);
+}
+
 export function getBehaviorEventsForEvent(eventId: string): BehaviorEvent[] {
   return getStoredBehaviorEvents().filter((e) => e.eventId === eventId);
 }
@@ -564,6 +580,10 @@ export function addOfferInteraction(interaction: OfferInteraction): void {
   const interactions = getStoredOfferInteractions();
   interactions.push(interaction);
   if (interactions.length > 5000) interactions.splice(0, interactions.length - 5000);
+  safeSet(KEYS.offerInteractions, interactions);
+}
+
+export function setStoredOfferInteractions(interactions: OfferInteraction[]): void {
   safeSet(KEYS.offerInteractions, interactions);
 }
 
@@ -664,6 +684,283 @@ export function getAdminUserByPassword(password: string): AdminUser | null {
 
 export function getAdminUsersForTenant(tenantId: string): AdminUser[] {
   return getStoredAdminUsers().filter((u) => u.tenantId === tenantId);
+}
+
+// --- Pricing Plans ---
+const DEFAULT_PRICING_PLANS: PricingPlan[] = [
+  {
+    id: "plan-free",
+    name: "お試しプラン",
+    description: "写真3枚まで無料ダウンロード",
+    priceYen: 0,
+    photoCount: 3,
+    features: ["低画質プレビュー", "透かし付き", "3枚まで選択可"],
+    isActive: true,
+    sortOrder: 0,
+    createdAt: Date.now(),
+  },
+  {
+    id: "plan-basic",
+    name: "ベーシックプラン",
+    description: "写真10枚セット",
+    priceYen: 1980,
+    photoCount: 10,
+    features: ["高画質ダウンロード", "透かしなし", "10枚まで選択可", "フレーム合成対応"],
+    isActive: true,
+    sortOrder: 1,
+    createdAt: Date.now(),
+  },
+  {
+    id: "plan-premium",
+    name: "プレミアムプラン",
+    description: "全写真パック — イベント写真すべてダウンロード",
+    priceYen: 3980,
+    photoCount: 0,
+    features: ["全写真ダウンロード", "高画質・透かしなし", "フレーム合成対応", "アルバム共有リンク", "30日間再ダウンロード可"],
+    isActive: true,
+    sortOrder: 2,
+    createdAt: Date.now(),
+  },
+];
+
+export function getStoredPricingPlans(): PricingPlan[] {
+  return safeGet(KEYS.pricingPlans, DEFAULT_PRICING_PLANS);
+}
+
+export function setStoredPricingPlans(plans: PricingPlan[]): void {
+  safeSet(KEYS.pricingPlans, plans);
+}
+
+export function addPricingPlan(plan: PricingPlan): void {
+  const plans = getStoredPricingPlans();
+  plans.push(plan);
+  safeSet(KEYS.pricingPlans, plans);
+}
+
+export function updatePricingPlan(id: string, updates: Partial<PricingPlan>): void {
+  const plans = getStoredPricingPlans();
+  const idx = plans.findIndex((p) => p.id === id);
+  if (idx === -1) return;
+  plans[idx] = { ...plans[idx], ...updates };
+  safeSet(KEYS.pricingPlans, plans);
+}
+
+export function deletePricingPlan(id: string): void {
+  const plans = getStoredPricingPlans().filter((p) => p.id !== id);
+  safeSet(KEYS.pricingPlans, plans);
+}
+
+// --- Purchases ---
+export function getStoredPurchases(): Purchase[] {
+  return safeGet(KEYS.purchases, []);
+}
+
+export function setStoredPurchases(purchases: Purchase[]): void {
+  safeSet(KEYS.purchases, purchases);
+}
+
+export function addPurchase(purchase: Purchase): void {
+  const purchases = getStoredPurchases();
+  purchases.push(purchase);
+  if (purchases.length > 5000) purchases.splice(0, purchases.length - 5000);
+  safeSet(KEYS.purchases, purchases);
+}
+
+export function updatePurchase(id: string, updates: Partial<Purchase>): void {
+  const purchases = getStoredPurchases();
+  const idx = purchases.findIndex((p) => p.id === id);
+  if (idx === -1) return;
+  purchases[idx] = { ...purchases[idx], ...updates };
+  safeSet(KEYS.purchases, purchases);
+}
+
+export function getPurchasesForEvent(eventId: string): Purchase[] {
+  return getStoredPurchases().filter((p) => p.eventId === eventId);
+}
+
+export function getPurchasesForTenant(tenantId: string): Purchase[] {
+  return getStoredPurchases().filter((p) => p.tenantId === tenantId);
+}
+
+// --- Push Subscriptions ---
+export function getStoredPushSubscriptions(): PushSubscriptionRecord[] {
+  return safeGet(KEYS.pushSubscriptions, []);
+}
+
+export function setStoredPushSubscriptions(subs: PushSubscriptionRecord[]): void {
+  safeSet(KEYS.pushSubscriptions, subs);
+}
+
+export function addPushSubscription(sub: PushSubscriptionRecord): void {
+  const subs = getStoredPushSubscriptions();
+  // Deduplicate by endpoint
+  const existing = subs.findIndex((s) => s.endpoint === sub.endpoint);
+  if (existing !== -1) {
+    subs[existing] = sub;
+  } else {
+    subs.push(sub);
+  }
+  if (subs.length > 10000) subs.splice(0, subs.length - 10000);
+  safeSet(KEYS.pushSubscriptions, subs);
+}
+
+export function removePushSubscription(endpoint: string): void {
+  const subs = getStoredPushSubscriptions().filter((s) => s.endpoint !== endpoint);
+  safeSet(KEYS.pushSubscriptions, subs);
+}
+
+// --- Push Logs ---
+export function getStoredPushLogs(): PushLog[] {
+  return safeGet(KEYS.pushLogs, []);
+}
+
+export function addPushLog(log: PushLog): void {
+  const logs = getStoredPushLogs();
+  logs.unshift(log);
+  if (logs.length > 500) logs.length = 500;
+  safeSet(KEYS.pushLogs, logs);
+}
+
+export function setStoredPushLogs(logs: PushLog[]): void {
+  safeSet(KEYS.pushLogs, logs);
+}
+
+// --- Video Plays setter ---
+export function setStoredVideoPlays(plays: VideoPlayRecord[]): void {
+  safeSet(KEYS.videoPlays, plays);
+}
+
+// --- Analytics setter ---
+export function setStoredAnalytics(records: AnalyticsRecord[]): void {
+  safeSet(KEYS.analytics, records);
+}
+
+// --- Segments ---
+export function getStoredSegments(): Segment[] {
+  return safeGet(KEYS.segments, []);
+}
+
+export function setStoredSegments(segments: Segment[]): void {
+  safeSet(KEYS.segments, segments);
+}
+
+export function addSegment(segment: Segment): void {
+  const segments = getStoredSegments();
+  segments.push(segment);
+  safeSet(KEYS.segments, segments);
+}
+
+export function updateSegment(id: string, update: Partial<Segment>): void {
+  const segments = getStoredSegments();
+  const idx = segments.findIndex((s) => s.id === id);
+  if (idx !== -1) {
+    segments[idx] = { ...segments[idx], ...update };
+    safeSet(KEYS.segments, segments);
+  }
+}
+
+export function deleteSegment(id: string): void {
+  const segments = getStoredSegments().filter((s) => s.id !== id);
+  safeSet(KEYS.segments, segments);
+}
+
+// --- Campaigns ---
+export function getStoredCampaigns(): Campaign[] {
+  return safeGet(KEYS.campaigns, []);
+}
+
+export function addCampaign(campaign: Campaign): void {
+  const campaigns = getStoredCampaigns();
+  campaigns.unshift(campaign);
+  if (campaigns.length > 500) campaigns.length = 500;
+  safeSet(KEYS.campaigns, campaigns);
+}
+
+// --- Sponsor Report Shares ---
+export function getStoredReportShares(): SponsorReportShare[] {
+  return safeGet<SponsorReportShare[]>(KEYS.reportShares, []);
+}
+export function addReportShare(share: SponsorReportShare): void {
+  const shares = getStoredReportShares();
+  shares.unshift(share);
+  if (shares.length > 200) shares.length = 200;
+  safeSet(KEYS.reportShares, shares);
+}
+export function setStoredReportShares(shares: SponsorReportShare[]): void {
+  safeSet(KEYS.reportShares, shares);
+}
+
+// --- Retention Policy ---
+export function getRetentionPolicy(): RetentionPolicy {
+  return safeGet<RetentionPolicy>(KEYS.retentionPolicy, DEFAULT_RETENTION_POLICY);
+}
+export function setRetentionPolicy(policy: RetentionPolicy): void {
+  safeSet(KEYS.retentionPolicy, policy);
+}
+
+/** Run data cleanup based on retention policy. Returns { key: deletedCount } map. */
+export function runDataCleanup(): Record<string, number> {
+  const policy = getRetentionPolicy();
+  const now = Date.now();
+  const results: Record<string, number> = {};
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const purge = (key: string, getter: () => any[], setter: (items: any[]) => void, days: number, tsField = "timestamp") => {
+    if (days === 0) { results[key] = 0; return; }
+    const cutoff = now - days * 24 * 60 * 60 * 1000;
+    const items = getter();
+    const kept = items.filter((item) => {
+      const ts = item[tsField] as number | undefined;
+      return ts ? ts >= cutoff : true;
+    });
+    const deleted = items.length - kept.length;
+    if (deleted > 0) setter(kept);
+    results[key] = deleted;
+  };
+
+  purge(KEYS.analytics, getStoredAnalytics, setStoredAnalytics, policy.analytics);
+  purge(KEYS.videoPlays, getStoredVideoPlays, setStoredVideoPlays, policy.videoPlays);
+  purge(KEYS.behaviorEvents, getStoredBehaviorEvents, setStoredBehaviorEvents, policy.behaviorEvents);
+  purge(KEYS.offerInteractions, getStoredOfferInteractions, setStoredOfferInteractions, policy.offerInteractions);
+  purge(KEYS.auditLog, getStoredAuditLogs, setStoredAuditLogs, policy.auditLog);
+  purge(KEYS.notificationLog, getStoredNotificationLog, setStoredNotificationLog, policy.notificationLog);
+  purge(KEYS.pushLogs, getStoredPushLogs, setStoredPushLogs, policy.pushLogs);
+  purge(KEYS.npsResponses, getStoredNpsResponses, setStoredNpsResponses, policy.npsResponses, "sentAt");
+
+  // Update last cleanup timestamp
+  setRetentionPolicy({ ...policy, lastCleanupAt: now });
+
+  return results;
+}
+
+/** Preview how many records would be deleted without actually deleting. */
+export function previewDataCleanup(): Record<string, { total: number; expired: number }> {
+  const policy = getRetentionPolicy();
+  const now = Date.now();
+  const results: Record<string, { total: number; expired: number }> = {};
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const preview = (key: string, getter: () => any[], days: number, tsField = "timestamp") => {
+    const items = getter();
+    if (days === 0) { results[key] = { total: items.length, expired: 0 }; return; }
+    const cutoff = now - days * 24 * 60 * 60 * 1000;
+    const expired = items.filter((item) => {
+      const ts = item[tsField] as number | undefined;
+      return ts ? ts < cutoff : false;
+    }).length;
+    results[key] = { total: items.length, expired };
+  };
+
+  preview(KEYS.analytics, getStoredAnalytics, policy.analytics);
+  preview(KEYS.videoPlays, getStoredVideoPlays, policy.videoPlays);
+  preview(KEYS.behaviorEvents, getStoredBehaviorEvents, policy.behaviorEvents);
+  preview(KEYS.offerInteractions, getStoredOfferInteractions, policy.offerInteractions);
+  preview(KEYS.auditLog, getStoredAuditLogs, policy.auditLog);
+  preview(KEYS.notificationLog, getStoredNotificationLog, policy.notificationLog);
+  preview(KEYS.pushLogs, getStoredPushLogs, policy.pushLogs);
+  preview(KEYS.npsResponses, getStoredNpsResponses, policy.npsResponses, "sentAt");
+
+  return results;
 }
 
 // --- Reset to defaults ---

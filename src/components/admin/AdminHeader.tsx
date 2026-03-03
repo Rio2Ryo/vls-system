@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getStoredTenants } from "@/lib/store";
 import { Tenant, ROLE_PERMISSIONS, AdminRole } from "@/lib/types";
 import { useTenantBranding } from "@/components/providers/TenantBrandingProvider";
 import { useDarkMode } from "@/components/providers/DarkModeProvider";
+import NotificationBanner from "@/components/admin/NotificationBanner";
+import GlobalSearchModal from "@/components/admin/GlobalSearchModal";
+import AdminPresenceBar from "@/components/admin/AdminPresenceBar";
+import { useAdminPresence } from "@/hooks/useAdminPresence";
 
 interface NavItem {
   href: string;
@@ -25,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/live", label: "ライブ", requiredPermission: "analytics.read" },
   { href: "/admin/command", label: "統合管理", requiredPermission: "analytics.read" },
   { href: "/admin/roi", label: "ROI", requiredPermission: "analytics.read" },
+  { href: "/admin/segments", label: "セグメント", requiredPermission: "analytics.read" },
 ];
 
 interface AdminHeaderProps {
@@ -39,9 +44,28 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
   const { data: session } = useSession();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const { logoUrl } = useTenantBranding();
   const { isDark, toggle: toggleDark } = useDarkMode();
+
+  // Admin presence (real-time collaboration)
+  const presenceUserId = session?.user?.email || session?.user?.name || "admin";
+  const presenceUserName = session?.user?.name || "Admin";
+  const { peers, locks, connected: presenceConnected } = useAdminPresence(presenceUserId, presenceUserName);
+
+  // Cmd+K / Ctrl+K global shortcut
+  const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      setSearchOpen((prev) => !prev);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [handleGlobalKeyDown]);
   const isSuperAdmin = session?.user?.role === "super_admin";
   const userRole = (session?.user?.role || "viewer") as AdminRole;
   const userPermissions = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS.viewer;
@@ -110,6 +134,24 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
               </select>
             )}
             {actions}
+            <AdminPresenceBar
+              peers={peers}
+              locks={locks}
+              connected={presenceConnected}
+              currentUserId={presenceUserId}
+            />
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="グローバル検索 (Ctrl+K)"
+              className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] hidden sm:flex items-center gap-1.5"
+            >
+              <span>🔍</span>
+              <kbd className="text-[9px] px-1 py-0.5 rounded border border-gray-200 dark:border-gray-600 text-gray-400 font-mono">
+                ⌘K
+              </kbd>
+            </button>
+            <NotificationBanner />
+            <GlobalSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
             <button
               onClick={toggleDark}
               className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"

@@ -10,13 +10,19 @@ const ADMIN_PAGES = [
   "/admin/import",
   "/admin/checkin",
   "/admin/roi",
+  "/admin/purchases",
+  "/admin/push",
+  "/admin/dashboard",
+  "/admin/export",
+  "/admin/scheduler",
+  "/admin/segments",
 ];
 
 /** API mutation methods requiring CSRF validation. */
 const CSRF_METHODS = new Set(["POST", "PUT", "DELETE"]);
 
 /** API routes exempt from CSRF (handled externally). */
-const CSRF_EXEMPT = ["/api/auth/"];
+const CSRF_EXEMPT = ["/api/auth/", "/api/webhook/stripe"];
 
 /**
  * API routes + methods that require admin auth (session or x-admin-password).
@@ -28,6 +34,7 @@ const ADMIN_API_RULES: { path: string; methods: string[] }[] = [
   { path: "/api/lifecycle", methods: ["GET"] },
   { path: "/api/db", methods: ["PUT", "DELETE"] },
   { path: "/api/classify-photo", methods: ["POST"] },
+  { path: "/api/digest", methods: ["GET", "POST"] },
 ];
 
 function requiresAdminAuth(pathname: string, method: string): boolean {
@@ -36,6 +43,83 @@ function requiresAdminAuth(pathname: string, method: string): boolean {
   );
 }
 
+/* ─── Rate Limiting (in-memory sliding window) ─── */
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+  lockedUntil?: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+let lastRLCleanup = Date.now();
+
+function getClientIp(request: NextRequest): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
+function rlCleanup() {
+  const now = Date.now();
+  if (now - lastRLCleanup < 60_000) return;
+  lastRLCleanup = now;
+  rateLimitStore.forEach((entry, key) => {
+    if (now > entry.resetAt && (!entry.lockedUntil || now > entry.lockedUntil)) {
+      rateLimitStore.delete(key);
+    }
+  });
+}
+
+interface RLResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+}
+
+function checkRateLimit(
+  key: string,
+  max: number,
+  windowMs: number,
+  lockoutMs?: number,
+): RLResult {
+  rlCleanup();
+  const now = Date.now();
+  const entry = rateLimitStore.get(key);
+
+  if (entry?.lockedUntil && now < entry.lockedUntil) {
+    return { allowed: false, remaining: 0, resetAt: entry.lockedUntil };
+  }
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, remaining: max - 1, resetAt: now + windowMs };
+  }
+
+  entry.count++;
+  if (entry.count > max) {
+    if (lockoutMs) entry.lockedUntil = now + lockoutMs;
+    return { allowed: false, remaining: 0, resetAt: entry.lockedUntil || entry.resetAt };
+  }
+
+  return { allowed: true, remaining: max - entry.count, resetAt: entry.resetAt };
+}
+
+const RL_TIERS = {
+  login:      { max: 5,   windowMs: 60_000, lockoutMs: 60_000 },
+  mutation:   { max: 30,  windowMs: 60_000 },
+  publicPost: { max: 10,  windowMs: 60_000 },
+  publicGet:  { max: 120, windowMs: 60_000 },
+};
+
+const PUBLIC_POST_ROUTES = [
+  "/api/push-subscribe",
+  "/api/nps",
+  "/api/behavior",
+  "/api/coupon",
+];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -43,6 +127,57 @@ export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") || "";
   if (pathname === "/" && host.startsWith("vls-demo")) {
     return NextResponse.redirect(new URL("/demo", request.url));
+  }
+
+  // 0.5 Rate limiting (API routes)
+  let rlResult: RLResult | null = null;
+  if (pathname.startsWith("/api/")) {
+    const ip = getClientIp(request);
+    if (pathname.startsWith("/api/auth/callback")) {
+      rlResult = checkRateLimit(
+        `login:${ip}`,
+        RL_TIERS.login.max,
+        RL_TIERS.login.windowMs,
+        RL_TIERS.login.lockoutMs,
+      );
+    } else if (
+      CSRF_METHODS.has(request.method) &&
+      PUBLIC_POST_ROUTES.some((r) => pathname.startsWith(r))
+    ) {
+      rlResult = checkRateLimit(
+        `pub-post:${ip}`,
+        RL_TIERS.publicPost.max,
+        RL_TIERS.publicPost.windowMs,
+      );
+    } else if (CSRF_METHODS.has(request.method)) {
+      rlResult = checkRateLimit(
+        `mutation:${ip}`,
+        RL_TIERS.mutation.max,
+        RL_TIERS.mutation.windowMs,
+      );
+    } else {
+      rlResult = checkRateLimit(
+        `get:${ip}`,
+        RL_TIERS.publicGet.max,
+        RL_TIERS.publicGet.windowMs,
+      );
+    }
+
+    if (!rlResult.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests" },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(Math.ceil(rlResult.resetAt / 1000)),
+            "Retry-After": String(
+              Math.max(1, Math.ceil((rlResult.resetAt - Date.now()) / 1000)),
+            ),
+          },
+        },
+      );
+    }
   }
 
   // 1. Auth check for admin sub-pages
@@ -119,6 +254,15 @@ export async function middleware(request: NextRequest) {
     });
   }
 
+  // 6. Rate limit headers on successful response
+  if (rlResult) {
+    response.headers.set("X-RateLimit-Remaining", String(rlResult.remaining));
+    response.headers.set(
+      "X-RateLimit-Reset",
+      String(Math.ceil(rlResult.resetAt / 1000)),
+    );
+  }
+
   return response;
 }
 
@@ -138,5 +282,6 @@ export const config = {
     "/album/:path*",
     "/my/:path*",
     "/sponsor",
+    "/report/:path*",
   ],
 };

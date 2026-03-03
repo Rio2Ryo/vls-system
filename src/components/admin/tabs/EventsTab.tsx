@@ -15,15 +15,20 @@ import {
 import { IS_DEMO_MODE } from "@/lib/demo";
 import { logAudit } from "@/lib/audit";
 import { inputCls, TIER_COLORS } from "./adminUtils";
+import type { EditLock } from "@/lib/types";
 
 type EventSortKey = "default" | "date-desc" | "date-asc" | "name-asc" | "name-desc" | "photos-desc";
 
 interface Props {
   onSave: (msg: string) => void;
   tenantId?: string | null;
+  acquireLock?: (recordType: string, recordId: string) => Promise<{ ok: boolean; lockedBy?: string }>;
+  releaseLock?: (recordType: string, recordId: string) => Promise<void>;
+  locks?: EditLock[];
+  currentUserId?: string;
 }
 
-export default function EventsTab({ onSave, tenantId }: Props) {
+export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, locks, currentUserId }: Props) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
@@ -102,9 +107,32 @@ export default function EventsTab({ onSave, tenantId }: Props) {
     setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [], slug: "", notifyEmail: "" });
   };
 
-  const startEdit = (evt: EventData) => {
+  const [lockWarning, setLockWarning] = useState<string | null>(null);
+
+  const startEdit = async (evt: EventData) => {
+    setLockWarning(null);
+    if (acquireLock) {
+      const result = await acquireLock("event", evt.id);
+      if (!result.ok) {
+        setLockWarning(`${result.lockedBy || "他のユーザー"}が編集中です`);
+        return;
+      }
+    }
     setEditing(evt.id);
     setForm({ name: evt.name, date: evt.date, venue: evt.venue || "", description: evt.description, password: evt.password, companyIds: evt.companyIds || [], slug: evt.slug || "", notifyEmail: evt.notifyEmail || "" });
+  };
+
+  const cancelEdit = () => {
+    if (editing && editing !== "__new__" && releaseLock) {
+      releaseLock("event", editing);
+    }
+    setEditing(null);
+    setLockWarning(null);
+  };
+
+  const getEventLock = (eventId: string): EditLock | undefined => {
+    if (!locks || !currentUserId) return undefined;
+    return locks.find((l) => l.recordType === "event" && l.recordId === eventId && l.lockedBy !== currentUserId);
   };
 
   const toggleCompany = (companyId: string) => {
@@ -157,6 +185,10 @@ export default function EventsTab({ onSave, tenantId }: Props) {
     }
     setStoredEvents(updatedAll);
     setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
+    // Release lock on save
+    if (editing && editing !== "__new__" && releaseLock) {
+      releaseLock("event", editing);
+    }
     setEditing(null);
     onSave("イベントを保存しました");
     if (editing === "__new__") {
@@ -513,10 +545,18 @@ export default function EventsTab({ onSave, tenantId }: Props) {
 
             <div className="flex gap-2">
               <Button size="sm" onClick={save}>保存</Button>
-              <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>キャンセル</Button>
+              <Button size="sm" variant="secondary" onClick={cancelEdit}>キャンセル</Button>
             </div>
           </div>
         </Card>
+      )}
+
+      {lockWarning && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-3 flex items-center gap-2" role="alert">
+          <span>🔒</span>
+          <p className="text-sm text-yellow-700 dark:text-yellow-400">{lockWarning}</p>
+          <button onClick={() => setLockWarning(null)} className="ml-auto text-yellow-500 hover:text-yellow-700 text-sm">✕</button>
+        </div>
       )}
 
       {sorted.length === 0 && hasActiveFilters && (
@@ -542,6 +582,11 @@ export default function EventsTab({ onSave, tenantId }: Props) {
               </span>
               {!IS_DEMO_MODE && <button onClick={() => cloneEvent(evt)} aria-label={`${evt.name}をクローン`} className="text-xs text-purple-500 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 rounded">クローン</button>}
               {!IS_DEMO_MODE && <button onClick={() => { setTemplateNameInput(evt.id); setTemplateName(`${evt.name}テンプレート`); }} aria-label={`${evt.name}をテンプレート保存`} className="text-xs text-green-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded">テンプレ保存</button>}
+              {getEventLock(evt.id) && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400" title={`${getEventLock(evt.id)!.lockedByName}が編集中`}>
+                  🔒 {getEventLock(evt.id)!.lockedByName}
+                </span>
+              )}
               {!IS_DEMO_MODE && <button onClick={() => startEdit(evt)} aria-label={`${evt.name}を編集`} className="text-xs text-[#6EC6FF] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">編集</button>}
               {!IS_DEMO_MODE && <button onClick={() => remove(evt.id)} aria-label={`${evt.name}を削除`} className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">削除</button>}
             </div>
