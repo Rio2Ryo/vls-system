@@ -30,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/command", label: "統合管理", requiredPermission: "analytics.read" },
   { href: "/admin/roi", label: "ROI", requiredPermission: "analytics.read" },
   { href: "/admin/segments", label: "セグメント", requiredPermission: "analytics.read" },
+  { href: "/admin/calendar", label: "カレンダー", requiredPermission: "events.read" },
 ];
 
 interface AdminHeaderProps {

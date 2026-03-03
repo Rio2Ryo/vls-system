@@ -7,7 +7,7 @@
 
 ---
 
-## 完成済み機能一覧 (74件)
+## 完成済み機能一覧 (75件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -116,6 +116,7 @@
 | 74 | リアルタイムコラボレーション | `/api/presence` SSEエンドポイント (Edge Runtime)。In-memoryプレゼンス管理 (15s TTL) + 編集ロック (60s auto-expire)。`useAdminPresence` フック (5秒heartbeat + sendBeacon離脱通知)。`AdminPresenceBar` コンポーネント (アバター表示+ページ別ユーザー一覧+ロックインジケーター)。AdminHeader全ページ統合。EventsTab編集ロック連携 (acquireLock/releaseLock/ロック警告/ロックアイコン)。POST: heartbeat/lock/unlock/leave。GET: SSE stream (2秒間隔)。409 Conflict応答で同時編集防止 |
 | 73 | データ保持ポリシー＋自動クリーンアップ | `/admin` 設定タブにデータ保持ポリシーセクション追加。8データ種別 (分析/CM再生/行動/オファー/監査/通知/Push/NPS) ごとに保持期間設定 (30/60/90/180/365日/無制限)。削除プレビュー (総件数/削除対象/残件数テーブル)。確認ダイアログ (赤警告+件数表示)。`runDataCleanup()` 一括削除。スケジューラーに `data_cleanup` タスクタイプ追加。`RetentionPolicy` 型+`DEFAULT_RETENTION_POLICY` |
 | 72 | スポンサー向けレポート共有リンク | `/report/[token]` — 公開ROIレポートページ (30日有効)。企業別パフォーマンステーブル (再生数/完了率/平均視聴秒/推定費用) + Tier別Pie + CM尺別Bar + イベント別比較。`/api/sponsor-report` POST (共有作成) + GET (トークン検証+D1データ取得)。`/admin/roi` に共有リンク発行ボタン+URLコピー。SponsorReportShare型+store CRUD。フィルター条件 (企業/イベント/期間) をトークンに保存 |
+| 75 | イベントカレンダービュー | `/admin/calendar` — 月/週/日3ビュー切替。イベントD&Dスケジュール変更 (ドラッグで日付移動+store永続化)。日ビュードリルダウンでイベント別KPI (参加者/チェックイン率/CM完了率/DL率)。クリックで詳細モーダル (6 KPIカード+ステータス+写真数+slug表示)。日本の祝日表示 (2025-2027年)。framer-motionビュー遷移アニメーション。テナントスコープ対応。KPIサマリー3カード (全件/今月/今後)。AdminHeaderナビ+middleware認証+PresenceBar連携 |
 
 ---
 
@@ -173,7 +174,7 @@
 | Phase11 | リアルタイム通知バナー / データエクスポート / グローバル検索 | ✅ 全3件完了 |
 | Phase12 | APIレート制限 / 週次ダイジェスト / バックアップ＆リストア | ✅ 全3件完了 |
 | Phase13 | 参加者セグメント / スポンサーレポート共有 / データ保持ポリシー | ✅ 全3件完了 |
-| Phase14 | リアルタイムコラボ / カレンダー / ウォーターマーク | 1/3完了 |
+| Phase14 | リアルタイムコラボ / カレンダー / ウォーターマーク | 2/3完了 |
 
 ---
 
@@ -217,6 +218,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-03 | — | #75 イベントカレンダービュー — /admin/calendar 月/週/日ビュー + D&Dスケジュール変更 + KPIドリルダウン + 祝日表示 (4ファイル) |
 | 2026-03-03 | — | #74 リアルタイムコラボレーション — /api/presence SSE + useAdminPresence フック + AdminPresenceBar + EventsTab編集ロック (6ファイル) |
 | 2026-03-03 | — | #73 データ保持ポリシー＋自動クリーンアップ — SettingsTab保持期間設定 + プレビュー + 確認ダイアログ + runDataCleanup() + スケジューラーdata_cleanup (4ファイル) |
 | 2026-03-03 | — | #72 スポンサー向けレポート共有リンク — /report/[token] 公開ROIレポート + /api/sponsor-report + /admin/roi 共有リンク発行 (4ファイル) |

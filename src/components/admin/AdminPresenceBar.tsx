@@ -29,6 +29,7 @@ const PAGE_LABELS: Record<string, string> = {
   "/admin/ab-test": "A/Bテスト",
   "/admin/engagement": "エンゲージメント",
   "/admin/purchases": "決済",
+  "/admin/calendar": "カレンダー",
 };
 
 interface AdminPresenceBarProps {
