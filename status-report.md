@@ -7,7 +7,7 @@
 
 ---
 
-## 完成済み機能一覧 (76件)
+## 完成済み機能一覧 (77件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -71,7 +71,7 @@
 | 27 | Sentryエラー監視 | @sentry/nextjs v10 (client/server/edge) + /monitoring tunnel。DSN未設定時自動無効化。D1エラーログと併用 |
 | 28 | テナントブランディング | primaryColor + logoUrl + CSS変数テーマ切替 + 設定タブ編集 |
 | 29 | 削除カスケード | `deleteTenantCascade()` — 子レコード全削除 + 影響サマリー確認ダイアログ |
-| 30 | E2Eテスト | Playwright 67テスト (11 spec)。QRチェックインフロー含む |
+| 30 | E2Eテスト | Playwright 99テスト (13 spec)。QRチェックインフロー含む。Phase10-14新機能カバー |
 | 31 | デモサイト別デプロイ | vls-demo.vercel.app — middleware ホスト名判定で / → /demo リダイレクト |
 | 32 | PWAオフラインモード | Service Worker (app shell cache) + IndexedDB (offline D1 sync queue) + OfflineIndicator UI |
 | 33 | 写真AI自動分類 | Claude Vision API (Haiku) で写真シーン分類 (個人/グループ/会場/アクティビティ)。フィルター + 手動分類 + 一括AI分類 |
@@ -118,6 +118,7 @@
 | 72 | スポンサー向けレポート共有リンク | `/report/[token]` — 公開ROIレポートページ (30日有効)。企業別パフォーマンステーブル (再生数/完了率/平均視聴秒/推定費用) + Tier別Pie + CM尺別Bar + イベント別比較。`/api/sponsor-report` POST (共有作成) + GET (トークン検証+D1データ取得)。`/admin/roi` に共有リンク発行ボタン+URLコピー。SponsorReportShare型+store CRUD。フィルター条件 (企業/イベント/期間) をトークンに保存 |
 | 75 | イベントカレンダービュー | `/admin/calendar` — 月/週/日3ビュー切替。イベントD&Dスケジュール変更 (ドラッグで日付移動+store永続化)。日ビュードリルダウンでイベント別KPI (参加者/チェックイン率/CM完了率/DL率)。クリックで詳細モーダル (6 KPIカード+ステータス+写真数+slug表示)。日本の祝日表示 (2025-2027年)。framer-motionビュー遷移アニメーション。テナントスコープ対応。KPIサマリー3カード (全件/今月/今後)。AdminHeaderナビ+middleware認証+PresenceBar連携 |
 | 76 | 写真ウォーターマークカスタマイズ | テナント別ウォーターマーク設定。`WatermarkConfig` 型 (テキスト/フォントサイズ/色/透明度/回転/配置6種/タイルグリッド/画像オーバーレイ/ぼかし)。`/admin` 設定タブにウォーターマークセクション追加 (リアルタイムCanvasプレビュー+スライダーUI+カラーピッカー)。`drawWatermark()` 共通描画関数。PhotoGrid+PhotoModalが `getWatermarkConfig(tenantId)` からテナント設定読込。store.ts CRUD (getWatermarkConfig/setWatermarkConfig)。デフォルトリセット機能 |
+| 77 | E2Eテスト拡充＋CI/CD | Playwright 67→99テスト (+32)。Phase10-14新機能カバー: 決済/Push/カスタムDB/エクスポート/セグメント/カレンダー/ROI/スケジューラー/ウォーターマーク設定/コラボ/ナビゲーション/公開ページ (LP/デモ/レポート/スキャン)。GitHub Actions CI (`ci.yml`): build→e2e→deploy (preview PR/production main)→Telegram通知。Vercel自動デプロイ (amondnet/vercel-action)。テストアーティファクト自動保存 |
 
 ---
 
@@ -176,6 +177,7 @@
 | Phase12 | APIレート制限 / 週次ダイジェスト / バックアップ＆リストア | ✅ 全3件完了 |
 | Phase13 | 参加者セグメント / スポンサーレポート共有 / データ保持ポリシー | ✅ 全3件完了 |
 | Phase14 | リアルタイムコラボ / カレンダー / ウォーターマーク | ✅ 全3件完了 |
+| Phase15 | E2Eテスト+CI/CD / パフォーマンス / レポートビルダー | 1/3完了 |
 
 ---
 
@@ -208,7 +210,7 @@
 | AI | Claude Haiku 4.5 Vision (写真分類+品質スコアリング+顔検出+グルーピング) |
 | Analytics | 行動トラッキング (PV/離脱/タップ/スクロール) + オファー効果測定 + A/Bテスト (χ²検定) |
 | Monitoring | Sentry + D1エラーログ |
-| Testing | Playwright (67 tests) |
+| Testing | Playwright (99 tests, 13 specs) |
 | i18n | next-intl (non-routing, cookie-based ja/en) |
 | PWA | Service Worker + IndexedDB (offline sync queue) |
 | Deploy | Vercel (本番 + デモ 2プロジェクト) |
@@ -219,6 +221,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-03 | — | #77 E2Eテスト拡充+CI/CD — Playwright 67→99テスト + GitHub Actions ci.yml (build→e2e→deploy→notify) + 2テストファイル新規 (4ファイル) |
 | 2026-03-03 | — | #76 写真ウォーターマークカスタマイズ — WatermarkConfig型 + SettingsTab設定UI + Canvasプレビュー + PhotoGrid/PhotoModal連携 (5ファイル) |
 | 2026-03-03 | — | #75 イベントカレンダービュー — /admin/calendar 月/週/日ビュー + D&Dスケジュール変更 + KPIドリルダウン + 祝日表示 (4ファイル) |
 | 2026-03-03 | — | #74 リアルタイムコラボレーション — /api/presence SSE + useAdminPresence フック + AdminPresenceBar + EventsTab編集ロック (6ファイル) |
