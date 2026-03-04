@@ -40,6 +40,7 @@ const ADMIN_API_RULES: { path: string; methods: string[] }[] = [
   { path: "/api/db", methods: ["PUT", "DELETE"] },
   { path: "/api/classify-photo", methods: ["POST"] },
   { path: "/api/digest", methods: ["GET", "POST"] },
+  { path: "/api/face/detect", methods: ["POST"] },
 ];
 
 function requiresAdminAuth(pathname: string, method: string): boolean {

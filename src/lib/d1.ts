@@ -170,3 +170,134 @@ export async function pruneErrorLogs(keep = 500): Promise<void> {
     [keep]
   );
 }
+
+// ─── face_embeddings + face_search_sessions tables ───────────────
+
+let _faceTablesEnsured = false;
+
+/** Create face_embeddings and face_search_sessions tables (idempotent). */
+export async function ensureFaceTables(): Promise<void> {
+  if (_faceTablesEnsured || !isD1Configured()) return;
+
+  await d1Query(`
+    CREATE TABLE IF NOT EXISTS face_embeddings (
+      id          TEXT PRIMARY KEY,
+      event_id    TEXT NOT NULL,
+      photo_id    TEXT NOT NULL,
+      face_index  INTEGER NOT NULL DEFAULT 0,
+      embedding   TEXT NOT NULL,
+      bbox        TEXT,
+      label       TEXT,
+      created_at  INTEGER NOT NULL
+    )
+  `);
+  await d1Query(
+    `CREATE INDEX IF NOT EXISTS idx_face_emb_event ON face_embeddings (event_id)`
+  );
+  await d1Query(
+    `CREATE INDEX IF NOT EXISTS idx_face_emb_photo ON face_embeddings (photo_id)`
+  );
+
+  await d1Query(`
+    CREATE TABLE IF NOT EXISTS face_search_sessions (
+      id              TEXT PRIMARY KEY,
+      user_id         TEXT,
+      event_id        TEXT NOT NULL,
+      query_embedding TEXT NOT NULL,
+      results         TEXT,
+      threshold       REAL DEFAULT 0.6,
+      created_at      INTEGER NOT NULL
+    )
+  `);
+  await d1Query(
+    `CREATE INDEX IF NOT EXISTS idx_face_search_event ON face_search_sessions (event_id)`
+  );
+
+  _faceTablesEnsured = true;
+}
+
+/** Insert a face embedding row. */
+export async function insertFaceEmbedding(row: {
+  id: string;
+  eventId: string;
+  photoId: string;
+  faceIndex: number;
+  embedding: number[];
+  bbox?: { x: number; y: number; width: number; height: number };
+  label?: string;
+}): Promise<void> {
+  await ensureFaceTables();
+  await d1Query(
+    `INSERT OR REPLACE INTO face_embeddings (id, event_id, photo_id, face_index, embedding, bbox, label, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      row.id,
+      row.eventId,
+      row.photoId,
+      row.faceIndex,
+      JSON.stringify(row.embedding),
+      row.bbox ? JSON.stringify(row.bbox) : null,
+      row.label ?? null,
+      Date.now(),
+    ]
+  );
+}
+
+/** Get all face embeddings for an event. */
+export async function getFaceEmbeddingsByEvent(
+  eventId: string
+): Promise<Record<string, unknown>[]> {
+  await ensureFaceTables();
+  return d1Query(
+    "SELECT * FROM face_embeddings WHERE event_id = ? ORDER BY photo_id, face_index",
+    [eventId]
+  );
+}
+
+/** Get face embeddings for a specific photo. */
+export async function getFaceEmbeddingsByPhoto(
+  photoId: string
+): Promise<Record<string, unknown>[]> {
+  await ensureFaceTables();
+  return d1Query(
+    "SELECT * FROM face_embeddings WHERE photo_id = ? ORDER BY face_index",
+    [photoId]
+  );
+}
+
+/** Insert a face search session. */
+export async function insertFaceSearchSession(row: {
+  id: string;
+  userId?: string;
+  eventId: string;
+  queryEmbedding: number[];
+  results?: { photoId: string; faceId: string; similarity: number }[];
+  threshold?: number;
+}): Promise<void> {
+  await ensureFaceTables();
+  await d1Query(
+    `INSERT INTO face_search_sessions (id, user_id, event_id, query_embedding, results, threshold, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      row.id,
+      row.userId ?? null,
+      row.eventId,
+      JSON.stringify(row.queryEmbedding),
+      row.results ? JSON.stringify(row.results) : null,
+      row.threshold ?? 0.6,
+      Date.now(),
+    ]
+  );
+}
+
+/** Get recent face search sessions for an event. */
+export async function getFaceSearchSessions(
+  eventId: string,
+  limit = 50
+): Promise<Record<string, unknown>[]> {
+  await ensureFaceTables();
+  return d1Query(
+    "SELECT * FROM face_search_sessions WHERE event_id = ? ORDER BY created_at DESC LIMIT ?",
+    [eventId, limit]
+  );
+}

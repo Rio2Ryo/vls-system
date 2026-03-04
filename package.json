@@ -12,7 +12,10 @@
   "dependencies": {
     "@next/bundle-analyzer": "^16.1.6",
     "@sentry/nextjs": "^10.40.0",
+    "@tensorflow/tfjs-converter": "^4.22.0",
+    "@tensorflow/tfjs-core": "^4.22.0",
     "chart.js": "^4.5.1",
+    "face-api.js": "^0.22.2",
     "framer-motion": "^12.34.3",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.0",
