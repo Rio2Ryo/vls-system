@@ -157,7 +157,7 @@
 
 | ID | 優先度 | 内容 | 備考 |
 |----|--------|------|------|
-| L3 | LOW | 実CM動画差替え | 現在はパブリックYouTube動画 (Rick Astley等)。実スポンサーCM素材待ち |
+| L3 | ✅ LOW | 実CM動画差替え | 全22社を業種別に実在日本CM 61本に差替え (Z会/進研ゼミ/JTB/Canon/Toyota/SoftBank/au/Nintendo/Kikkoman等) (`f5c5b43`) |
 | L4 | LOW | 実企業ロゴ差替え | 現在は ui-avatars.com テキストアイコン。実ロゴ画像待ち |
 | A2 | ✅ LONG-TERM | 認証強化 (RBAC+ソーシャル) | AdminRole (3ロール) + Permission (9権限) + viewer書込禁止 + Google/LINE/Apple ソーシャルログイン + /login + user_accounts D1 |
 | M1 | ✅ MEDIUM | モバイル最適化 | Admin テーブル横スクロール + touch-pan-x (`89ffa4c`) |
@@ -238,6 +238,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-04 | `f5c5b43` | L3 実CM動画差替え — 全22社を業種別に実在日本CM 61本に差替え (Z会/進研ゼミ/JTB/Canon/Toyota/SoftBank/au/Nintendo等) |
 | 2026-03-04 | `c542ce1` | #87 パスワードリセット — /forgot-password + /reset-password + /api/auth/reset-password (request/reset/verify) + Resendメール + D1 password_reset_tokens (6ファイル) |
 | 2026-03-04 | `abd277f` | #86 ソーシャルログイン — Google/LINE/Apple Provider + /login + user_accounts D1テーブル + signInコールバック (5ファイル) |
 | 2026-03-04 | `0955d48` | #85 /photos顔絞り込みUI — FaceSearchModal (カメラ/ファイル+face-api.js+検索+フィルタ) + モバイル対応 (2ファイル) |
