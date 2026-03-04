@@ -7,7 +7,7 @@
 
 ---
 
-## 完成済み機能一覧 (85件)
+## 完成済み機能一覧 (86件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -123,6 +123,7 @@
 | 79 | カスタムレポートビルダー | `/admin/reports` — 15 KPIウィジェット (8 KPI + 5チャート + 2テーブル) をD&D配置。react-grid-layout v2 (ドラッグ&リサイズ)。3プリセットテンプレート (エグゼクティブサマリー/スポンサーレポート/イベント詳細分析)。テンプレート保存/削除/共有 (URL Base64エンコード)。PDF/CSVエクスポート (jsPDF A4横)。日付範囲フィルター (from/to)。テナントフィルター。Recharts (BarChart/LineChart/PieChart)。レイアウト+フィルター設定 localStorage 自動永続化。AdminHeaderナビ+middleware認証+PresenceBar連携 |
 | 80 | 管理画面テーマカスタマイズ | `/admin/settings` テーマビルダー。`ThemeConfig` 型 (primaryColor/accentColor/borderRadius/fontSize)。5プリセット (デフォルト/モダン/クラシック/ビビッド/モノクロ)。リアルタイムミニ管理画面プレビュー。テナント別テーマ保存 (localStorage + D1)。CSS変数自動反映 (--primary/--accent/--radius/--font-size-base)。ダークモードテーマ連携 (darkPrimaryColor/darkAccentColor)。TenantBrandingProvider拡張。3セクションUI (プリセット/カスタム/ダークモード) |
 | 81 | 参加者リアルタイムチャット | `/admin/chat` 管理画面 + `ChatWidget` ユーザー側フローティングウィジェット。`/api/chat` SSEストリーム (POST送信 + GET購読 + in-memoryブロードキャスト)。`ChatMessage`/`ChatRoom` 型。イベント別チャットルーム + 全体チャット。管理者→参加者一斉/個別 (DM) メッセージ。定型文テンプレート6種 (`CHAT_TEMPLATES`)。未読バッジ (visibilitychange連動)。`useChat` フック (SSE接続/送受信/未読カウント)。store.ts D1永続化 (addChatMessage/getChatMessagesForRoom) |
+| 86 | ソーシャルログイン | `/login`, `auth.ts`, `d1.ts` | NextAuth Google/LINE/Apple Provider (環境変数で有効化)。`/login` ページ (3ソーシャルボタン+パスワード)。`user_accounts` D1テーブル (upsert/get/getAll)。signInコールバックD1永続化。JWT provider情報 |
 | 85 | /photos顔絞り込みUI | `/photos`, `FaceSearchModal.tsx` | 「顔で検索」ボタン→カメラ撮影 (getUserMedia) またはファイル選択→face-api.js TinyFaceDetector+FaceLandmark68+FaceRecognition→128-dim embedding→/api/face/searchコール→一致写真フィルタ表示。検索結果クリア。顔グループフィルタ排他制御。モバイル対応 (facingMode user + capture) |
 | 84 | 顔検索+インデックスAPI | `/api/face/search`, `/api/face/index`, `faceIndex.ts` | POST /api/face/search (cosine similarity照合+閾値フィルタ+セッション永続化+uniquePhotos)。POST /api/face/index (写真単位embedding保存+重複チェック)。`faceIndex.ts` クライアント側face-api.js動的ロード+バッチインデックス。PhotosTabアップロード後自動顔インデックス (fire-and-forget+進捗UI)。E2Eテスト+4件 |
 | 83 | 顔認識基盤 | `/api/face/detect`, `d1.ts`, `face.ts` | face_embeddings/face_search_sessions D1テーブル。face-api.js + TFJSモデル (public/models/)。POST /api/face/detect 4アクション (store/search/detect/get)。コサイン類似度顔マッチング。Anthropic Vision APIフォールバック。E2Eテスト8件 |
@@ -157,7 +158,7 @@
 |----|--------|------|------|
 | L3 | LOW | 実CM動画差替え | 現在はパブリックYouTube動画 (Rick Astley等)。実スポンサーCM素材待ち |
 | L4 | LOW | 実企業ロゴ差替え | 現在は ui-avatars.com テキストアイコン。実ロゴ画像待ち |
-| A2 | ✅ LONG-TERM | 認証強化 (RBAC) | AdminRole (3ロール) + Permission (9権限) + viewer書込禁止 + AdminHeader権限フィルタ + /admin/usersロール管理 |
+| A2 | ✅ LONG-TERM | 認証強化 (RBAC+ソーシャル) | AdminRole (3ロール) + Permission (9権限) + viewer書込禁止 + Google/LINE/Apple ソーシャルログイン + /login + user_accounts D1 |
 | M1 | ✅ MEDIUM | モバイル最適化 | Admin テーブル横スクロール + touch-pan-x (`89ffa4c`) |
 
 ### 環境設定のみ (コード変更不要)
@@ -234,6 +235,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-04 | `abd277f` | #86 ソーシャルログイン — Google/LINE/Apple Provider + /login + user_accounts D1テーブル + signInコールバック (5ファイル) |
 | 2026-03-04 | `0955d48` | #85 /photos顔絞り込みUI — FaceSearchModal (カメラ/ファイル+face-api.js+検索+フィルタ) + モバイル対応 (2ファイル) |
 | 2026-03-04 | `59635f1` | #84 顔検索+インデックスAPI — /api/face/search (cosine similarity) + /api/face/index + アップロードフック + faceIndex.ts クライアント検出 + E2E +4件 (6ファイル) |
 | 2026-03-04 | `24dd0cd` | #83 顔認識基盤 — D1 face_embeddings/face_search_sessions + face-api.js モデル + /api/face/detect (store/search/detect/get) + E2E 8件 (14ファイル) |
