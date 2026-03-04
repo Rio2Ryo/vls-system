@@ -184,6 +184,7 @@ export default function PhotosPage() {
           open={faceSearchOpen}
           onClose={() => setFaceSearchOpen(false)}
           eventId={eventId}
+          eventName={eventName}
           onResults={(ids) => {
             setFaceSearchPhotoIds(ids.length > 0 ? ids : null);
             setFaceFilter("all"); // Reset group filter when using face search
