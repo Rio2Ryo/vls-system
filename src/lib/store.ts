@@ -1,4 +1,4 @@
-import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, Company, DEFAULT_RETENTION_POLICY, DEFAULT_WATERMARK_CONFIG, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, VideoPlayRecord, WatermarkConfig, WebhookConfig, WebhookLog } from "./types";
+import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, Company, DEFAULT_RETENTION_POLICY, DEFAULT_THEME_CONFIG, DEFAULT_WATERMARK_CONFIG, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, ThemeConfig, VideoPlayRecord, WatermarkConfig, WebhookConfig, WebhookLog } from "./types";
 import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
 import { csrfHeaders } from "./csrf";
 import { fetchWithRetry } from "./fetchWithRetry";
@@ -36,6 +36,7 @@ const KEYS = {
   reportShares: "vls_report_shares",
   retentionPolicy: "vls_retention_policy",
   watermarkConfigs: "vls_watermark_configs",
+  themeConfigs: "vls_theme_configs",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -985,6 +986,29 @@ export function setWatermarkConfig(config: WatermarkConfig): void {
     configs.push(config);
   }
   setStoredWatermarkConfigs(configs);
+}
+
+// --- Theme Configs ---
+function getStoredThemeConfigs(): ThemeConfig[] {
+  return safeGet(KEYS.themeConfigs, []);
+}
+function setStoredThemeConfigs(configs: ThemeConfig[]): void {
+  safeSet(KEYS.themeConfigs, configs);
+}
+export function getThemeConfig(tenantId: string): ThemeConfig {
+  const configs = getStoredThemeConfigs();
+  const found = configs.find((c) => c.tenantId === tenantId);
+  return found || { tenantId, ...DEFAULT_THEME_CONFIG };
+}
+export function setThemeConfig(config: ThemeConfig): void {
+  const configs = getStoredThemeConfigs();
+  const idx = configs.findIndex((c) => c.tenantId === config.tenantId);
+  if (idx >= 0) {
+    configs[idx] = config;
+  } else {
+    configs.push(config);
+  }
+  setStoredThemeConfigs(configs);
 }
 
 // --- Reset to defaults ---

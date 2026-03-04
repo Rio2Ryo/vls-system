@@ -146,6 +146,31 @@ export interface AnalyticsRecord {
   platinumCompanyId?: string;
 }
 
+// Theme configuration (per-tenant customizable)
+export type ThemePresetName = "default" | "modern" | "classic" | "vivid" | "monochrome";
+
+export interface ThemeConfig {
+  tenantId: string;
+  presetName: ThemePresetName;
+  primaryColor: string;       // hex e.g. "#6EC6FF"
+  accentColor: string;        // hex e.g. "#FFB6C1"
+  borderRadius: number;       // px 0–24
+  fontSize: number;           // px 12–18
+  // Dark mode overrides (optional)
+  darkPrimaryColor?: string;
+  darkAccentColor?: string;
+}
+
+export const THEME_PRESETS: Record<ThemePresetName, Omit<ThemeConfig, "tenantId">> = {
+  default: { presetName: "default", primaryColor: "#6EC6FF", accentColor: "#FFB6C1", borderRadius: 12, fontSize: 14 },
+  modern:  { presetName: "modern",  primaryColor: "#6366F1", accentColor: "#06B6D4", borderRadius: 8,  fontSize: 14 },
+  classic: { presetName: "classic", primaryColor: "#1E3A5F", accentColor: "#D4A853", borderRadius: 16, fontSize: 15 },
+  vivid:   { presetName: "vivid",   primaryColor: "#8B5CF6", accentColor: "#F97316", borderRadius: 12, fontSize: 14 },
+  monochrome: { presetName: "monochrome", primaryColor: "#374151", accentColor: "#9CA3AF", borderRadius: 8, fontSize: 14 },
+};
+
+export const DEFAULT_THEME_CONFIG: Omit<ThemeConfig, "tenantId"> = THEME_PRESETS.default;
+
 // Tenant (multi-tenant organization)
 export interface Tenant {
   id: string;

@@ -31,6 +31,7 @@ const PAGE_LABELS: Record<string, string> = {
   "/admin/purchases": "決済",
   "/admin/calendar": "カレンダー",
   "/admin/reports": "レポート",
+  "/admin/settings": "テーマ設定",
 };
 
 interface AdminPresenceBarProps {

@@ -6,6 +6,7 @@
 
 :root {
   --primary: #6EC6FF;
+  --accent: #FFB6C1;
   --blue: #6EC6FF;
   --pink: #FFB6C1;
   --yellow: #FFE4A0;
@@ -15,6 +16,8 @@
   --text-light: #718096;
   --card: #FFFFFF;
   --border: #E8EDF4;
+  --radius: 12px;
+  --font-size-base: 14px;
 }
 
 .dark {

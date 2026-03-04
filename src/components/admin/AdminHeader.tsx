@@ -33,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/segments", label: "セグメント", requiredPermission: "analytics.read" },
   { href: "/admin/calendar", label: "カレンダー", requiredPermission: "events.read" },
   { href: "/admin/reports", label: "レポート", requiredPermission: "analytics.read" },
+  { href: "/admin/settings", label: "テーマ設定", requiredPermission: "analytics.read" },
 ];
 
 interface AdminHeaderProps {

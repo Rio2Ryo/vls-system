@@ -18,6 +18,7 @@ const ADMIN_PAGES = [
   "/admin/segments",
   "/admin/calendar",
   "/admin/reports",
+  "/admin/settings",
 ];
 
 /** API mutation methods requiring CSRF validation. */
