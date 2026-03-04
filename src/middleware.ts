@@ -126,6 +126,7 @@ const PUBLIC_POST_ROUTES = [
   "/api/nps",
   "/api/behavior",
   "/api/coupon",
+  "/api/auth/reset-password",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -292,5 +293,7 @@ export const config = {
     "/my/:path*",
     "/sponsor",
     "/report/:path*",
+    "/forgot-password",
+    "/reset-password",
   ],
 };

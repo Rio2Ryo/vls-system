@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 
 export default function LoginPage() {
@@ -136,6 +137,16 @@ export default function LoginPage() {
                 {loading ? "ログイン中..." : "パスワードでログイン"}
               </button>
             </form>
+
+            {/* Forgot password link */}
+            <div className="text-center">
+              <Link
+                href="/forgot-password"
+                className="text-xs text-gray-400 hover:text-[#6EC6FF] transition-colors"
+              >
+                パスワードをお忘れですか？
+              </Link>
+            </div>
 
             {/* Error from OAuth callback */}
             {error && error !== "CredentialsSignin" && (

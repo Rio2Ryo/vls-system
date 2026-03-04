@@ -171,6 +171,72 @@ export async function pruneErrorLogs(keep = 500): Promise<void> {
   );
 }
 
+// ─── password_reset_tokens table ─────────────────────────────────
+
+let _resetTokensEnsured = false;
+
+export async function ensureResetTokensTable(): Promise<void> {
+  if (_resetTokensEnsured || !isD1Configured()) return;
+  await d1Query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      token       TEXT PRIMARY KEY,
+      email       TEXT NOT NULL,
+      expires_at  INTEGER NOT NULL,
+      used        INTEGER DEFAULT 0,
+      created_at  INTEGER NOT NULL
+    )
+  `);
+  await d1Query(
+    `CREATE INDEX IF NOT EXISTS idx_reset_email ON password_reset_tokens (email)`
+  );
+  _resetTokensEnsured = true;
+}
+
+/** Create a password reset token (30-minute expiry). */
+export async function createResetToken(email: string): Promise<string> {
+  await ensureResetTokensTable();
+  const token = crypto.randomUUID();
+  const now = Date.now();
+  const expiresAt = now + 30 * 60 * 1000; // 30 minutes
+  await d1Query(
+    `INSERT INTO password_reset_tokens (token, email, expires_at, used, created_at) VALUES (?, ?, ?, 0, ?)`,
+    [token, email, expiresAt, now]
+  );
+  return token;
+}
+
+/** Verify a reset token. Returns email if valid, null if expired/used/not found. */
+export async function verifyResetToken(token: string): Promise<string | null> {
+  await ensureResetTokensTable();
+  const rows = await d1Query(
+    "SELECT email, expires_at, used FROM password_reset_tokens WHERE token = ?",
+    [token]
+  );
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  if (row.used === 1) return null;
+  if ((row.expires_at as number) < Date.now()) return null;
+  return row.email as string;
+}
+
+/** Mark a reset token as used. */
+export async function consumeResetToken(token: string): Promise<void> {
+  await ensureResetTokensTable();
+  await d1Query(
+    "UPDATE password_reset_tokens SET used = 1 WHERE token = ?",
+    [token]
+  );
+}
+
+/** Cleanup expired tokens. */
+export async function pruneResetTokens(): Promise<void> {
+  await ensureResetTokensTable();
+  await d1Query(
+    "DELETE FROM password_reset_tokens WHERE expires_at < ? OR used = 1",
+    [Date.now() - 24 * 60 * 60 * 1000] // Keep used tokens for 24h for audit
+  );
+}
+
 // ─── user_accounts table ─────────────────────────────────────────
 
 let _userAccountsEnsured = false;
