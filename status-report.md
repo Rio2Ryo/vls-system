@@ -7,7 +7,7 @@
 
 ---
 
-## 完成済み機能一覧 (78件)
+## 完成済み機能一覧 (79件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -120,6 +120,7 @@
 | 76 | 写真ウォーターマークカスタマイズ | テナント別ウォーターマーク設定。`WatermarkConfig` 型 (テキスト/フォントサイズ/色/透明度/回転/配置6種/タイルグリッド/画像オーバーレイ/ぼかし)。`/admin` 設定タブにウォーターマークセクション追加 (リアルタイムCanvasプレビュー+スライダーUI+カラーピッカー)。`drawWatermark()` 共通描画関数。PhotoGrid+PhotoModalが `getWatermarkConfig(tenantId)` からテナント設定読込。store.ts CRUD (getWatermarkConfig/setWatermarkConfig)。デフォルトリセット機能 |
 | 77 | E2Eテスト拡充＋CI/CD | Playwright 67→99テスト (+32)。Phase10-14新機能カバー: 決済/Push/カスタムDB/エクスポート/セグメント/カレンダー/ROI/スケジューラー/ウォーターマーク設定/コラボ/ナビゲーション/公開ページ (LP/デモ/レポート/スキャン)。GitHub Actions CI (`ci.yml`): build→e2e→deploy (preview PR/production main)→Telegram通知。Vercel自動デプロイ (amondnet/vercel-action)。テストアーティファクト自動保存 |
 | 78 | パフォーマンス最適化 | Admin管理画面20タブ全て `next/dynamic` 動的インポートでCode Splitting (各タブ独立チャンク)。`next/image` 画像最適化 (AVIF/WebP自動変換+remotePatterns 4ドメイン)。SWRキャッシュフック (`src/lib/swr.ts` — 8ストアデータフック+汎用APIフック、重複排除+フォーカス再検証)。`@next/bundle-analyzer` バンドル分析 (`npm run analyze`)。Core Web Vitals計測 (`web-vitals` v5 — CLS/LCP/FCP/TTFB/INP → `/api/vitals` beacon送信)。dns-prefetch/preconnect ヒント。DashboardTab SWR統合 |
+| 79 | カスタムレポートビルダー | `/admin/reports` — 15 KPIウィジェット (8 KPI + 5チャート + 2テーブル) をD&D配置。react-grid-layout v2 (ドラッグ&リサイズ)。3プリセットテンプレート (エグゼクティブサマリー/スポンサーレポート/イベント詳細分析)。テンプレート保存/削除/共有 (URL Base64エンコード)。PDF/CSVエクスポート (jsPDF A4横)。日付範囲フィルター (from/to)。テナントフィルター。Recharts (BarChart/LineChart/PieChart)。レイアウト+フィルター設定 localStorage 自動永続化。AdminHeaderナビ+middleware認証+PresenceBar連携 |
 
 ---
 
@@ -178,7 +179,7 @@
 | Phase12 | APIレート制限 / 週次ダイジェスト / バックアップ＆リストア | ✅ 全3件完了 |
 | Phase13 | 参加者セグメント / スポンサーレポート共有 / データ保持ポリシー | ✅ 全3件完了 |
 | Phase14 | リアルタイムコラボ / カレンダー / ウォーターマーク | ✅ 全3件完了 |
-| Phase15 | E2Eテスト+CI/CD / パフォーマンス / レポートビルダー | 2/3完了 |
+| Phase15 | E2Eテスト+CI/CD / パフォーマンス / レポートビルダー | ✅ 全3件完了 |
 
 ---
 
@@ -223,6 +224,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-04 | — | #79 カスタムレポートビルダー — /admin/reports 15ウィジェットD&D配置 + 3プリセット + テンプレート保存/共有 + PDF/CSV + 日付/テナントフィルター (4ファイル) |
 | 2026-03-04 | — | #78 パフォーマンス最適化 — next/dynamic 20タブCode Split + next/image AVIF/WebP + SWRキャッシュ + bundle-analyzer + Web Vitals計測 + preconnect (12ファイル) |
 | 2026-03-03 | — | #77 E2Eテスト拡充+CI/CD — Playwright 67→99テスト + GitHub Actions ci.yml (build→e2e→deploy→notify) + 2テストファイル新規 (4ファイル) |
 | 2026-03-03 | — | #76 写真ウォーターマークカスタマイズ — WatermarkConfig型 + SettingsTab設定UI + Canvasプレビュー + PhotoGrid/PhotoModal連携 (5ファイル) |
