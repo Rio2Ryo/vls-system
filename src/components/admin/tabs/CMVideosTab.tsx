@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { Company, CompanyTier } from "@/lib/types";
@@ -195,8 +196,7 @@ export default function CMVideosTab({ onSave }: Props) {
           <Card key={c.id}>
             {/* Header row */}
             <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={c.logoUrl} alt={c.name} className="w-10 h-10 rounded-full flex-shrink-0" />
+              <Image src={c.logoUrl} alt={c.name} width={40} height={40} className="rounded-full flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-gray-700 dark:text-gray-200 truncate">{c.name}</h3>
@@ -217,11 +217,12 @@ export default function CMVideosTab({ onSave }: Props) {
                       return (
                         <div key={key} className="text-center">
                           {vid && !thumbErrors.has(thumbKey) ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
+                            <Image
                               src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`}
                               alt={`${c.name} ${label}`}
-                              className="w-24 h-14 rounded object-cover border border-gray-200 dark:border-gray-600"
+                              width={96}
+                              height={56}
+                              className="rounded object-cover border border-gray-200 dark:border-gray-600"
                               onError={() => setThumbErrors((prev) => new Set(prev).add(thumbKey))}
                             />
                           ) : vid ? (
@@ -291,11 +292,12 @@ export default function CMVideosTab({ onSave }: Props) {
                               allowFullScreen
                             />
                           ) : !thumbErrors.has(`edit-${c.id}-${key}`) ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
+                            <Image
                               src={`https://img.youtube.com/vi/${val}/mqdefault.jpg`}
                               alt={`${label} サムネイル`}
-                              className="w-32 h-18 rounded border border-gray-200 dark:border-gray-600 object-cover"
+                              width={128}
+                              height={72}
+                              className="rounded border border-gray-200 dark:border-gray-600 object-cover"
                               onError={() => setThumbErrors((prev) => new Set(prev).add(`edit-${c.id}-${key}`))}
                             />
                           ) : (

@@ -1,13 +1,13 @@
 # VLS System — Status Report
 
-**最終更新**: 2026-03-03
-**ブランチ**: main (`f797e1e`)
+**最終更新**: 2026-03-04
+**ブランチ**: main
 **本番URL**: https://vls-system.vercel.app
 **デモURL**: https://vls-demo.vercel.app (/ → /demo 自動リダイレクト)
 
 ---
 
-## 完成済み機能一覧 (77件)
+## 完成済み機能一覧 (78件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -119,6 +119,7 @@
 | 75 | イベントカレンダービュー | `/admin/calendar` — 月/週/日3ビュー切替。イベントD&Dスケジュール変更 (ドラッグで日付移動+store永続化)。日ビュードリルダウンでイベント別KPI (参加者/チェックイン率/CM完了率/DL率)。クリックで詳細モーダル (6 KPIカード+ステータス+写真数+slug表示)。日本の祝日表示 (2025-2027年)。framer-motionビュー遷移アニメーション。テナントスコープ対応。KPIサマリー3カード (全件/今月/今後)。AdminHeaderナビ+middleware認証+PresenceBar連携 |
 | 76 | 写真ウォーターマークカスタマイズ | テナント別ウォーターマーク設定。`WatermarkConfig` 型 (テキスト/フォントサイズ/色/透明度/回転/配置6種/タイルグリッド/画像オーバーレイ/ぼかし)。`/admin` 設定タブにウォーターマークセクション追加 (リアルタイムCanvasプレビュー+スライダーUI+カラーピッカー)。`drawWatermark()` 共通描画関数。PhotoGrid+PhotoModalが `getWatermarkConfig(tenantId)` からテナント設定読込。store.ts CRUD (getWatermarkConfig/setWatermarkConfig)。デフォルトリセット機能 |
 | 77 | E2Eテスト拡充＋CI/CD | Playwright 67→99テスト (+32)。Phase10-14新機能カバー: 決済/Push/カスタムDB/エクスポート/セグメント/カレンダー/ROI/スケジューラー/ウォーターマーク設定/コラボ/ナビゲーション/公開ページ (LP/デモ/レポート/スキャン)。GitHub Actions CI (`ci.yml`): build→e2e→deploy (preview PR/production main)→Telegram通知。Vercel自動デプロイ (amondnet/vercel-action)。テストアーティファクト自動保存 |
+| 78 | パフォーマンス最適化 | Admin管理画面20タブ全て `next/dynamic` 動的インポートでCode Splitting (各タブ独立チャンク)。`next/image` 画像最適化 (AVIF/WebP自動変換+remotePatterns 4ドメイン)。SWRキャッシュフック (`src/lib/swr.ts` — 8ストアデータフック+汎用APIフック、重複排除+フォーカス再検証)。`@next/bundle-analyzer` バンドル分析 (`npm run analyze`)。Core Web Vitals計測 (`web-vitals` v5 — CLS/LCP/FCP/TTFB/INP → `/api/vitals` beacon送信)。dns-prefetch/preconnect ヒント。DashboardTab SWR統合 |
 
 ---
 
@@ -177,7 +178,7 @@
 | Phase12 | APIレート制限 / 週次ダイジェスト / バックアップ＆リストア | ✅ 全3件完了 |
 | Phase13 | 参加者セグメント / スポンサーレポート共有 / データ保持ポリシー | ✅ 全3件完了 |
 | Phase14 | リアルタイムコラボ / カレンダー / ウォーターマーク | ✅ 全3件完了 |
-| Phase15 | E2Eテスト+CI/CD / パフォーマンス / レポートビルダー | 1/3完了 |
+| Phase15 | E2Eテスト+CI/CD / パフォーマンス / レポートビルダー | 2/3完了 |
 
 ---
 
@@ -210,6 +211,7 @@
 | AI | Claude Haiku 4.5 Vision (写真分類+品質スコアリング+顔検出+グルーピング) |
 | Analytics | 行動トラッキング (PV/離脱/タップ/スクロール) + オファー効果測定 + A/Bテスト (χ²検定) |
 | Monitoring | Sentry + D1エラーログ |
+| Caching | SWR (store dedup + API cache) |
 | Testing | Playwright (99 tests, 13 specs) |
 | i18n | next-intl (non-routing, cookie-based ja/en) |
 | PWA | Service Worker + IndexedDB (offline sync queue) |
@@ -221,6 +223,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-04 | — | #78 パフォーマンス最適化 — next/dynamic 20タブCode Split + next/image AVIF/WebP + SWRキャッシュ + bundle-analyzer + Web Vitals計測 + preconnect (12ファイル) |
 | 2026-03-03 | — | #77 E2Eテスト拡充+CI/CD — Playwright 67→99テスト + GitHub Actions ci.yml (build→e2e→deploy→notify) + 2テストファイル新規 (4ファイル) |
 | 2026-03-03 | — | #76 写真ウォーターマークカスタマイズ — WatermarkConfig型 + SettingsTab設定UI + Canvasプレビュー + PhotoGrid/PhotoModal連携 (5ファイル) |
 | 2026-03-03 | — | #75 イベントカレンダービュー — /admin/calendar 月/週/日ビュー + D&Dスケジュール変更 + KPIドリルダウン + 祝日表示 (4ファイル) |

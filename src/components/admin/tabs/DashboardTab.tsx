@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Image from "next/image";
 import Card from "@/components/ui/Card";
-import { AnalyticsRecord, Company, CompanyTier, EventData, VideoPlayRecord } from "@/lib/types";
-import {
-  getStoredEvents, getStoredCompanies, getStoredAnalytics, getStoredVideoPlays,
-  clearAnalytics, getStoredSurvey,
-  getEventsForTenant, getAnalyticsForTenant, getVideoPlaysForTenant,
-} from "@/lib/store";
+import { CompanyTier } from "@/lib/types";
+import { clearAnalytics, getStoredSurvey } from "@/lib/store";
+import { useEvents, useCompanies, useAnalytics, useVideoPlays } from "@/lib/swr";
 import { IS_DEMO_MODE } from "@/lib/demo";
 import { exportSurveyCsv, exportEventStatsCsv } from "./adminUtils";
 
@@ -16,18 +14,11 @@ interface Props {
 }
 
 export default function DashboardTab({ tenantId }: Props) {
-  const [events, setEvents] = useState<EventData[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [analytics, setAnalytics] = useState<AnalyticsRecord[]>([]);
-  const [videoPlays, setVideoPlays] = useState<VideoPlayRecord[]>([]);
+  const { data: events = [] } = useEvents(tenantId);
+  const { data: companies = [] } = useCompanies();
+  const { data: analytics = [], mutate: mutateAnalytics } = useAnalytics(tenantId);
+  const { data: videoPlays = [] } = useVideoPlays(tenantId);
   const [selectedEventFilter, setSelectedEventFilter] = useState<string>("all");
-
-  useEffect(() => {
-    setEvents(tenantId ? getEventsForTenant(tenantId) : getStoredEvents());
-    setCompanies(getStoredCompanies());
-    setAnalytics(tenantId ? getAnalyticsForTenant(tenantId) : getStoredAnalytics());
-    setVideoPlays(tenantId ? getVideoPlaysForTenant(tenantId) : getStoredVideoPlays());
-  }, [tenantId]);
 
   const filteredAnalytics = selectedEventFilter === "all"
     ? analytics
@@ -93,7 +84,7 @@ export default function DashboardTab({ tenantId }: Props) {
 
   const handleClearAnalytics = () => {
     clearAnalytics();
-    setAnalytics([]);
+    mutateAnalytics([], false);
   };
 
   const funnelSteps = [
@@ -356,8 +347,7 @@ export default function DashboardTab({ tenantId }: Props) {
                       const total = views.matched + views.platinum;
                       return (
                         <div key={c.id} className="flex items-center gap-3" data-testid={`cm-stats-${c.id}`}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={c.logoUrl} alt={c.name} className="w-8 h-8 rounded-full flex-shrink-0" />
+                          <Image src={c.logoUrl} alt={c.name} width={32} height={32} className="rounded-full flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <span className="text-sm text-gray-600 truncate block">{c.name}</span>
                             <div className="flex gap-3 text-xs">

@@ -8,6 +8,7 @@ import TenantBrandingProvider from "@/components/providers/TenantBrandingProvide
 import DarkModeProvider from "@/components/providers/DarkModeProvider";
 import SkipToContent from "@/components/ui/SkipToContent";
 import OfflineIndicator from "@/components/ui/OfflineIndicator";
+import WebVitals from "@/components/ui/WebVitals";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -58,6 +59,8 @@ export default async function RootLayout({
     <html lang={locale}>
       <head>
         <link rel="manifest" href="/manifest.json" />
+        <link rel="dns-prefetch" href="https://ui-avatars.com" />
+        <link rel="preconnect" href="https://img.youtube.com" crossOrigin="anonymous" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
@@ -71,6 +74,7 @@ export default async function RootLayout({
                   <TenantBrandingProvider>
                     <div id="main-content">{children}</div>
                     <OfflineIndicator />
+                    <WebVitals />
                   </TenantBrandingProvider>
                 </DarkModeProvider>
               </ServiceWorkerProvider>

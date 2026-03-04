@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { Tenant } from "@/lib/types";
@@ -222,7 +223,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
               <div className="flex items-center gap-3">
                 <input className={inputCls} value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="https://example.com/logo.png" />
                 {form.logoUrl && (
-                  <img src={form.logoUrl} alt="logo preview" className="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <Image src={form.logoUrl} alt="logo preview" width={32} height={32} className="rounded-full object-cover border border-gray-200 flex-shrink-0" unoptimized onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 )}
               </div>
             </div>
@@ -307,7 +308,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 {t.logoUrl && (
-                  <img src={t.logoUrl} alt={t.name} className="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0 mt-0.5" />
+                  <Image src={t.logoUrl} alt={t.name} width={40} height={40} className="rounded-full object-cover border border-gray-200 flex-shrink-0 mt-0.5" unoptimized />
                 )}
                 {t.primaryColor && !t.logoUrl && (
                   <div className="w-10 h-10 rounded-full flex-shrink-0 mt-0.5" style={{ backgroundColor: t.primaryColor }} />

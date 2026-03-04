@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { Company, CompanyTier, InterestTag } from "@/lib/types";
@@ -153,8 +154,7 @@ export default function CompaniesTab({ onSave }: Props) {
               <p className="text-xs font-bold text-gray-500">企業ロゴ</p>
               <div className="flex items-center gap-3">
                 {logoPreview && (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={logoPreview} alt="ロゴプレビュー" className="w-16 h-16 rounded-full object-cover border border-gray-200" />
+                  <Image src={logoPreview} alt="ロゴプレビュー" width={64} height={64} className="rounded-full object-cover border border-gray-200" unoptimized />
                 )}
                 <div className="flex-1 space-y-1">
                   <input
@@ -210,8 +210,7 @@ export default function CompaniesTab({ onSave }: Props) {
       {companies.map((c) => (
         <Card key={c.id}>
           <div className="flex items-start gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={c.logoUrl} alt={c.name} className="w-12 h-12 rounded-full" />
+            <Image src={c.logoUrl} alt={c.name} width={48} height={48} className="rounded-full" />
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-bold text-gray-700">{c.name}</h3>

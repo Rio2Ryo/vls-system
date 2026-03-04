@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Card from "@/components/ui/Card";
 import { CMMatchResult, InterestTag } from "@/lib/types";
 import { getStoredEvents } from "@/lib/store";
@@ -195,8 +196,7 @@ export default function MatchingDebugTab() {
               <p className="text-xs font-bold text-blue-600 mb-2">Platinum CM (15s)</p>
               {result.platinumCM ? (
                 <div className="flex items-center gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={result.platinumCM.logoUrl} alt="" className="w-10 h-10 rounded-full" />
+                  <Image src={result.platinumCM.logoUrl} alt="" width={40} height={40} className="rounded-full" />
                   <div>
                     <p className="font-bold text-gray-700 text-sm">{result.platinumCM.name}</p>
                     <p className="text-xs text-gray-400">
@@ -212,8 +212,7 @@ export default function MatchingDebugTab() {
               <p className="text-xs font-bold text-green-600 mb-2">Matched CM (30s/60s)</p>
               {result.matchedCM ? (
                 <div className="flex items-center gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={result.matchedCM.logoUrl} alt="" className="w-10 h-10 rounded-full" />
+                  <Image src={result.matchedCM.logoUrl} alt="" width={40} height={40} className="rounded-full" />
                   <div>
                     <p className="font-bold text-gray-700 text-sm">{result.matchedCM.name}</p>
                     <p className="text-xs text-gray-400">

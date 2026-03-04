@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getStoredTenants } from "@/lib/store";
@@ -103,7 +104,7 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {logoUrl && (
-              <img src={logoUrl} alt="tenant logo" className="w-7 h-7 rounded-full object-cover border border-gray-200 dark:border-gray-600" />
+              <Image src={logoUrl} alt="tenant logo" width={28} height={28} className="rounded-full object-cover border border-gray-200 dark:border-gray-600" />
             )}
             <h1 className="font-bold text-gray-800 dark:text-gray-100 text-sm sm:text-base">{title}</h1>
             {badge && (

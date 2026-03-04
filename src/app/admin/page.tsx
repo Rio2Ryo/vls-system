@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
@@ -12,28 +13,39 @@ import {
   resetToDefaults,
 } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
-import BulkImport from "@/components/admin/BulkImport";
-import InvoiceGenerator from "@/components/admin/InvoiceGenerator";
-import ChartJsAnalytics from "@/components/admin/ChartJsAnalytics";
-import LicenseBulkImport from "@/components/admin/LicenseBulkImport";
-import TenantManager from "@/components/admin/TenantManager";
-import {
-  DashboardTab,
-  EventsTab,
-  PhotosTab,
-  CompaniesTab,
-  SurveyTab,
-  StorageTab,
-  FunnelAnalysisTab,
-  MatchingDebugTab,
-  NotificationLogTab,
-  SettingsTab,
-  ExportTab,
-  QRAnalyticsTab,
-  CMVideosTab,
-  ErrorLogTab,
-  SponsorReportTab,
-} from "@/components/admin/tabs";
+
+/* ── Loading skeleton for lazy-loaded tabs ── */
+function TabSkeleton() {
+  return (
+    <div className="animate-pulse space-y-4">
+      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+      <div className="h-40 bg-gray-100 dark:bg-gray-800 rounded-xl" />
+      <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-xl" />
+    </div>
+  );
+}
+
+/* ── Dynamic imports — each tab is code-split into its own chunk ── */
+const DashboardTab = dynamic(() => import("@/components/admin/tabs/DashboardTab"), { loading: TabSkeleton, ssr: false });
+const EventsTab = dynamic(() => import("@/components/admin/tabs/EventsTab"), { loading: TabSkeleton, ssr: false });
+const PhotosTab = dynamic(() => import("@/components/admin/tabs/PhotosTab"), { loading: TabSkeleton, ssr: false });
+const CompaniesTab = dynamic(() => import("@/components/admin/tabs/CompaniesTab"), { loading: TabSkeleton, ssr: false });
+const CMVideosTab = dynamic(() => import("@/components/admin/tabs/CMVideosTab"), { loading: TabSkeleton, ssr: false });
+const SurveyTab = dynamic(() => import("@/components/admin/tabs/SurveyTab"), { loading: TabSkeleton, ssr: false });
+const StorageTab = dynamic(() => import("@/components/admin/tabs/StorageTab"), { loading: TabSkeleton, ssr: false });
+const FunnelAnalysisTab = dynamic(() => import("@/components/admin/tabs/FunnelAnalysisTab"), { loading: TabSkeleton, ssr: false });
+const MatchingDebugTab = dynamic(() => import("@/components/admin/tabs/MatchingDebugTab"), { loading: TabSkeleton, ssr: false });
+const NotificationLogTab = dynamic(() => import("@/components/admin/tabs/NotificationLogTab"), { loading: TabSkeleton, ssr: false });
+const SettingsTab = dynamic(() => import("@/components/admin/tabs/SettingsTab"), { loading: TabSkeleton, ssr: false });
+const ExportTab = dynamic(() => import("@/components/admin/tabs/ExportTab"), { loading: TabSkeleton, ssr: false });
+const QRAnalyticsTab = dynamic(() => import("@/components/admin/tabs/QRAnalyticsTab"), { loading: TabSkeleton, ssr: false });
+const ErrorLogTab = dynamic(() => import("@/components/admin/tabs/ErrorLogTab"), { loading: TabSkeleton, ssr: false });
+const SponsorReportTab = dynamic(() => import("@/components/admin/tabs/SponsorReportTab"), { loading: TabSkeleton, ssr: false });
+const BulkImport = dynamic(() => import("@/components/admin/BulkImport"), { loading: TabSkeleton, ssr: false });
+const InvoiceGenerator = dynamic(() => import("@/components/admin/InvoiceGenerator"), { loading: TabSkeleton, ssr: false });
+const ChartJsAnalytics = dynamic(() => import("@/components/admin/ChartJsAnalytics"), { loading: TabSkeleton, ssr: false });
+const LicenseBulkImport = dynamic(() => import("@/components/admin/LicenseBulkImport"), { loading: TabSkeleton, ssr: false });
+const TenantManager = dynamic(() => import("@/components/admin/TenantManager"), { loading: TabSkeleton, ssr: false });
 
 type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "reports" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings";
 
