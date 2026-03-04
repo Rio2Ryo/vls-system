@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import Button from "@/components/ui/Button";
 import PhotoGrid from "@/components/photos/PhotoGrid";
 import PhotoModal from "@/components/photos/PhotoModal";
+import FaceSearchModal from "@/components/photos/FaceSearchModal";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { getStoredEvents, updateAnalyticsRecord, getFaceGroups } from "@/lib/store";
 import { PhotoData, FaceGroup } from "@/lib/types";
@@ -21,6 +22,9 @@ export default function PhotosPage() {
   const [faceFilter, setFaceFilter] = useState<string>("all");
   const [faceGroups, setFaceGroupsState] = useState<FaceGroup[]>([]);
   const [eventName, setEventName] = useState("");
+  const [faceSearchOpen, setFaceSearchOpen] = useState(false);
+  const [faceSearchPhotoIds, setFaceSearchPhotoIds] = useState<string[] | null>(null);
+  const [eventId, setEventId] = useState("");
 
   // Behavior tracking — page view and leave
   useEffect(() => {
@@ -62,18 +66,23 @@ export default function PhotosPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const eventId = sessionStorage.getItem("eventId");
-    if (eventId) {
-      setFaceGroupsState(getFaceGroups(eventId));
+    const eid = sessionStorage.getItem("eventId");
+    if (eid) {
+      setEventId(eid);
+      setFaceGroupsState(getFaceGroups(eid));
     }
   }, []);
 
   const filteredByFace = useMemo(() => {
+    // Face search results take priority
+    if (faceSearchPhotoIds) {
+      return photos.filter((p) => faceSearchPhotoIds.includes(p.id));
+    }
     if (faceFilter === "all") return photos;
     const group = faceGroups.find((g) => g.id === faceFilter);
     if (!group) return photos;
     return photos.filter((p) => group.photoIds.includes(p.id));
-  }, [photos, faceFilter, faceGroups]);
+  }, [photos, faceFilter, faceGroups, faceSearchPhotoIds]);
 
   const sortedPhotos = useMemo(() => {
     if (sortMode === "recommended") {
@@ -138,14 +147,51 @@ export default function PhotosPage() {
             {t("title", { name: eventName })}
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            {faceFilter !== "all"
-              ? `${sortedPhotos.length}枚表示 / ${t("found", { count: photos.length })}`
-              : t("found", { count: photos.length })}
+            {faceSearchPhotoIds
+              ? `🔍 ${sortedPhotos.length}枚一致 / ${t("found", { count: photos.length })}`
+              : faceFilter !== "all"
+                ? `${sortedPhotos.length}枚表示 / ${t("found", { count: photos.length })}`
+                : t("found", { count: photos.length })}
           </p>
         </motion.div>
 
+        {/* Face search button + active filter indicator */}
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            onClick={() => setFaceSearchOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium shadow-md hover:shadow-lg transition-all active:scale-95"
+            aria-label="顔で検索"
+          >
+            <span>📸</span>
+            <span>顔で検索</span>
+          </button>
+          {faceSearchPhotoIds && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-purple-600 font-medium bg-purple-50 px-3 py-1 rounded-full">
+                {faceSearchPhotoIds.length}枚一致
+              </span>
+              <button
+                onClick={() => setFaceSearchPhotoIds(null)}
+                className="text-xs text-gray-400 hover:text-gray-600 underline"
+              >
+                クリア
+              </button>
+            </div>
+          )}
+        </div>
+
+        <FaceSearchModal
+          open={faceSearchOpen}
+          onClose={() => setFaceSearchOpen(false)}
+          eventId={eventId}
+          onResults={(ids) => {
+            setFaceSearchPhotoIds(ids.length > 0 ? ids : null);
+            setFaceFilter("all"); // Reset group filter when using face search
+          }}
+        />
+
         {/* Face group filter */}
-        {faceGroups.length > 0 && (
+        {faceGroups.length > 0 && !faceSearchPhotoIds && (
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <span className="text-xs text-gray-400">人物:</span>
             <button
