@@ -1,4 +1,4 @@
-import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, Company, DEFAULT_RETENTION_POLICY, DEFAULT_THEME_CONFIG, DEFAULT_WATERMARK_CONFIG, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, ThemeConfig, VideoPlayRecord, WatermarkConfig, WebhookConfig, WebhookLog } from "./types";
+import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, ChatMessage, Company, DEFAULT_RETENTION_POLICY, DEFAULT_THEME_CONFIG, DEFAULT_WATERMARK_CONFIG, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, ThemeConfig, VideoPlayRecord, WatermarkConfig, WebhookConfig, WebhookLog } from "./types";
 import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
 import { csrfHeaders } from "./csrf";
 import { fetchWithRetry } from "./fetchWithRetry";
@@ -37,6 +37,7 @@ const KEYS = {
   retentionPolicy: "vls_retention_policy",
   watermarkConfigs: "vls_watermark_configs",
   themeConfigs: "vls_theme_configs",
+  chatMessages: "vls_chat_messages",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -1009,6 +1010,24 @@ export function setThemeConfig(config: ThemeConfig): void {
     configs.push(config);
   }
   setStoredThemeConfigs(configs);
+}
+
+// --- Chat Messages ---
+export function getStoredChatMessages(): ChatMessage[] {
+  return safeGet(KEYS.chatMessages, []);
+}
+export function setStoredChatMessages(messages: ChatMessage[]): void {
+  safeSet(KEYS.chatMessages, messages);
+}
+export function addChatMessage(msg: ChatMessage): void {
+  const all = getStoredChatMessages();
+  all.push(msg);
+  // Keep last 500 messages max
+  const trimmed = all.length > 500 ? all.slice(-500) : all;
+  setStoredChatMessages(trimmed);
+}
+export function getChatMessagesForRoom(roomId: string): ChatMessage[] {
+  return getStoredChatMessages().filter((m) => m.roomId === roomId);
 }
 
 // --- Reset to defaults ---

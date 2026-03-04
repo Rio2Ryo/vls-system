@@ -742,6 +742,35 @@ export interface EditLock {
   lockedAt: number;
 }
 
+// Real-time chat
+export interface ChatMessage {
+  id: string;
+  roomId: string;          // eventId or "global"
+  senderId: string;
+  senderName: string;
+  senderRole: "admin" | "user";
+  text: string;
+  targetUserId?: string;   // for direct messages
+  timestamp: number;
+}
+
+export interface ChatRoom {
+  id: string;              // eventId or "global"
+  name: string;
+  lastMessage?: string;
+  lastMessageAt?: number;
+  unreadCount?: number;
+}
+
+export const CHAT_TEMPLATES = [
+  "ようこそ！ご質問があればお気軽にどうぞ。",
+  "写真のダウンロード方法はSTEP5で確認できます。",
+  "アンケートにご回答ありがとうございます！",
+  "CM動画の視聴後に写真をお選びいただけます。",
+  "イベントをお楽しみいただきありがとうございます！",
+  "しばらくお待ちください。担当者が確認中です。",
+];
+
 export interface AdminUser {
   id: string;
   name: string;
