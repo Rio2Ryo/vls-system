@@ -171,6 +171,103 @@ export async function pruneErrorLogs(keep = 500): Promise<void> {
   );
 }
 
+// ─── user_accounts table ─────────────────────────────────────────
+
+let _userAccountsEnsured = false;
+
+/** Create user_accounts table (idempotent). */
+export async function ensureUserAccountsTable(): Promise<void> {
+  if (_userAccountsEnsured || !isD1Configured()) return;
+  await d1Query(`
+    CREATE TABLE IF NOT EXISTS user_accounts (
+      id              TEXT PRIMARY KEY,
+      provider        TEXT NOT NULL,
+      provider_id     TEXT NOT NULL,
+      email           TEXT,
+      name            TEXT,
+      image           TEXT,
+      role            TEXT DEFAULT 'user',
+      tenant_id       TEXT,
+      linked_admin_id TEXT,
+      metadata        TEXT,
+      created_at      INTEGER NOT NULL,
+      last_login_at   INTEGER NOT NULL
+    )
+  `);
+  await d1Query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_user_acct_provider ON user_accounts (provider, provider_id)`
+  );
+  await d1Query(
+    `CREATE INDEX IF NOT EXISTS idx_user_acct_email ON user_accounts (email)`
+  );
+  _userAccountsEnsured = true;
+}
+
+/** Upsert user account after social login. Returns the user row. */
+export async function upsertUserAccount(row: {
+  provider: string;
+  providerId: string;
+  email?: string | null;
+  name?: string | null;
+  image?: string | null;
+}): Promise<Record<string, unknown>> {
+  await ensureUserAccountsTable();
+  const now = Date.now();
+
+  // Check if exists
+  const existing = await d1Query(
+    "SELECT * FROM user_accounts WHERE provider = ? AND provider_id = ?",
+    [row.provider, row.providerId]
+  );
+
+  if (existing.length > 0) {
+    // Update last login + info
+    await d1Query(
+      `UPDATE user_accounts SET name = ?, image = ?, email = ?, last_login_at = ? WHERE provider = ? AND provider_id = ?`,
+      [row.name ?? existing[0].name, row.image ?? existing[0].image, row.email ?? existing[0].email, now, row.provider, row.providerId]
+    );
+    return { ...existing[0], name: row.name ?? existing[0].name, image: row.image ?? existing[0].image, last_login_at: now };
+  }
+
+  // Insert new
+  const id = `${row.provider}_${row.providerId}`;
+  await d1Query(
+    `INSERT INTO user_accounts (id, provider, provider_id, email, name, image, role, created_at, last_login_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'user', ?, ?)`,
+    [id, row.provider, row.providerId, row.email ?? null, row.name ?? null, row.image ?? null, now, now]
+  );
+  return { id, provider: row.provider, provider_id: row.providerId, email: row.email, name: row.name, image: row.image, role: "user", created_at: now, last_login_at: now };
+}
+
+/** Get user account by provider + providerId. */
+export async function getUserAccount(provider: string, providerId: string): Promise<Record<string, unknown> | null> {
+  await ensureUserAccountsTable();
+  const rows = await d1Query(
+    "SELECT * FROM user_accounts WHERE provider = ? AND provider_id = ?",
+    [provider, providerId]
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
+/** Get user account by email. */
+export async function getUserAccountByEmail(email: string): Promise<Record<string, unknown> | null> {
+  await ensureUserAccountsTable();
+  const rows = await d1Query(
+    "SELECT * FROM user_accounts WHERE email = ?",
+    [email]
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
+/** Get all user accounts (for admin). */
+export async function getAllUserAccounts(limit = 200): Promise<Record<string, unknown>[]> {
+  await ensureUserAccountsTable();
+  return d1Query(
+    "SELECT * FROM user_accounts ORDER BY last_login_at DESC LIMIT ?",
+    [limit]
+  );
+}
+
 // ─── face_embeddings + face_search_sessions tables ───────────────
 
 let _faceTablesEnsured = false;

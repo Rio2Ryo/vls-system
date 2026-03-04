@@ -1,6 +1,74 @@
-import { AuthOptions } from "next-auth";
+import { AuthOptions, Account, Profile } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import AppleProvider from "next-auth/providers/apple";
 import { ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, TENANTS } from "@/lib/data";
+import { isD1Configured, upsertUserAccount } from "@/lib/d1";
+
+/**
+ * LINE Login OAuth 2.1 provider for NextAuth.
+ * LINE does not have an official next-auth provider, so we define a custom one.
+ */
+function LINEProvider() {
+  const clientId = process.env.LINE_CLIENT_ID || "";
+  const clientSecret = process.env.LINE_CLIENT_SECRET || "";
+  if (!clientId) return null;
+
+  return {
+    id: "line",
+    name: "LINE",
+    type: "oauth" as const,
+    authorization: {
+      url: "https://access.line.me/oauth2/v2.1/authorize",
+      params: { scope: "profile openid email", bot_prompt: "normal" },
+    },
+    token: "https://api.line.me/oauth2/v2.1/token",
+    userinfo: "https://api.line.me/v2/profile",
+    clientId,
+    clientSecret,
+    profile(profile: Record<string, string>) {
+      return {
+        id: profile.userId,
+        name: profile.displayName,
+        image: profile.pictureUrl,
+        email: profile.email || null,
+        role: "user",
+        tenantId: null,
+        tenantName: null,
+      };
+    },
+  };
+}
+
+/** Build the list of enabled OAuth providers (only those with env vars set). */
+function buildSocialProviders() {
+  const providers = [];
+
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    providers.push(
+      GoogleProvider({
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      })
+    );
+  }
+
+  const lineProvider = LINEProvider();
+  if (lineProvider) {
+    providers.push(lineProvider);
+  }
+
+  if (process.env.APPLE_ID && process.env.APPLE_SECRET) {
+    providers.push(
+      AppleProvider({
+        clientId: process.env.APPLE_ID,
+        clientSecret: process.env.APPLE_SECRET,
+      })
+    );
+  }
+
+  return providers;
+}
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -35,15 +103,39 @@ export const authOptions: AuthOptions = {
         return null;
       },
     }),
+    ...buildSocialProviders(),
   ],
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
-  pages: { signIn: "/admin" },
+  pages: {
+    signIn: "/login",
+  },
   callbacks: {
-    jwt({ token, user }) {
+    async signIn({ user, account }: { user: { id?: string; name?: string | null; email?: string | null; image?: string | null }; account: Account | null; profile?: Profile }) {
+      // Persist social login users to D1
+      if (account && account.provider !== "credentials" && isD1Configured()) {
+        try {
+          await upsertUserAccount({
+            provider: account.provider,
+            providerId: account.providerAccountId || user.id || "",
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          });
+        } catch (err) {
+          console.error("Failed to upsert user account:", err);
+          // Don't block login on D1 errors
+        }
+      }
+      return true;
+    },
+    jwt({ token, user, account }) {
       if (user) {
-        token.role = (user as { role: string }).role;
-        token.tenantId = (user as { tenantId: string | null }).tenantId;
-        token.tenantName = (user as { tenantName: string | null }).tenantName;
+        token.role = (user as { role?: string }).role || "user";
+        token.tenantId = (user as { tenantId?: string | null }).tenantId || null;
+        token.tenantName = (user as { tenantName?: string | null }).tenantName || null;
+      }
+      if (account) {
+        token.provider = account.provider;
       }
       return token;
     },
@@ -51,6 +143,7 @@ export const authOptions: AuthOptions = {
       session.user.role = token.role as string;
       session.user.tenantId = token.tenantId as string | null;
       session.user.tenantName = token.tenantName as string | null;
+      (session.user as Record<string, unknown>).provider = token.provider as string | undefined;
       return session;
     },
   },

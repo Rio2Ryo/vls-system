@@ -286,6 +286,7 @@ export const config = {
     "/downloading",
     "/e/:path*",
     "/demo",
+    "/login",
     "/scan",
     "/album/:path*",
     "/my/:path*",

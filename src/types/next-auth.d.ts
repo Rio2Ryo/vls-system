@@ -2,9 +2,9 @@ import "next-auth";
 
 declare module "next-auth" {
   interface User {
-    role: string;
-    tenantId: string | null;
-    tenantName: string | null;
+    role?: string;
+    tenantId?: string | null;
+    tenantName?: string | null;
   }
   interface Session {
     user: {
@@ -23,5 +23,6 @@ declare module "next-auth/jwt" {
     role?: string;
     tenantId?: string | null;
     tenantName?: string | null;
+    provider?: string;
   }
 }
