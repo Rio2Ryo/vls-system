@@ -20,6 +20,7 @@ const ADMIN_PAGES = [
   "/admin/reports",
   "/admin/settings",
   "/admin/chat",
+  "/admin/viral",
 ];
 
 /** API mutation methods requiring CSRF validation. */

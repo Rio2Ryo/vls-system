@@ -771,6 +771,23 @@ export const CHAT_TEMPLATES = [
   "しばらくお待ちください。担当者が確認中です。",
 ];
 
+// SNS share tracking
+export type SharePlatform = "twitter" | "line" | "instagram" | "copy";
+export type ShareAction = "share_click" | "share_complete";
+
+export interface ShareEvent {
+  id: string;
+  eventId: string;
+  photoId?: string;
+  platform: SharePlatform;
+  action: ShareAction;
+  referrer?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  timestamp: number;
+}
+
 export interface AdminUser {
   id: string;
   name: string;

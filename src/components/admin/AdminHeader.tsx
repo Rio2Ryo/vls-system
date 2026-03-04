@@ -35,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/reports", label: "レポート", requiredPermission: "analytics.read" },
   { href: "/admin/settings", label: "テーマ設定", requiredPermission: "analytics.read" },
   { href: "/admin/chat", label: "チャット", requiredPermission: "events.read" },
+  { href: "/admin/viral", label: "バイラル", requiredPermission: "analytics.read" },
 ];
 
 interface AdminHeaderProps {

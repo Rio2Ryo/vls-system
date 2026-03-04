@@ -1,4 +1,4 @@
-import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, ChatMessage, Company, DEFAULT_RETENTION_POLICY, DEFAULT_THEME_CONFIG, DEFAULT_WATERMARK_CONFIG, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, ThemeConfig, VideoPlayRecord, WatermarkConfig, WebhookConfig, WebhookLog } from "./types";
+import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, ChatMessage, Company, DEFAULT_RETENTION_POLICY, DEFAULT_THEME_CONFIG, DEFAULT_WATERMARK_CONFIG, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, ShareEvent, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, ThemeConfig, VideoPlayRecord, WatermarkConfig, WebhookConfig, WebhookLog } from "./types";
 import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
 import { csrfHeaders } from "./csrf";
 import { fetchWithRetry } from "./fetchWithRetry";
@@ -38,6 +38,7 @@ const KEYS = {
   watermarkConfigs: "vls_watermark_configs",
   themeConfigs: "vls_theme_configs",
   chatMessages: "vls_chat_messages",
+  shareEvents: "vls_share_events",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -1010,6 +1011,20 @@ export function setThemeConfig(config: ThemeConfig): void {
     configs.push(config);
   }
   setStoredThemeConfigs(configs);
+}
+
+// --- Share Events ---
+export function getStoredShareEvents(): ShareEvent[] {
+  return safeGet(KEYS.shareEvents, []);
+}
+export function addShareEvent(ev: ShareEvent): void {
+  const all = getStoredShareEvents();
+  all.push(ev);
+  const trimmed = all.length > 1000 ? all.slice(-1000) : all;
+  safeSet(KEYS.shareEvents, trimmed);
+}
+export function getShareEventsForEvent(eventId: string): ShareEvent[] {
+  return getStoredShareEvents().filter((e) => e.eventId === eventId);
 }
 
 // --- Chat Messages ---

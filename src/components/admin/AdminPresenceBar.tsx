@@ -33,6 +33,7 @@ const PAGE_LABELS: Record<string, string> = {
   "/admin/reports": "レポート",
   "/admin/settings": "テーマ設定",
   "/admin/chat": "チャット",
+  "/admin/viral": "バイラル",
 };
 
 interface AdminPresenceBarProps {

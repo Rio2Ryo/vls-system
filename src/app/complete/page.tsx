@@ -13,6 +13,7 @@ import { fireWebhook } from "@/lib/webhook";
 import { csrfHeaders } from "@/lib/csrf";
 import { trackPageView, trackPageLeave, trackTap } from "@/lib/tracker";
 import { trackOfferView, trackOfferClick, trackCouponView, trackCouponCopy } from "@/lib/offerTracker";
+import SnsShareButtons from "@/components/share/SnsShareButtons";
 
 function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string; selectedPhotos: PhotoData[] }) {
   const t = useTranslations("Complete");
@@ -441,6 +442,22 @@ export default function CompletePage() {
           platinumCompanies={platinumCompanies}
           matchedCompany={matchedCompany}
         />
+
+        {/* SNS Share */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card>
+            <SnsShareButtons
+              eventId={sessionStorage.getItem("eventId") || ""}
+              eventName={eventName}
+              photoCount={photoCount}
+              sponsorName={platinumCompany?.name}
+            />
+          </Card>
+        </motion.div>
 
         {/* Offer cards */}
         {matchedCompany && (
