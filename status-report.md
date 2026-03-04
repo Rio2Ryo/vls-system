@@ -7,7 +7,7 @@
 
 ---
 
-## 完成済み機能一覧 (81件)
+## 完成済み機能一覧 (82件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -123,6 +123,7 @@
 | 79 | カスタムレポートビルダー | `/admin/reports` — 15 KPIウィジェット (8 KPI + 5チャート + 2テーブル) をD&D配置。react-grid-layout v2 (ドラッグ&リサイズ)。3プリセットテンプレート (エグゼクティブサマリー/スポンサーレポート/イベント詳細分析)。テンプレート保存/削除/共有 (URL Base64エンコード)。PDF/CSVエクスポート (jsPDF A4横)。日付範囲フィルター (from/to)。テナントフィルター。Recharts (BarChart/LineChart/PieChart)。レイアウト+フィルター設定 localStorage 自動永続化。AdminHeaderナビ+middleware認証+PresenceBar連携 |
 | 80 | 管理画面テーマカスタマイズ | `/admin/settings` テーマビルダー。`ThemeConfig` 型 (primaryColor/accentColor/borderRadius/fontSize)。5プリセット (デフォルト/モダン/クラシック/ビビッド/モノクロ)。リアルタイムミニ管理画面プレビュー。テナント別テーマ保存 (localStorage + D1)。CSS変数自動反映 (--primary/--accent/--radius/--font-size-base)。ダークモードテーマ連携 (darkPrimaryColor/darkAccentColor)。TenantBrandingProvider拡張。3セクションUI (プリセット/カスタム/ダークモード) |
 | 81 | 参加者リアルタイムチャット | `/admin/chat` 管理画面 + `ChatWidget` ユーザー側フローティングウィジェット。`/api/chat` SSEストリーム (POST送信 + GET購読 + in-memoryブロードキャスト)。`ChatMessage`/`ChatRoom` 型。イベント別チャットルーム + 全体チャット。管理者→参加者一斉/個別 (DM) メッセージ。定型文テンプレート6種 (`CHAT_TEMPLATES`)。未読バッジ (visibilitychange連動)。`useChat` フック (SSE接続/送受信/未読カウント)。store.ts D1永続化 (addChatMessage/getChatMessagesForRoom) |
+| 82 | 写真SNSシェア＋バイラル計測 | `SnsShareButtons` コンポーネント (Twitter/LINE/Instagram Story/リンクコピー) → `complete/page.tsx` に統合。`/api/og` OGP動的画像生成 (ImageResponse — グラデーション背景+イベント名+写真数+スポンサー名)。`ShareEvent` 型 + シェアトラッキング (share_click/share_complete)。UTMパラメータ自動付与 (utm_source/utm_medium/utm_campaign)。`/admin/viral` ダッシュボード — KPI5種 (クリック/完了/完了率/バイラル係数/リファラル) + プラットフォーム別棒グラフ + 構成比円グラフ + 日別推移線グラフ + イベント別テーブル + UTMキャンペーンテーブル + CSV出力 |
 
 ---
 
@@ -182,7 +183,7 @@
 | Phase13 | 参加者セグメント / スポンサーレポート共有 / データ保持ポリシー | ✅ 全3件完了 |
 | Phase14 | リアルタイムコラボ / カレンダー / ウォーターマーク | ✅ 全3件完了 |
 | Phase15 | E2Eテスト+CI/CD / パフォーマンス / レポートビルダー | ✅ 全3件完了 |
-| Phase16 | テーマカスタマイズ / リアルタイムチャット / SNSシェア | 2/3完了 |
+| Phase16 | テーマカスタマイズ / リアルタイムチャット / SNSシェア | ✅ 全3件完了 |
 
 ---
 
@@ -227,6 +228,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-04 | `1d2fd06` | #82 写真SNSシェア＋バイラル計測 — SNSボタン4種 + OGP動的生成 + /admin/viral ダッシュボード + UTM + シェアトラッキング + CSV (9ファイル) |
 | 2026-03-04 | `b3363db` | #81 参加者リアルタイムチャット — /admin/chat + ChatWidget + SSE API + イベント別ルーム + DM + 定型文 + 未読バッジ (9ファイル) |
 | 2026-03-04 | `33056b9` | #80 管理画面テーマカスタマイズ — /admin/settings テーマビルダー + 5プリセット + リアルタイムプレビュー + CSS変数自動反映 + ダークモード連携 (8ファイル) |
 | 2026-03-04 | — | #79 カスタムレポートビルダー — /admin/reports 15ウィジェットD&D配置 + 3プリセット + テンプレート保存/共有 + PDF/CSV + 日付/テナントフィルター (4ファイル) |
