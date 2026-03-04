@@ -7,7 +7,7 @@
 
 ---
 
-## 完成済み機能一覧 (86件)
+## 完成済み機能一覧 (87件)
 
 ### ユーザーフロー (5ステップ + 補助3ページ)
 
@@ -124,6 +124,7 @@
 | 80 | 管理画面テーマカスタマイズ | `/admin/settings` テーマビルダー。`ThemeConfig` 型 (primaryColor/accentColor/borderRadius/fontSize)。5プリセット (デフォルト/モダン/クラシック/ビビッド/モノクロ)。リアルタイムミニ管理画面プレビュー。テナント別テーマ保存 (localStorage + D1)。CSS変数自動反映 (--primary/--accent/--radius/--font-size-base)。ダークモードテーマ連携 (darkPrimaryColor/darkAccentColor)。TenantBrandingProvider拡張。3セクションUI (プリセット/カスタム/ダークモード) |
 | 81 | 参加者リアルタイムチャット | `/admin/chat` 管理画面 + `ChatWidget` ユーザー側フローティングウィジェット。`/api/chat` SSEストリーム (POST送信 + GET購読 + in-memoryブロードキャスト)。`ChatMessage`/`ChatRoom` 型。イベント別チャットルーム + 全体チャット。管理者→参加者一斉/個別 (DM) メッセージ。定型文テンプレート6種 (`CHAT_TEMPLATES`)。未読バッジ (visibilitychange連動)。`useChat` フック (SSE接続/送受信/未読カウント)。store.ts D1永続化 (addChatMessage/getChatMessagesForRoom) |
 | 86 | ソーシャルログイン | `/login`, `auth.ts`, `d1.ts` | NextAuth Google/LINE/Apple Provider (環境変数で有効化)。`/login` ページ (3ソーシャルボタン+パスワード)。`user_accounts` D1テーブル (upsert/get/getAll)。signInコールバックD1永続化。JWT provider情報 |
+| 87 | パスワードリセット | `/forgot-password`, `/reset-password`, `/api/auth/reset-password` | password_reset_tokens D1テーブル (30分有効期限)。request/reset/verify 3アクション。Resendメール送信 (HTMLテンプレート)。/loginにリセットリンク。Rate limit保護 |
 | 85 | /photos顔絞り込みUI | `/photos`, `FaceSearchModal.tsx` | 「顔で検索」ボタン→カメラ撮影 (getUserMedia) またはファイル選択→face-api.js TinyFaceDetector+FaceLandmark68+FaceRecognition→128-dim embedding→/api/face/searchコール→一致写真フィルタ表示。検索結果クリア。顔グループフィルタ排他制御。モバイル対応 (facingMode user + capture) |
 | 84 | 顔検索+インデックスAPI | `/api/face/search`, `/api/face/index`, `faceIndex.ts` | POST /api/face/search (cosine similarity照合+閾値フィルタ+セッション永続化+uniquePhotos)。POST /api/face/index (写真単位embedding保存+重複チェック)。`faceIndex.ts` クライアント側face-api.js動的ロード+バッチインデックス。PhotosTabアップロード後自動顔インデックス (fire-and-forget+進捗UI)。E2Eテスト+4件 |
 | 83 | 顔認識基盤 | `/api/face/detect`, `d1.ts`, `face.ts` | face_embeddings/face_search_sessions D1テーブル。face-api.js + TFJSモデル (public/models/)。POST /api/face/detect 4アクション (store/search/detect/get)。コサイン類似度顔マッチング。Anthropic Vision APIフォールバック。E2Eテスト8件 |
@@ -191,6 +192,8 @@
 | A1 | 顔認識基盤 (D1マイグレーション + face-api.js + /api/face/detect) | ✅ 完了 |
 | A2 | 顔検索+インデックスAPI (/api/face/search + /api/face/index + アップロードフック) | ✅ 完了 |
 | A3 | /photos顔絞り込みUI (カメラ/ファイル+face-api.js+検索+フィルタ+モバイル) | ✅ 完了 |
+| D1 | ソーシャルログイン (Google/LINE/Apple + /login + user_accounts) | ✅ 完了 |
+| D2 | パスワードリセット (/forgot-password + /reset-password + Resendメール) | ✅ 完了 |
 
 ---
 
@@ -219,7 +222,7 @@
 | PDF | jsPDF |
 | QR | qrcode + html5-qrcode |
 | Storage | Cloudflare R2 + D1 |
-| Auth | NextAuth (credentials) + JWT |
+| Auth | NextAuth (credentials + Google/LINE/Apple OAuth) + JWT + パスワードリセット |
 | AI | Claude Haiku 4.5 Vision (写真分類+品質スコアリング+顔検出+グルーピング) + face-api.js (TensorFlow.js 顔embedding) |
 | Analytics | 行動トラッキング (PV/離脱/タップ/スクロール) + オファー効果測定 + A/Bテスト (χ²検定) |
 | Monitoring | Sentry + D1エラーログ |
@@ -235,6 +238,7 @@
 
 | 日付 | コミット | 内容 |
 |------|---------|------|
+| 2026-03-04 | `c542ce1` | #87 パスワードリセット — /forgot-password + /reset-password + /api/auth/reset-password (request/reset/verify) + Resendメール + D1 password_reset_tokens (6ファイル) |
 | 2026-03-04 | `abd277f` | #86 ソーシャルログイン — Google/LINE/Apple Provider + /login + user_accounts D1テーブル + signInコールバック (5ファイル) |
 | 2026-03-04 | `0955d48` | #85 /photos顔絞り込みUI — FaceSearchModal (カメラ/ファイル+face-api.js+検索+フィルタ) + モバイル対応 (2ファイル) |
 | 2026-03-04 | `59635f1` | #84 顔検索+インデックスAPI — /api/face/search (cosine similarity) + /api/face/index + アップロードフック + faceIndex.ts クライアント検出 + E2E +4件 (6ファイル) |
