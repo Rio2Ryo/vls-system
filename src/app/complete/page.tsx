@@ -233,21 +233,53 @@ function FrameCanvasPreview({ photo, companyName }: { photo: PhotoData | null; c
   );
 }
 
-/** Fetch an image and trigger browser download */
+/** Load an image as HTMLImageElement (with CORS) */
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+/** Composite photo + /frame-template.svg on a canvas and trigger download */
 async function downloadImage(url: string, filename: string): Promise<void> {
   try {
-    const res = await fetch(url, { mode: "cors" });
-    const blob = await res.blob();
+    const photoImg = await loadImage(url);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = photoImg.naturalWidth;
+    canvas.height = photoImg.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas context unavailable");
+
+    // Draw photo first
+    ctx.drawImage(photoImg, 0, 0);
+
+    // Overlay frame (best-effort — skip if SVG fails to load)
+    try {
+      const frameImg = await loadImage("/frame-template.svg");
+      ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+    } catch {
+      // Frame unavailable — download photo without frame
+    }
+
+    // Export as blob and download
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
+    });
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = blobUrl;
-    a.download = filename;
+    a.download = filename.replace(/\.\w+$/, ".png"); // always PNG after composite
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
   } catch {
-    // Fallback: open in new tab
+    // Fallback: open in new tab without frame
     window.open(url, "_blank");
   }
 }
