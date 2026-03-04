@@ -72,6 +72,72 @@ test.describe("Face Detection API (/api/face/detect)", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// /api/face/search
+// ---------------------------------------------------------------------------
+test.describe("Face Search API (/api/face/search)", () => {
+  test("validates eventId required", async ({ request }) => {
+    const res = await request.post("/api/face/search", {
+      headers: {
+        "x-csrf-token": "e2e-test-csrf-token",
+        "Content-Type": "application/json",
+      },
+      data: { queryEmbedding: [0.1, 0.2] },
+    });
+    expect(res.status()).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("eventId");
+  });
+
+  test("validates queryEmbedding required", async ({ request }) => {
+    const res = await request.post("/api/face/search", {
+      headers: {
+        "x-csrf-token": "e2e-test-csrf-token",
+        "Content-Type": "application/json",
+      },
+      data: { eventId: "evt1" },
+    });
+    expect(res.status()).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("queryEmbedding");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// /api/face/index
+// ---------------------------------------------------------------------------
+test.describe("Face Index API (/api/face/index)", () => {
+  test("validates eventId and photoId required", async ({ request }) => {
+    const res = await request.post("/api/face/index", {
+      headers: {
+        "x-csrf-token": "e2e-test-csrf-token",
+        "Content-Type": "application/json",
+      },
+      data: {},
+    });
+    expect(res.status()).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("eventId");
+  });
+
+  test("returns ok with empty faces array", async ({ request }) => {
+    const res = await request.post("/api/face/index", {
+      headers: {
+        "x-csrf-token": "e2e-test-csrf-token",
+        "Content-Type": "application/json",
+      },
+      data: { eventId: "evt1", photoId: "photo1", faces: [] },
+    });
+    expect(res.status()).toBe(200);
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    expect(json.indexed).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Face-api.js model files
+// ---------------------------------------------------------------------------
 test.describe("Face-api.js model files", () => {
   test("tiny_face_detector model manifest is accessible", async ({ request }) => {
     const res = await request.get("/models/tiny_face_detector_model-weights_manifest.json");

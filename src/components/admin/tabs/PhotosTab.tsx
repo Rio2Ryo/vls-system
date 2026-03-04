@@ -8,6 +8,7 @@ import { IS_DEMO_MODE } from "@/lib/demo";
 import { logAudit } from "@/lib/audit";
 import { inputCls, uploadFileToR2, createThumbnailBlobAR, readAsDataUrl, resizeImageBlob, validateImageFiles } from "./adminUtils";
 import { csrfHeaders } from "@/lib/csrf";
+import { indexBatchPhotoFaces } from "@/lib/faceIndex";
 
 interface Props {
   onSave: (msg: string) => void;
@@ -48,6 +49,8 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const [faceGroups, setFaceGroupsState] = useState<FaceGroup[]>([]);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [uploadFileNames, setUploadFileNames] = useState<string[]>([]);
+  const [faceIndexing, setFaceIndexing] = useState(false);
+  const [faceIndexProgress, setFaceIndexProgress] = useState({ current: 0, total: 0, faces: 0 });
 
   useEffect(() => {
     const evts = tenantId ? getEventsForTenant(tenantId) : getStoredEvents();
@@ -151,6 +154,21 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     const savedMsg = savedPct > 0 ? ` (${savedPct}%圧縮)` : "";
     onSave(`${newPhotos.length}枚の写真を追加しました${savedMsg}`);
     logAudit("photo_upload", { type: "photo", id: selectedEventId, name: selectedEvent?.name }, { count: newPhotos.length });
+
+    // Fire-and-forget: index faces in uploaded photos (background)
+    if (newPhotos.length > 0) {
+      setFaceIndexing(true);
+      setFaceIndexProgress({ current: 0, total: newPhotos.length, faces: 0 });
+      indexBatchPhotoFaces(
+        newPhotos.map((p) => ({ imageUrl: p.originalUrl, eventId: selectedEventId, photoId: p.id })),
+        (cur, tot, faces) => setFaceIndexProgress({ current: cur, total: tot, faces }),
+      ).then((result) => {
+        setFaceIndexing(false);
+        if (result.indexed > 0) {
+          onSave(`顔インデックス完了: ${result.indexed}件の顔を検出`);
+        }
+      }).catch(() => setFaceIndexing(false));
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -531,6 +549,20 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Face indexing progress */}
+            {faceIndexing && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
+                <span className="animate-pulse">🧠</span>
+                <span>顔インデックス中... ({faceIndexProgress.current}/{faceIndexProgress.total} 写真, {faceIndexProgress.faces}件検出)</span>
+                <div className="flex-1 h-1.5 bg-purple-100 dark:bg-purple-900 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-purple-500 rounded-full transition-all"
+                    style={{ width: `${faceIndexProgress.total > 0 ? (faceIndexProgress.current / faceIndexProgress.total) * 100 : 0}%` }}
+                  />
+                </div>
               </div>
             )}
 
