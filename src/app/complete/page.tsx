@@ -10,10 +10,8 @@ import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { getStoredEvents, updateAnalyticsRecord } from "@/lib/store";
 import { Company, PhotoData } from "@/lib/types";
 import { fireWebhook } from "@/lib/webhook";
-import { csrfHeaders } from "@/lib/csrf";
 import { trackPageView, trackPageLeave, trackTap } from "@/lib/tracker";
 import { trackOfferView, trackOfferClick, trackCouponView, trackCouponCopy } from "@/lib/offerTracker";
-import SnsShareButtons from "@/components/share/SnsShareButtons";
 
 function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string; selectedPhotos: PhotoData[] }) {
   const t = useTranslations("Complete");
@@ -82,95 +80,6 @@ function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string
           {emailSending ? t("emailSending") : t("emailSend")}
         </Button>
       </div>
-    </Card>
-  );
-}
-
-function AlbumShareSection({ eventName, selectedPhotos, platinumCompanies, matchedCompany }: {
-  eventName: string;
-  selectedPhotos: PhotoData[];
-  platinumCompanies: Company[];
-  matchedCompany: Company | null;
-}) {
-  const t = useTranslations("Complete");
-  const [shareUrl, setShareUrl] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleCreate = async () => {
-    if (creating) return;
-    setCreating(true);
-    setError("");
-
-    try {
-      const eventId = sessionStorage.getItem("eventId") || "";
-      const creatorName = sessionStorage.getItem("respondentName") || "保護者";
-      const photoIds = selectedPhotos.map((p) => p.id);
-      const sponsorIds = platinumCompanies.map((c) => c.id);
-
-      const res = await fetch("/api/album", {
-        method: "POST",
-        headers: csrfHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({
-          eventId,
-          eventName,
-          photoIds,
-          creatorName,
-          sponsorIds,
-          matchedCompanyId: matchedCompany?.id,
-        }),
-      });
-
-      if (!res.ok) throw new Error();
-      const json = await res.json();
-      const url = `${window.location.origin}/album/${json.token}`;
-      setShareUrl(url);
-    } catch {
-      setError(t("shareFailed"));
-    }
-    setCreating(false);
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback: select text
-    }
-  };
-
-  if (shareUrl) {
-    return (
-      <Card>
-        <p className="text-sm font-bold text-gray-700 mb-2">{t("shareReady")}</p>
-        <p className="text-xs text-gray-400 mb-3">{t("shareReadyDesc")}</p>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            readOnly
-            value={shareUrl}
-            className="flex-1 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs truncate"
-            onClick={(e) => (e.target as HTMLInputElement).select()}
-          />
-          <Button onClick={handleCopy} size="sm" variant={copied ? "secondary" : "primary"}>
-            {copied ? t("copied") : t("copy")}
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <p className="text-sm font-bold text-gray-700 mb-2">{t("shareTitle")}</p>
-      <p className="text-xs text-gray-400 mb-3">{t("shareDesc")}</p>
-      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
-      <Button onClick={handleCreate} disabled={creating || selectedPhotos.length === 0} size="sm" variant="secondary" className="w-full">
-        {creating ? t("shareCreating") : t("shareCreate")}
-      </Button>
     </Card>
   );
 }
@@ -466,30 +375,6 @@ export default function CompletePage() {
 
         {/* Email download link */}
         <EmailDownloadSection eventName={eventName} selectedPhotos={selectedPhotos} />
-
-        {/* Album share link */}
-        <AlbumShareSection
-          eventName={eventName}
-          selectedPhotos={selectedPhotos}
-          platinumCompanies={platinumCompanies}
-          matchedCompany={matchedCompany}
-        />
-
-        {/* SNS Share */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card>
-            <SnsShareButtons
-              eventId={sessionStorage.getItem("eventId") || ""}
-              eventName={eventName}
-              photoCount={photoCount}
-              sponsorName={platinumCompany?.name}
-            />
-          </Card>
-        </motion.div>
 
         {/* Offer cards */}
         {matchedCompany && (

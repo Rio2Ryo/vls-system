@@ -175,7 +175,7 @@ export const COMPANIES: Company[] = [
   {
     id: "co-gold-5",
     name: "ひかりモバイル",
-    logoUrl: "https://ui-avatars.com/api/?name=HM&background=0EA5E9&color=fff&size=80&rounded=true",
+    logoUrl: "https://placehold.co/80x80/0EA5E9/FFFFFF/png?text=光",
     tier: "gold",
     tags: ["smartphone", "technology", "age_10_12", "age_13_plus"],
     videos: { cm15: "hipnnaM7v4g", cm30: "MmWblLUtKcM", cm60: "2z2-plkBmpQ" },
