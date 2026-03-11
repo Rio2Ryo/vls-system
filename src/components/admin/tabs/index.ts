@@ -13,3 +13,4 @@ export { default as QRAnalyticsTab } from "./QRAnalyticsTab";
 export { default as CMVideosTab } from "./CMVideosTab";
 export { default as ErrorLogTab } from "./ErrorLogTab";
 export { default as SponsorReportTab } from "./SponsorReportTab";
+export { default as FramesTab } from "./FramesTab";

@@ -41,13 +41,14 @@ const ExportTab = dynamic(() => import("@/components/admin/tabs/ExportTab"), { l
 const QRAnalyticsTab = dynamic(() => import("@/components/admin/tabs/QRAnalyticsTab"), { loading: TabSkeleton, ssr: false });
 const ErrorLogTab = dynamic(() => import("@/components/admin/tabs/ErrorLogTab"), { loading: TabSkeleton, ssr: false });
 const SponsorReportTab = dynamic(() => import("@/components/admin/tabs/SponsorReportTab"), { loading: TabSkeleton, ssr: false });
+const FramesTab = dynamic(() => import("@/components/admin/tabs/FramesTab"), { loading: TabSkeleton, ssr: false });
 const BulkImport = dynamic(() => import("@/components/admin/BulkImport"), { loading: TabSkeleton, ssr: false });
 const InvoiceGenerator = dynamic(() => import("@/components/admin/InvoiceGenerator"), { loading: TabSkeleton, ssr: false });
 const ChartJsAnalytics = dynamic(() => import("@/components/admin/ChartJsAnalytics"), { loading: TabSkeleton, ssr: false });
 const LicenseBulkImport = dynamic(() => import("@/components/admin/LicenseBulkImport"), { loading: TabSkeleton, ssr: false });
 const TenantManager = dynamic(() => import("@/components/admin/TenantManager"), { loading: TabSkeleton, ssr: false });
 
-type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "reports" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings";
+type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "reports" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings" | "frames";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -167,6 +168,7 @@ export default function AdminPage() {
     { key: "photos", label: "写真管理", icon: "📷" },
     { key: "companies", label: "企業管理", icon: "🏢" },
     { key: "cmVideos", label: "CM動画管理", icon: "🎬" },
+    { key: "frames", label: "フレーム管理", icon: "🖼️" },
     { key: "survey", label: "アンケート", icon: "📝" },
     { key: "import", label: "参加者管理", icon: "👥" },
     { key: "invoices", label: "請求書", icon: "🧾" },
@@ -292,6 +294,7 @@ export default function AdminPage() {
             {tab === "photos" && <PhotosTab onSave={(msg) => { showToast(msg); refreshEvents(); }} activeEventId={activeEventId} tenantId={adminTenantId} />}
             {tab === "companies" && <CompaniesTab onSave={showToast} />}
             {tab === "cmVideos" && <CMVideosTab onSave={showToast} />}
+            {tab === "frames" && <FramesTab />}
             {tab === "survey" && <SurveyTab onSave={showToast} activeEventId={activeEventId} activeEvent={activeEvent} tenantId={adminTenantId} />}
             {tab === "import" && <BulkImport onSave={showToast} tenantId={adminTenantId} />}
             {tab === "invoices" && <InvoiceGenerator onSave={showToast} tenantId={adminTenantId} />}
