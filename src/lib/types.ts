@@ -38,6 +38,7 @@ export interface EventData {
   photos: PhotoData[];
   companyIds?: string[];        // associated company IDs; undefined = all companies
   surveyQuestions?: SurveyQuestion[];  // per-event survey; undefined = use global default
+  frameTemplateId?: string;     // per-event frame template; undefined = use active default
   slug?: string;                // custom URL path: /e/[slug] → auto-login
   notifyEmail?: string;         // admin email for notifications
   tenantId?: string;            // owning tenant ID (multi-tenant)
@@ -284,8 +285,19 @@ export interface EventTemplate {
   venue?: string;
   companyIds?: string[];
   surveyQuestions?: SurveyQuestion[];
+  frameTemplateId?: string;
   tenantId?: string;
   createdAt: number;
+}
+
+export interface FrameTemplate {
+  id: string;
+  name: string;
+  url: string;
+  tenantId?: string;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt?: number;
 }
 
 // Webhook types

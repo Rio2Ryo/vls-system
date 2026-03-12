@@ -1,4 +1,4 @@
-import { AdminUser, Company, EventData, SurveyQuestion, Tenant } from "./types";
+import { AdminUser, Company, EventData, FrameTemplate, SurveyQuestion, Tenant } from "./types";
 
 // --- Demo Companies (22 companies, diverse sectors) ---
 export const COMPANIES: Company[] = [
@@ -254,6 +254,17 @@ export const COMPANIES: Company[] = [
 ];
 
 // --- Demo Events ---
+export const DEFAULT_FRAME_TEMPLATES: FrameTemplate[] = [
+  {
+    id: "frame-default",
+    name: "デフォルトフレーム",
+    url: "/frame-template.svg",
+    isActive: true,
+    createdAt: Date.parse("2026-03-11T00:00:00+09:00"),
+    updatedAt: Date.parse("2026-03-11T00:00:00+09:00"),
+  },
+];
+
 export const EVENTS: EventData[] = [
   {
     id: "evt-summer",

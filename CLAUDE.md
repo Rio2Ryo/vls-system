@@ -160,3 +160,12 @@ NEXT_PUBLIC_DEMO_MODE=true  # (optional) Demo mode flag
 - **A1. Database migration** — ✅ Migrated to Cloudflare D1 (localStorage cache + D1 persistence).
 - **A2. Authentication** — Password string comparison only. Needs NextAuth/Clerk for sessions/RBAC.
 - **A3. Email configuration** — ✅ Resend API integrated as primary provider, SendGrid as fallback. MailChannels removed. `/api/notify` GET endpoint returns provider config status. Placeholder API key detection prevents wasted calls. Provider errors propagated to UI.
+
+## Agent Teams Configuration
+This project supports Agent Teams for parallel execution.
+
+### Team Members
+- **mail-agent**: Handles email functionality
+- **frame-agent**: Handles frame management
+- **docs-agent**: Handles documentation
+

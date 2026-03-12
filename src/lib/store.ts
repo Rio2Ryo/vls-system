@@ -1,5 +1,5 @@
-import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, ChatMessage, Company, DEFAULT_RETENTION_POLICY, DEFAULT_THEME_CONFIG, DEFAULT_WATERMARK_CONFIG, EventData, EventTemplate, FaceGroup, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, ShareEvent, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, ThemeConfig, VideoPlayRecord, WatermarkConfig, WebhookConfig, WebhookLog } from "./types";
-import { COMPANIES as DEFAULT_COMPANIES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
+import { ABTest, ABAssignment, AdminUser, AnalyticsRecord, AuditLog, BehaviorEvent, Campaign, ChatMessage, Company, DEFAULT_RETENTION_POLICY, DEFAULT_THEME_CONFIG, DEFAULT_WATERMARK_CONFIG, EventData, EventTemplate, FaceGroup, FrameTemplate, InvoiceData, MyPortalSession, NotificationLog, NpsResponse, OfferInteraction, Participant, PricingPlan, Purchase, PushSubscriptionRecord, PushLog, RetentionPolicy, ScheduledTask, Segment, ShareEvent, SponsorReportShare, SurveyQuestion, TaskExecutionLog, Tenant, ThemeConfig, VideoPlayRecord, WatermarkConfig, WebhookConfig, WebhookLog } from "./types";
+import { COMPANIES as DEFAULT_COMPANIES, DEFAULT_FRAME_TEMPLATES, EVENTS as DEFAULT_EVENTS, DEFAULT_SURVEY, TENANTS as DEFAULT_TENANTS } from "./data";
 import { csrfHeaders } from "./csrf";
 import { fetchWithRetry } from "./fetchWithRetry";
 
@@ -16,6 +16,7 @@ const KEYS = {
   webhooks: "vls_webhooks",
   webhookLog: "vls_webhook_log",
   eventTemplates: "vls_event_templates",
+  frameTemplates: "vls_frame_templates",
   mySessions: "vls_my_sessions",
   npsResponses: "vls_nps_responses",
   auditLog: "vls_audit_log",
@@ -389,6 +390,33 @@ export function setStoredTemplates(templates: EventTemplate[]): void {
 
 export function getTemplatesForTenant(tenantId: string): EventTemplate[] {
   return getStoredTemplates().filter((t) => t.tenantId === tenantId);
+}
+
+// --- Frame Templates ---
+export function getStoredFrameTemplates(): FrameTemplate[] {
+  const frames = safeGet<FrameTemplate[]>(KEYS.frameTemplates, DEFAULT_FRAME_TEMPLATES);
+  return frames.length > 0 ? frames : DEFAULT_FRAME_TEMPLATES;
+}
+
+export function setStoredFrameTemplates(frames: FrameTemplate[]): void {
+  const normalized = frames.length > 0 ? frames : DEFAULT_FRAME_TEMPLATES;
+  safeSet(KEYS.frameTemplates, normalized);
+}
+
+export function getActiveFrameTemplate(): FrameTemplate {
+  const frames = getStoredFrameTemplates();
+  return frames.find((frame) => frame.isActive) || frames[0] || DEFAULT_FRAME_TEMPLATES[0];
+}
+
+export function getFrameTemplateForEvent(eventId?: string | null): FrameTemplate {
+  if (!eventId) return getActiveFrameTemplate();
+  const event = getStoredEvents().find((e) => e.id === eventId);
+  if (event?.frameTemplateId) {
+    const frames = getStoredFrameTemplates();
+    const match = frames.find((frame) => frame.id === event.frameTemplateId);
+    if (match) return match;
+  }
+  return getActiveFrameTemplate();
 }
 
 // --- Webhooks ---

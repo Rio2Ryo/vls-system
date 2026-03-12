@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
-import { getStoredEvents, updateAnalyticsRecord } from "@/lib/store";
+import { getFrameTemplateForEvent, getStoredEvents, updateAnalyticsRecord } from "@/lib/store";
 import { Company, PhotoData } from "@/lib/types";
 import { fireWebhook } from "@/lib/webhook";
 import { trackPageView, trackPageLeave, trackTap } from "@/lib/tracker";
@@ -84,10 +84,11 @@ function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string
   );
 }
 
-function FrameCanvasPreview({ photo, companyName }: { photo: PhotoData | null; companyName: string }) {
+function FrameCanvasPreview({ photo, companyName, eventId }: { photo: PhotoData | null; companyName: string; eventId?: string | null }) {
   const t = useTranslations("Complete");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [drawn, setDrawn] = useState(false);
+  const frameUrl = useMemo(() => getFrameTemplateForEvent(eventId).url || "/frame-template.svg", [eventId]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -108,11 +109,11 @@ function FrameCanvasPreview({ photo, companyName }: { photo: PhotoData | null; c
         setDrawn(true);
       };
       frameImg.onerror = () => setDrawn(true);
-      frameImg.src = "/frame-template.svg";
+      frameImg.src = frameUrl;
     };
     photoImg.onerror = () => setDrawn(false);
     photoImg.src = photo.thumbnailUrl;
-  }, [photo]);
+  }, [frameUrl, photo]);
 
   useEffect(() => {
     draw();
@@ -153,8 +154,9 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Composite photo + /frame-template.svg on a canvas and trigger download */
-async function downloadImage(url: string, filename: string): Promise<void> {
+/** Composite photo + event frame template on a canvas and trigger download */
+async function downloadImage(url: string, filename: string, eventId?: string | null): Promise<void> {
+  const frameUrl = getFrameTemplateForEvent(eventId).url || "/frame-template.svg";
   try {
     const photoImg = await loadImage(url);
 
@@ -167,9 +169,9 @@ async function downloadImage(url: string, filename: string): Promise<void> {
     // Draw photo first
     ctx.drawImage(photoImg, 0, 0);
 
-    // Overlay frame (best-effort — skip if SVG fails to load)
+    // Overlay active frame (best-effort — skip if loading fails)
     try {
-      const frameImg = await loadImage("/frame-template.svg");
+      const frameImg = await loadImage(frameUrl);
       ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
     } catch {
       // Frame unavailable — download photo without frame
@@ -201,6 +203,7 @@ export default function CompletePage() {
   const [eventName, setEventName] = useState("");
   const [photoCount, setPhotoCount] = useState(0);
   const [selectedPhotos, setSelectedPhotos] = useState<PhotoData[]>([]);
+  const [eventId, setEventId] = useState<string | null>(null);
 
   // Behavior tracking
   useEffect(() => {
@@ -212,6 +215,10 @@ export default function CompletePage() {
   useEffect(() => {
     if (!sessionStorage.getItem("eventId")) router.replace("/");
   }, [router]);
+
+  useEffect(() => {
+    setEventId(sessionStorage.getItem("eventId"));
+  }, []);
 
   const platinumCompany = useMemo((): Company | null => {
     if (typeof window === "undefined") return null;
@@ -286,7 +293,7 @@ export default function CompletePage() {
         const photo = selectedPhotos[i];
         const ext = photo.originalUrl.includes(".png") ? "png" : "jpg";
         const filename = `${eventName}_photo_${i + 1}.${ext}`;
-        await downloadImage(photo.originalUrl, filename);
+        await downloadImage(photo.originalUrl, filename, eventId);
         if (i < selectedPhotos.length - 1) {
           await new Promise((r) => setTimeout(r, 500));
         }
@@ -349,6 +356,7 @@ export default function CompletePage() {
           <FrameCanvasPreview
             photo={selectedPhotos.length > 0 ? selectedPhotos[0] : null}
             companyName={platinumCompany.name}
+            eventId={eventId}
           />
         )}
 

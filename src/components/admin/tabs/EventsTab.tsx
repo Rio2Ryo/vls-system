@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { Company, EventData, EventStatus, EventTemplate } from "@/lib/types";
+import { Company, EventData, EventStatus, EventTemplate, FrameTemplate } from "@/lib/types";
 import {
   getStoredEvents, setStoredEvents, getStoredCompanies,
   getEventsForTenant, getStoredTenants,
-  getStoredTemplates, setStoredTemplates, getTemplatesForTenant,
+  getStoredTemplates, setStoredTemplates, getTemplatesForTenant, getStoredFrameTemplates,
 } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
 import { logAudit } from "@/lib/audit";
@@ -31,8 +31,9 @@ interface Props {
 export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, locks, currentUserId }: Props) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [frames, setFrames] = useState<FrameTemplate[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] as string[], slug: "", notifyEmail: "" });
+  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] as string[], frameTemplateId: "", slug: "", notifyEmail: "" });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [qrEventId, setQrEventId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -47,6 +48,23 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
   const [filterText, setFilterText] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+
+  const activeFrame = useMemo(
+    () => frames.find((frame) => frame.isActive) ?? frames[0] ?? null,
+    [frames],
+  );
+
+  const frameNameForEvent = (evt: EventData): string => {
+    if (!evt.frameTemplateId) return activeFrame?.name || "既定フレーム";
+    return frames.find((frame) => frame.id === evt.frameTemplateId)?.name || "既定フレーム";
+  };
+
+  const selectedFrame = useMemo(() => {
+    if (form.frameTemplateId) {
+      return frames.find((frame) => frame.id === form.frameTemplateId) || null;
+    }
+    return activeFrame;
+  }, [activeFrame, form.frameTemplateId, frames]);
 
   const getShareUrl = (pw: string) => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
@@ -96,6 +114,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
     setEvents(tenantId ? getEventsForTenant(tenantId) : getStoredEvents());
     setCompanies(getStoredCompanies());
     setTemplatesState(tenantId ? getTemplatesForTenant(tenantId) : getStoredTemplates());
+    setFrames(getStoredFrameTemplates());
   }, [tenantId]);
 
   const tenantInfo = tenantId ? getStoredTenants().find((t) => t.id === tenantId) : null;
@@ -104,7 +123,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
   const startNew = () => {
     if (maxEventsReached) return;
     setEditing("__new__");
-    setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [], slug: "", notifyEmail: "" });
+    setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [], frameTemplateId: "", slug: "", notifyEmail: "" });
   };
 
   const [lockWarning, setLockWarning] = useState<string | null>(null);
@@ -119,7 +138,17 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
       }
     }
     setEditing(evt.id);
-    setForm({ name: evt.name, date: evt.date, venue: evt.venue || "", description: evt.description, password: evt.password, companyIds: evt.companyIds || [], slug: evt.slug || "", notifyEmail: evt.notifyEmail || "" });
+    setForm({
+      name: evt.name,
+      date: evt.date,
+      venue: evt.venue || "",
+      description: evt.description,
+      password: evt.password,
+      companyIds: evt.companyIds || [],
+      frameTemplateId: evt.frameTemplateId || "",
+      slug: evt.slug || "",
+      notifyEmail: evt.notifyEmail || "",
+    });
   };
 
   const cancelEdit = () => {
@@ -161,6 +190,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
         password: form.password.toUpperCase(),
         photos: [],
         companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
+        frameTemplateId: form.frameTemplateId || undefined,
         slug: slugVal,
         notifyEmail: emailVal,
         tenantId: tid,
@@ -177,6 +207,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
               description: form.description,
               password: form.password.toUpperCase(),
               companyIds: form.companyIds.length > 0 ? form.companyIds : undefined,
+              frameTemplateId: form.frameTemplateId || undefined,
               slug: slugVal,
               notifyEmail: emailVal,
             }
@@ -220,6 +251,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
       description: evt.description,
       password: "",
       companyIds: evt.companyIds || [],
+      frameTemplateId: evt.frameTemplateId || "",
       slug: "",
       notifyEmail: evt.notifyEmail || "",
     });
@@ -236,6 +268,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
       venue: evt.venue || undefined,
       companyIds: evt.companyIds,
       surveyQuestions: evt.surveyQuestions,
+      frameTemplateId: evt.frameTemplateId,
       tenantId: tenantId || undefined,
       createdAt: Date.now(),
     };
@@ -259,6 +292,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
       description: tmpl.description || "",
       password: "",
       companyIds: tmpl.companyIds || [],
+      frameTemplateId: tmpl.frameTemplateId || "",
       slug: "",
       notifyEmail: "",
     });
@@ -513,6 +547,35 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
             <input className={inputCls} type="date" aria-label="開催日" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="event-date-input" />
             <input className={inputCls} placeholder="会場（例: 東京ビッグサイト）" aria-label="会場" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} data-testid="event-venue-input" />
             <input className={inputCls} placeholder="説明" aria-label="イベント説明" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+
+            <div className="border border-gray-100 rounded-xl p-3">
+              <p className="text-xs font-bold text-gray-500 mb-2">フレーム設定</p>
+              <p className="text-[10px] text-gray-400 mb-2">未選択の場合は「フレーム管理」で設定した使用フレームが適用されます</p>
+              <select
+                className={inputCls}
+                aria-label="フレーム選択"
+                value={form.frameTemplateId}
+                onChange={(e) => setForm({ ...form, frameTemplateId: e.target.value })}
+                data-testid="event-frame-select"
+              >
+                <option value="">既定フレーム（{activeFrame?.name || "未設定"}）</option>
+                {frames.map((frame) => (
+                  <option key={frame.id} value={frame.id}>
+                    {frame.name}{frame.isActive ? "（現在の使用フレーム）" : ""}
+                  </option>
+                ))}
+              </select>
+              {selectedFrame ? (
+                <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 p-2">
+                  <img src={selectedFrame.url} alt={selectedFrame.name} className="h-12 w-12 rounded-md object-contain bg-white" />
+                  <div>
+                    <p className="text-xs font-medium text-gray-600">{selectedFrame.name}</p>
+                    <p className="text-[10px] text-gray-400">{form.frameTemplateId ? "イベント専用フレーム" : "既定フレーム"}</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <input className={inputCls + " font-mono uppercase"} placeholder="パスワード（例: SUMMER2026）" aria-label="パスワード" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} data-testid="event-password-input" />
             <input className={inputCls + " font-mono"} placeholder="カスタムURL slug（例: summer2026 → /e/summer2026）" aria-label="カスタムURL slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} data-testid="event-slug-input" />
             <input className={inputCls} type="email" placeholder="通知メール（任意: admin@example.com）" aria-label="通知メールアドレス" value={form.notifyEmail} onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })} data-testid="event-notify-email" />
@@ -605,6 +668,18 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
                   </span>
                 ) : null;
               })
+            )}
+          </div>
+
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-gray-400">フレーム:</span>
+            <span className="text-[10px] bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full text-gray-600">
+              {frameNameForEvent(evt)}
+            </span>
+            {evt.frameTemplateId ? (
+              <span className="text-[10px] text-emerald-600">イベント指定</span>
+            ) : (
+              <span className="text-[10px] text-gray-400">既定</span>
             )}
           </div>
 
