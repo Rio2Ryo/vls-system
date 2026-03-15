@@ -99,7 +99,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults }: P
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(videoRef.current, 0, 0);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const dataUrl = canvas.toDataURL("image/png");
     stopCamera();
     setPreviewUrl(dataUrl);
     processImage(dataUrl);
