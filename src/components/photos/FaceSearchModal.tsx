@@ -9,6 +9,7 @@ interface FaceSearchResult {
   photoId: string;
   faceId: string;
   similarity: number;
+  matchPercent?: number;
 }
 
 interface Props {
@@ -163,10 +164,18 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults }: P
 
       const data = await res.json();
       const results = (data.results || []) as FaceSearchResult[];
+      
+      // Keep results with similarity scores, not just photoIds
       const photoIds = Array.from(new Set(results.map((r) => r.photoId)));
+      const resultsWithPercent = results.map((r) => ({
+        ...r,
+        matchPercent: Math.round(r.similarity * 100),
+      }));
 
       setMatchCount(photoIds.length);
       setMatchPhotos(photoIds);
+      // Store full results with similarity for display
+      (window as unknown as { __faceSearchResults?: FaceSearchResult[] }).__faceSearchResults = resultsWithPercent;
       setStep("results");
     } catch (err) {
       console.error("[FaceSearch] Error:", err);
@@ -305,6 +314,40 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults }: P
                   <p className="text-2xl font-bold text-gray-800">{matchCount}枚</p>
                   <p className="text-sm text-gray-500">あなたが写っている写真が見つかりました</p>
                 </div>
+                
+                {/* Match confidence display */}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(window as any).__faceSearchResults?.length > 0 && (
+                  <div className="bg-gray-50 rounded-xl p-3 text-left">
+                    <p className="text-xs font-bold text-gray-600 mb-2">マッチング度上位 5 件</p>
+                    <div className="space-y-1.5">
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {((window as any).__faceSearchResults as FaceSearchResult[])
+                        .slice(0, 5)
+                        .map((r: FaceSearchResult, i: number) => (
+                          <div key={r.faceId} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">#{i + 1}</span>
+                            <div className="flex-1 mx-2">
+                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    (r.matchPercent || 0) >= 80
+                                      ? "bg-green-500"
+                                      : (r.matchPercent || 0) >= 60
+                                      ? "bg-yellow-500"
+                                      : "bg-red-500"
+                                  }`}
+                                  style={{ width: `${r.matchPercent || 0}%` }}
+                                />
+                              </div>
+                            </div>
+                            <span className="font-bold text-gray-700 w-12 text-right">{r.matchPercent || 0}%</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex gap-2">
                   <button
                     onClick={() => { setStep("select"); setPreviewUrl(null); }}
