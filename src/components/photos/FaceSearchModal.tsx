@@ -18,7 +18,7 @@ interface Props {
   eventId: string;
   eventName?: string;
   onResults: (photoIds: string[]) => void;
-  allPhotos?: { id: string; originalUrl?: string; thumbnailUrl?: string }[];
+  allPhotos?: { id: string; originalUrl?: string; url?: string; thumbnailUrl?: string }[];
 }
 
 type Step = "select" | "loading" | "results" | "error";
@@ -415,20 +415,20 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
             onClick={() => setShowPhotoPreview(false)}
           >
             {/* Close button */}
             <button
               onClick={() => setShowPhotoPreview(false)}
-              className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none z-10"
+              className="absolute top-4 right-4 text-white hover:text-white text-4xl leading-none z-10"
               aria-label="閉じる"
             >
               ×
             </button>
 
             {/* Photo counter */}
-            <div className="absolute top-4 left-4 bg-black/50 text-white text-sm px-3 py-1.5 rounded-full">
+            <div className="absolute top-4 left-4 bg-white/20 text-white text-sm px-4 py-2 rounded-full font-bold">
               {currentPhotoIndex + 1} / {matchPhotos.length}
             </div>
 
@@ -437,34 +437,40 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative max-w-5xl max-h-[90vh]"
+              className="relative w-full max-w-6xl h-[85vh]"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Click zones for navigation */}
+              <div className="absolute inset-0 flex" onClick={(e) => e.stopPropagation()}>
+                <div className="w-1/2 h-full cursor-pointer" onClick={goToPrevPhoto} aria-label="前の写真" />
+                <div className="w-1/2 h-full cursor-pointer" onClick={goToNextPhoto} aria-label="次の写真" />
+              </div>
+
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={currentPhoto.originalUrl || currentPhoto.thumbnailUrl}
+                src={currentPhoto.originalUrl || currentPhoto.url || currentPhoto.thumbnailUrl}
                 alt={`写真 ${currentPhotoIndex + 1}`}
-                className="max-w-full max-h-[90vh] rounded-xl object-contain"
+                className="w-full h-full object-contain"
               />
 
-              {/* Previous button */}
+              {/* Previous button - visible on screen */}
               <button
                 onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-4 rounded-full shadow-lg transition-all"
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-xl transition-all z-10"
                 aria-label="前の写真"
               >
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
 
-              {/* Next button */}
+              {/* Next button - visible on screen */}
               <button
                 onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-4 rounded-full shadow-lg transition-all"
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-xl transition-all z-10"
                 aria-label="次の写真"
               >
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
