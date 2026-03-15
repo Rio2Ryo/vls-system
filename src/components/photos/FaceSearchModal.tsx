@@ -18,6 +18,7 @@ interface Props {
   eventId: string;
   eventName?: string;
   onResults: (photoIds: string[]) => void;
+  allPhotos?: { id: string; originalUrl?: string; thumbnailUrl?: string }[];
 }
 
 type Step = "select" | "loading" | "results" | "error";
@@ -45,12 +46,14 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-export default function FaceSearchModal({ open, onClose, eventId, onResults }: Props) {
+export default function FaceSearchModal({ open, onClose, eventId, onResults, allPhotos = [] }: Props) {
   const [step, setStep] = useState<Step>("select");
   const [statusText, setStatusText] = useState("");
   const [matchCount, setMatchCount] = useState(0);
   const [matchPhotos, setMatchPhotos] = useState<string[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [showPhotoPreview, setShowPhotoPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -72,6 +75,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults }: P
       setPreviewUrl(null);
       setMatchCount(0);
       setMatchPhotos([]);
+      setShowPhotoPreview(false);
+      setCurrentPhotoIndex(0);
     }
   }, [open, stopCamera]);
 
@@ -186,8 +191,37 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults }: P
 
   const handleApplyResults = () => {
     onResults(matchPhotos);
-    onClose();
+    setShowPhotoPreview(true);
+    setCurrentPhotoIndex(0);
   };
+
+  const goToPhoto = useCallback((index: number) => {
+    if (index < 0 || index >= matchPhotos.length) return;
+    setCurrentPhotoIndex(index);
+  }, [matchPhotos.length]);
+
+  const goToNextPhoto = useCallback(() => {
+    goToPhoto((currentPhotoIndex + 1) % matchPhotos.length);
+  }, [currentPhotoIndex, matchPhotos.length, goToPhoto]);
+
+  const goToPrevPhoto = useCallback(() => {
+    goToPhoto((currentPhotoIndex - 1 + matchPhotos.length) % matchPhotos.length);
+  }, [currentPhotoIndex, matchPhotos.length, goToPhoto]);
+
+  // Keyboard navigation for photo preview
+  useEffect(() => {
+    if (!showPhotoPreview) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") goToPrevPhoto();
+      else if (e.key === "ArrowRight") goToNextPhoto();
+      else if (e.key === "Escape") setShowPhotoPreview(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showPhotoPreview, goToPrevPhoto, goToNextPhoto]);
+
+  const currentPhotoId = matchPhotos[currentPhotoIndex];
+  const currentPhoto = allPhotos.find((p) => p.id === currentPhotoId);
 
   if (!open) return null;
 
@@ -315,36 +349,27 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults }: P
                   <p className="text-sm text-gray-500">あなたが写っている写真が見つかりました</p>
                 </div>
                 
-                {/* Match confidence display */}
+                {/* Match confidence badges */}
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {(window as any).__faceSearchResults?.length > 0 && (
-                  <div className="bg-gray-50 rounded-xl p-3 text-left">
-                    <p className="text-xs font-bold text-gray-600 mb-2">マッチング度上位 5 件</p>
-                    <div className="space-y-1.5">
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {((window as any).__faceSearchResults as FaceSearchResult[])
-                        .slice(0, 5)
-                        .map((r: FaceSearchResult, i: number) => (
-                          <div key={r.faceId} className="flex items-center justify-between text-xs">
-                            <span className="text-gray-500">#{i + 1}</span>
-                            <div className="flex-1 mx-2">
-                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${
-                                    (r.matchPercent || 0) >= 80
-                                      ? "bg-green-500"
-                                      : (r.matchPercent || 0) >= 60
-                                      ? "bg-yellow-500"
-                                      : "bg-red-500"
-                                  }`}
-                                  style={{ width: `${r.matchPercent || 0}%` }}
-                                />
-                              </div>
-                            </div>
-                            <span className="font-bold text-gray-700 w-12 text-right">{r.matchPercent || 0}%</span>
-                          </div>
-                        ))}
-                    </div>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */}
+                    {((window as any).__faceSearchResults as FaceSearchResult[])
+                      .slice(0, 10)
+                      .map((r: FaceSearchResult) => (
+                        <span
+                          key={r.faceId}
+                          className={`text-xs font-bold px-3 py-1 rounded-full ${
+                            (r.matchPercent || 0) >= 80
+                              ? "bg-green-100 text-green-700"
+                              : (r.matchPercent || 0) >= 60
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {r.matchPercent || 0}%
+                        </span>
+                      ))}
                   </div>
                 )}
                 
@@ -382,6 +407,71 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults }: P
           </div>
         </motion.div>
       </motion.div>
+
+      {/* Photo Preview Modal with navigation */}
+      <AnimatePresence>
+        {showPhotoPreview && currentPhoto && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+            onClick={() => setShowPhotoPreview(false)}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setShowPhotoPreview(false)}
+              className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none z-10"
+              aria-label="閉じる"
+            >
+              ×
+            </button>
+
+            {/* Photo counter */}
+            <div className="absolute top-4 left-4 bg-black/50 text-white text-sm px-3 py-1.5 rounded-full">
+              {currentPhotoIndex + 1} / {matchPhotos.length}
+            </div>
+
+            {/* Photo content */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative max-w-5xl max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={currentPhoto.originalUrl || currentPhoto.thumbnailUrl}
+                alt={`写真 ${currentPhotoIndex + 1}`}
+                className="max-w-full max-h-[90vh] rounded-xl object-contain"
+              />
+
+              {/* Previous button */}
+              <button
+                onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-4 rounded-full shadow-lg transition-all"
+                aria-label="前の写真"
+              >
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              {/* Next button */}
+              <button
+                onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-4 rounded-full shadow-lg transition-all"
+                aria-label="次の写真"
+              >
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 }
