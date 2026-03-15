@@ -29,6 +29,20 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Face Search Test Dataset
+
+Generate and verify a minimal 25-image synthetic dataset for the face search pipeline:
+
+```bash
+npm run face:min     # generate + validate + smoke-test (all 3 steps)
+npm run face:check   # validate existing dataset only
+npm run face:smoke   # run cosine-similarity search assertions only
+npm run face:bundle  # package dataset into data/test/face-search-min-bundle.zip
+```
+
+Requires Python 3 (stdlib only, no pip packages). Output: `data/test/face-search-min/`.
+Bundle output: `data/test/face-search-min-bundle.zip`.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

@@ -1,0 +1,18 @@
+{
+  "root": "data/test/face-search-min",
+  "dataset": {
+    "model": 3,
+    "match": 6,
+    "non_match": 12,
+    "race_scene": 4,
+    "total_gallery": 22,
+    "total_all": 25
+  },
+  "smoke": {
+    "true_positives": 6,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "ok": true
+  },
+  "ok": true
+}

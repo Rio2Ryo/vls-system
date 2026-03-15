@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "analyze": "ANALYZE=true next build"
+    "analyze": "ANALYZE=true next build",
+    "face:min": "python3 scripts/generate-synthetic-dataset.py --out data/test/face-search-min && python3 scripts/check-face-test-data.py --root data/test/face-search-min --min-model 3 --min-match 6 --min-non-match 12 --min-race-scene 4 --expect-min-gallery 20 --expect-max-gallery 30 && python3 scripts/smoke-test-face-search.py --root data/test/face-search-min",
+    "face:check": "python3 scripts/check-face-test-data.py --root data/test/face-search-min --min-model 3 --min-match 6 --min-non-match 12 --min-race-scene 4 --expect-min-gallery 20 --expect-max-gallery 30",
+    "face:smoke": "python3 scripts/smoke-test-face-search.py --root data/test/face-search-min",
+    "face:bundle": "bash scripts/package-face-test-data.sh data/test/face-search-min data/test/face-search-min-bundle.zip",
+    "face:report": "python3 scripts/face-min-report.py --root data/test/face-search-min --out data/test/face-search-min/report.json"
   },
   "dependencies": {
     "@next/bundle-analyzer": "^16.1.6",

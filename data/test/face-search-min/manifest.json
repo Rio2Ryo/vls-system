@@ -1,0 +1,165 @@
+{
+  "source": {
+    "type": "synthetic",
+    "seed": 42
+  },
+  "seed": 42,
+  "model": [
+    {
+      "person": "identity_01",
+      "file": "model/person_01.png"
+    },
+    {
+      "person": "identity_02",
+      "file": "model/person_02.png"
+    },
+    {
+      "person": "identity_03",
+      "file": "model/person_03.png"
+    }
+  ],
+  "gallery": {
+    "match": [
+      {
+        "person": "identity_01",
+        "file": "gallery/match/match_01_01.png",
+        "expected": "match"
+      },
+      {
+        "person": "identity_01",
+        "file": "gallery/match/match_01_02.png",
+        "expected": "match"
+      },
+      {
+        "person": "identity_02",
+        "file": "gallery/match/match_02_01.png",
+        "expected": "match"
+      },
+      {
+        "person": "identity_02",
+        "file": "gallery/match/match_02_02.png",
+        "expected": "match"
+      },
+      {
+        "person": "identity_03",
+        "file": "gallery/match/match_03_01.png",
+        "expected": "match"
+      },
+      {
+        "person": "identity_03",
+        "file": "gallery/match/match_03_02.png",
+        "expected": "match"
+      }
+    ],
+    "non_match": [
+      {
+        "person": "other_001",
+        "file": "gallery/non_match/non_match_001.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_002",
+        "file": "gallery/non_match/non_match_002.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_003",
+        "file": "gallery/non_match/non_match_003.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_004",
+        "file": "gallery/non_match/non_match_004.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_005",
+        "file": "gallery/non_match/non_match_005.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_006",
+        "file": "gallery/non_match/non_match_006.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_007",
+        "file": "gallery/non_match/non_match_007.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_008",
+        "file": "gallery/non_match/non_match_008.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_009",
+        "file": "gallery/non_match/non_match_009.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_010",
+        "file": "gallery/non_match/non_match_010.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_011",
+        "file": "gallery/non_match/non_match_011.png",
+        "expected": "non_match"
+      },
+      {
+        "person": "other_012",
+        "file": "gallery/non_match/non_match_012.png",
+        "expected": "non_match"
+      }
+    ],
+    "multi_person": [
+      {
+        "file": "gallery/race_scene/race_001.png",
+        "expected": "scene_mixed"
+      },
+      {
+        "file": "gallery/race_scene/race_002.png",
+        "expected": "scene_mixed"
+      },
+      {
+        "file": "gallery/race_scene/race_003.png",
+        "expected": "scene_mixed"
+      },
+      {
+        "file": "gallery/race_scene/race_004.png",
+        "expected": "scene_mixed"
+      }
+    ],
+    "race_scene": [
+      {
+        "file": "gallery/race_scene/race_001.png",
+        "expected": "scene_mixed"
+      },
+      {
+        "file": "gallery/race_scene/race_002.png",
+        "expected": "scene_mixed"
+      },
+      {
+        "file": "gallery/race_scene/race_003.png",
+        "expected": "scene_mixed"
+      },
+      {
+        "file": "gallery/race_scene/race_004.png",
+        "expected": "scene_mixed"
+      }
+    ]
+  },
+  "counts": {
+    "model": 3,
+    "match": 6,
+    "non_match": 12,
+    "race_scene": 4
+  },
+  "total_gallery": 22,
+  "total_all": 25,
+  "notes": [
+    "Synthetic dataset: solid-color PNGs, no real faces.",
+    "Replace with LFW images (bash scripts/download-lfw.sh) for real face-recognition testing."
+  ]
+}

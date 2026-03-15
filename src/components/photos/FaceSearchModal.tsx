@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getCsrfToken } from "@/lib/csrf";
 
+
 interface FaceSearchResult {
   photoId: string;
   faceId: string;
@@ -18,7 +19,7 @@ interface Props {
   onResults: (photoIds: string[]) => void;
 }
 
-type Step = "select" | "loading" | "results" | "albumCreating" | "albumDone" | "error";
+type Step = "select" | "loading" | "results" | "error";
 
 let faceApiLoaded = false;
 
@@ -43,16 +44,12 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-export default function FaceSearchModal({ open, onClose, eventId, eventName, onResults }: Props) {
+export default function FaceSearchModal({ open, onClose, eventId, onResults }: Props) {
   const [step, setStep] = useState<Step>("select");
   const [statusText, setStatusText] = useState("");
   const [matchCount, setMatchCount] = useState(0);
   const [matchPhotos, setMatchPhotos] = useState<string[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null);
-  const [albumName, setAlbumName] = useState("");
-  const [albumEmail, setAlbumEmail] = useState("");
-  const [albumUrl, setAlbumUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -74,10 +71,6 @@ export default function FaceSearchModal({ open, onClose, eventId, eventName, onR
       setPreviewUrl(null);
       setMatchCount(0);
       setMatchPhotos([]);
-      setQueryEmbedding(null);
-      setAlbumName("");
-      setAlbumEmail("");
-      setAlbumUrl(null);
     }
   }, [open, stopCamera]);
 
@@ -148,7 +141,6 @@ export default function FaceSearchModal({ open, onClose, eventId, eventName, onR
 
       // Use first face for search
       const queryEmbedding = Array.from(detections[0].descriptor);
-      setQueryEmbedding(queryEmbedding);
 
       const csrfToken = getCsrfToken();
       const res = await fetch("/api/face/search", {
@@ -186,41 +178,6 @@ export default function FaceSearchModal({ open, onClose, eventId, eventName, onR
   const handleApplyResults = () => {
     onResults(matchPhotos);
     onClose();
-  };
-
-  const handleCreateAlbum = async () => {
-    if (!queryEmbedding || !albumName.trim()) return;
-    setStep("albumCreating");
-    try {
-      const csrfToken = getCsrfToken();
-      const res = await fetch("/api/face/album", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({
-          queryEmbedding,
-          eventId,
-          eventName: eventName || "イベント",
-          name: albumName.trim(),
-          email: albumEmail.trim() || undefined,
-          threshold: 0.5,
-        }),
-      });
-      if (!res.ok) throw new Error(`Failed: ${res.status}`);
-      const data = await res.json();
-      if (data.albumUrl) {
-        setAlbumUrl(data.albumUrl);
-        setStep("albumDone");
-      } else {
-        setStep("error");
-        setStatusText(data.message || "アルバムの作成に失敗しました");
-      }
-    } catch {
-      setStep("error");
-      setStatusText("アルバムの作成に失敗しました。もう一度お試しください。");
-    }
   };
 
   if (!open) return null;
@@ -363,78 +320,6 @@ export default function FaceSearchModal({ open, onClose, eventId, eventName, onR
                     {matchCount > 0 ? `${matchCount}枚を表示` : "一致なし"}
                   </button>
                 </div>
-
-                {/* Album generation section */}
-                {matchCount > 0 && queryEmbedding && (
-                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
-                    <p className="text-xs text-gray-500">パーソナルアルバムを作成して共有リンクを取得できます</p>
-                    <input
-                      type="text"
-                      placeholder="お名前（必須）"
-                      value={albumName}
-                      onChange={(e) => setAlbumName(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#A78BFA] focus:border-transparent"
-                      aria-label="アルバム作成者名"
-                    />
-                    <input
-                      type="email"
-                      placeholder="メールアドレス（任意・通知用）"
-                      value={albumEmail}
-                      onChange={(e) => setAlbumEmail(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#A78BFA] focus:border-transparent"
-                      aria-label="メールアドレス"
-                    />
-                    <button
-                      onClick={handleCreateAlbum}
-                      disabled={!albumName.trim()}
-                      className="w-full py-2 rounded-xl bg-gradient-to-r from-[#6EC6FF] to-[#A78BFA] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                    >
-                      パーソナルアルバムを生成
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Album creating */}
-            {step === "albumCreating" && (
-              <div className="text-center py-8 space-y-4">
-                <div className="w-12 h-12 mx-auto border-4 border-[#A78BFA] border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-gray-500">パーソナルアルバムを作成中...</p>
-              </div>
-            )}
-
-            {/* Album done */}
-            {step === "albumDone" && albumUrl && (
-              <div className="text-center py-4 space-y-4">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-[#6EC6FF] to-[#A78BFA] flex items-center justify-center">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-gray-800">アルバムを作成しました</p>
-                  <p className="text-sm text-gray-500 mt-1">{matchCount}枚の写真</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-400 mb-1">共有リンク</p>
-                  <p className="text-xs text-[#A78BFA] font-mono break-all">{albumUrl}</p>
-                </div>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(albumUrl); }}
-                  className="w-full py-2 rounded-xl bg-gradient-to-r from-[#6EC6FF] to-[#A78BFA] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-                >
-                  リンクをコピー
-                </button>
-                {albumEmail && (
-                  <p className="text-xs text-gray-400">メール通知も送信しました</p>
-                )}
-                <button
-                  onClick={onClose}
-                  className="w-full py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
-                >
-                  閉じる
-                </button>
               </div>
             )}
 
