@@ -1,54 +1,15 @@
 # Page snapshot
 
 ```yaml
-- generic [active]:
-  - alert [ref=e1]
-  - dialog [ref=e4]:
-    - generic [ref=e5]:
-      - generic [ref=e6]:
-        - heading "Build Error" [level=1] [ref=e7]
-        - paragraph [ref=e8]: Failed to compile
-        - generic [ref=e9]:
-          - text: Next.js (14.2.35) is outdated
-          - link "(learn more)" [ref=e11] [cursor=pointer]:
-            - /url: https://nextjs.org/docs/messages/version-staleness
-      - generic [ref=e12]:
-        - generic [ref=e13]:
-          - link "./src/components/admin/AdminHeader.tsx:11:1" [ref=e14] [cursor=pointer]:
-            - text: ./src/components/admin/AdminHeader.tsx:11:1
-            - img [ref=e15]
-          - generic [ref=e19]:
-            - generic [ref=e20]: Module not found
-            - generic [ref=e21]: ": Can't resolve '"
-            - text: "@/components/admin/NotificationBanner"
-            - generic [ref=e22]: "'"
-            - generic [ref=e23]: 9 |
-            - text: import
-            - generic [ref=e24]: "{ useTenantBranding }"
-            - text: from "@/components/providers/TenantBrandingProvider";
-            - generic [ref=e25]: 10 |
-            - text: import
-            - generic [ref=e26]: "{ useDarkMode }"
-            - text: from "@/components/providers/DarkModeProvider"; >
-            - generic [ref=e27]: 11 |
-            - text: import NotificationBanner from "@/components/admin/NotificationBanner";
-            - generic [ref=e28]: "|"
-            - text: ^
-            - generic [ref=e29]: 12 |
-            - text: import GlobalSearchModal from "@/components/admin/GlobalSearchModal";
-            - generic [ref=e30]: 13 |
-            - text: import AdminPresenceBar from "@/components/admin/AdminPresenceBar";
-            - generic [ref=e31]: 14 |
-            - text: import
-            - generic [ref=e32]: "{ useAdminPresence }"
-            - text: from "@/hooks/useAdminPresence";
-            - generic [ref=e33]:
-              - link "https://nextjs.org/docs/messages/module-not-found" [ref=e34] [cursor=pointer]:
-                - /url: https://nextjs.org/docs/messages/module-not-found
-              - text: "Import trace for requested module:"
-            - link "./src/app/admin/page.tsx" [ref=e35] [cursor=pointer]:
-              - text: ./src/app/admin/page.tsx
-              - img [ref=e36]
-        - contentinfo [ref=e40]:
-          - paragraph [ref=e41]: This error occurred during the build process and can only be dismissed by fixing the error.
+- generic [ref=e1]:
+  - link "メインコンテンツへスキップ" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - alert [ref=e3]
+  - main [ref=e5]:
+    - generic [ref=e6]:
+      - heading "Admin Login" [level=1] [ref=e7]
+      - generic [ref=e8]:
+        - generic [ref=e9]: Admin Password
+        - textbox "Admin Password" [active] [ref=e10]: ADMIN_VLS_2026
+        - button "Log in" [ref=e11] [cursor=pointer]
 ```

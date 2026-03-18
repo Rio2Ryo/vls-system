@@ -1,0 +1,59 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "メインコンテンツへスキップ" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - alert [ref=e3]
+  - main [ref=e5]:
+    - generic [ref=e6]:
+      - group "Language" [ref=e8]:
+        - button "日本語" [ref=e9] [cursor=pointer]
+        - button "English" [pressed] [ref=e10] [cursor=pointer]
+      - generic [ref=e11]:
+        - generic [ref=e12]: 🎉
+        - heading "Your photos are ready!" [level=1] [ref=e13]
+        - paragraph [ref=e14]: 3 photos selected
+      - paragraph [ref=e16]: 写真を選択してください
+      - generic [ref=e17]:
+        - paragraph [ref=e18]: Download 3 high-quality photos
+        - button "Download Photos" [ref=e19] [cursor=pointer]
+      - generic [ref=e20]:
+        - paragraph [ref=e21]: Receive via Email Later
+        - paragraph [ref=e22]: We'll send you a download link by email (valid for 7 days)
+        - generic [ref=e23]:
+          - textbox "Your name" [ref=e24]
+          - textbox "Email address" [ref=e25]
+          - button "Send to Email" [ref=e26] [cursor=pointer]
+      - generic [ref=e27]:
+        - paragraph [ref=e28]: Share Photos with Family
+        - paragraph [ref=e29]: Create a password-free sharing link (valid for 30 days)
+        - button "Create Sharing Link" [disabled] [ref=e30]
+      - generic [ref=e33]:
+        - paragraph [ref=e34]: SNSでシェア
+        - generic [ref=e35]:
+          - button "X (Twitter)でシェア" [ref=e36] [cursor=pointer]: 𝕏
+          - button "LINEでシェア" [ref=e37] [cursor=pointer]: 💬
+          - button "Instagramでシェア" [ref=e38] [cursor=pointer]: 📷
+          - button "リンクコピーでシェア" [ref=e39] [cursor=pointer]: 🔗
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - img "ファミリートラベル" [ref=e43]
+          - generic [ref=e44]:
+            - paragraph [ref=e45]: ファミリートラベル
+            - paragraph [ref=e46]: Limited Offer
+        - generic [ref=e47]:
+          - paragraph [ref=e48]: 家族旅行10%OFFクーポン
+          - paragraph [ref=e49]:
+            - text: "Coupon code:"
+            - button "クーポンコードをコピー" [ref=e50] [cursor=pointer]: VLSTRIP2026
+        - link "View Details →" [ref=e51] [cursor=pointer]:
+          - /url: https://example.com/family-travel
+          - button "View Details →" [ref=e52]
+      - button "Return to top page" [ref=e54] [cursor=pointer]: Back to Top
+    - generic [ref=e56]:
+      - generic [ref=e57]: Sponsored by
+      - generic [ref=e58]:
+        - img "キッズラーニング株式会社" [ref=e59]
+        - generic [ref=e60]: キッズラーニング株式会社
+```

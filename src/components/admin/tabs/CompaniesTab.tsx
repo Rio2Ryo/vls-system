@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -9,6 +9,132 @@ import { getStoredCompanies, setStoredCompanies } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
 import { logAudit } from "@/lib/audit";
 import { inputCls, TIER_COLORS, uploadFileToR2, readAsDataUrl, extractYouTubeId } from "./adminUtils";
+
+/** All predefined interest tags with Japanese labels */
+const PREDEFINED_TAGS: { value: InterestTag; label: string }[] = [
+  { value: "education", label: "教育" },
+  { value: "sports", label: "スポーツ" },
+  { value: "food", label: "食品" },
+  { value: "travel", label: "旅行" },
+  { value: "technology", label: "テクノロジー" },
+  { value: "art", label: "アート" },
+  { value: "nature", label: "自然" },
+  { value: "cram_school", label: "塾" },
+  { value: "lessons", label: "習い事" },
+  { value: "food_product", label: "食品メーカー" },
+  { value: "travel_service", label: "旅行サービス" },
+  { value: "smartphone", label: "スマホ" },
+  { value: "camera", label: "カメラ" },
+  { value: "insurance", label: "保険" },
+  { value: "age_0_3", label: "0〜3歳" },
+  { value: "age_4_6", label: "4〜6歳" },
+  { value: "age_7_9", label: "7〜9歳" },
+  { value: "age_10_12", label: "10〜12歳" },
+  { value: "age_13_plus", label: "13歳以上" },
+  { value: "other", label: "その他" },
+];
+
+/** Tag input component with existing tag selection + new tag creation */
+function TagInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [newTag, setNewTag] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = value.split(",").map(t => t.trim()).filter(Boolean);
+
+  const toggleTag = (tag: string) => {
+    if (selected.includes(tag)) {
+      onChange(selected.filter(t => t !== tag).join(", "));
+    } else {
+      onChange([...selected, tag].join(", "));
+    }
+  };
+
+  const addNewTag = () => {
+    const t = newTag.trim();
+    if (t && !selected.includes(t)) {
+      onChange([...selected, t].join(", "));
+      setNewTag("");
+    }
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setShowDropdown(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Selected tags display */}
+      <div
+        className={inputCls + " cursor-pointer min-h-[42px] flex flex-wrap gap-1 items-center"}
+        onClick={() => setShowDropdown(!showDropdown)}
+      >
+        {selected.length === 0 && (
+          <span className="text-gray-400 text-sm">タグを選択（クリックして展開）</span>
+        )}
+        {selected.map(tag => {
+          const preset = PREDEFINED_TAGS.find(p => p.value === tag);
+          return (
+            <span key={tag} className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
+              {preset ? preset.label : tag}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); toggleTag(tag); }}
+                className="text-blue-400 hover:text-blue-700 font-bold"
+                aria-label={`${tag}を削除`}
+              >×</button>
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Dropdown */}
+      {showDropdown && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-3 max-h-64 overflow-y-auto">
+          <p className="text-xs font-bold text-gray-500 mb-2">既存タグから選択</p>
+          <div className="flex flex-wrap gap-1 mb-3">
+            {PREDEFINED_TAGS.map(tag => {
+              const isSelected = selected.includes(tag.value);
+              return (
+                <button
+                  key={tag.value}
+                  type="button"
+                  onClick={() => toggleTag(tag.value)}
+                  className={`px-2 py-1 rounded-full text-xs font-medium border transition-all ${
+                    isSelected
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-blue-50 hover:border-blue-300"
+                  }`}
+                >
+                  {isSelected && "✓ "}{tag.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="border-t pt-2">
+            <p className="text-xs font-bold text-gray-500 mb-1">新しいタグを追加</p>
+            <div className="flex gap-1">
+              <input
+                className={inputCls + " flex-1 text-sm"}
+                placeholder="新規タグ名"
+                value={newTag}
+                onChange={e => setNewTag(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } }}
+              />
+              <Button size="sm" onClick={addNewTag} disabled={!newTag.trim()}>追加</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   onSave: (msg: string) => void;
@@ -176,7 +302,7 @@ export default function CompaniesTab({ onSave }: Props) {
               <option value="silver">Silver</option>
               <option value="bronze">Bronze</option>
             </select>
-            <input className={inputCls} placeholder="タグ（カンマ区切り: education, sports）" aria-label="タグ" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} data-testid="company-tags-input" />
+            <TagInput value={form.tags} onChange={(v) => setForm({ ...form, tags: v })} />
             <div className="border border-gray-100 rounded-xl p-3 space-y-2">
               <p className="text-xs font-bold text-gray-500">CM動画 YouTube ID</p>
               <input className={inputCls + " font-mono"} placeholder="15秒CM（YouTube URLまたはID）" aria-label="15秒CM YouTube ID" value={form.cm15} onChange={(e) => setForm({ ...form, cm15: extractYouTubeId(e.target.value) })} data-testid="company-cm15-input" />
