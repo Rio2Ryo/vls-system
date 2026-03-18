@@ -93,6 +93,9 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     setUploadFileNames(valid.map((f) => f.name));
 
     const newPhotos: PhotoData[] = [];
+    // Pre-compute timestamp so all photos in this batch share the same prefix,
+    // ensuring IDs match the face_embedding format: uploaded-{timestamp}-{index}
+    const uploadTimestamp = Date.now();
 
     for (let i = 0; i < valid.length; i++) {
       const file = valid[i];
@@ -113,11 +116,11 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
 
       if (originalResult && thumbResult) {
         newPhotos.push({
-          id: `uploaded-${Date.now()}-${i}`,
+          id: `uploaded-${uploadTimestamp}-${i}`,
           originalUrl: originalResult.url,
           thumbnailUrl: thumbResult.url,
           watermarked: true,
-          uploadedAt: Date.now(),
+          uploadedAt: uploadTimestamp,
           originalSize: file.size,
           optimizedSize: resizedBlob.size,
         });
@@ -126,11 +129,11 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
         const thumbBlob = await createThumbnailBlobAR(file, 400, 400);
         const thumbDataUrl = await readAsDataUrl(new File([thumbBlob], file.name));
         newPhotos.push({
-          id: `uploaded-${Date.now()}-${i}`,
+          id: `uploaded-${uploadTimestamp}-${i}`,
           originalUrl: dataUrl,
           thumbnailUrl: thumbDataUrl,
           watermarked: true,
-          uploadedAt: Date.now(),
+          uploadedAt: uploadTimestamp,
           originalSize: file.size,
           optimizedSize: resizedBlob.size,
         });

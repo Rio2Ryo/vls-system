@@ -73,8 +73,9 @@ function persistToD1(key: string, value: string): void {
     method: "PUT",
     headers: csrfHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ key, value }),
-  }, { retries: 1, timeout: 8000 }).catch(() => {
-    // Network error or repeated failure — queue for sync when back online
+  }, { retries: 3, timeout: 8000, backoff: 500 }).catch((err) => {
+    // All retries exhausted — log error and queue for sync when back online
+    console.error(`[persistToD1] Failed to sync key "${key}" after retries:`, err);
     queueForSync(key, value);
   });
 }
@@ -105,6 +106,30 @@ export async function syncFromDb(): Promise<void> {
     if (typeof value === "string" && value.length > 0) {
       localStorage.setItem(key, value);
     }
+  }
+}
+
+/**
+ * Force-sync from D1 via /api/d1-sync, overwriting localStorage with D1 data.
+ * Use this when D1 is the source of truth and stale localStorage must be discarded.
+ * Returns true on success, false on failure.
+ */
+export async function syncFromD1(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (window.localStorage.getItem("__skip_d1_sync")) return false;
+  try {
+    const res = await fetchWithRetry("/api/d1-sync", undefined, { retries: 2, timeout: 10000 });
+    if (!res.ok) return false;
+    const data = await res.json() as Record<string, string>;
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === "string" && value.length > 0) {
+        localStorage.setItem(key, value);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error("[syncFromD1] Failed to sync from D1:", err);
+    return false;
   }
 }
 
