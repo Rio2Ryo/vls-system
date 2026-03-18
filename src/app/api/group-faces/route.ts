@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
 interface PhotoFace {
   photoId: string;
@@ -8,9 +8,9 @@ interface PhotoFace {
 }
 
 export async function POST(req: NextRequest) {
-  if (!ANTHROPIC_API_KEY) {
+  if (!GEMINI_API_KEY) {
     return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY not configured" },
+      { error: "GEMINI_API_KEY not configured" },
       { status: 503 },
     );
   }
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "photos array required" }, { status: 400 });
   }
 
-  // Build description list for Claude
+  // Build description list
   const photoList = photos
     .filter((p) => p.descriptions && p.descriptions.length > 0)
     .map((p) => `写真ID: ${p.photoId}\n人物: ${p.descriptions.join(" / ")}`)
@@ -51,33 +51,30 @@ ${photoList}
 - labelは日本語で人物の主な特徴を簡潔に`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1000,
-        messages: [
-          { role: "user", content: groupPrompt },
-        ],
-      }),
-    });
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: groupPrompt }] }],
+          generationConfig: { maxOutputTokens: 1000, temperature: 0.1 },
+        }),
+      }
+    );
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      console.error(`Anthropic API error (${res.status}):`, errText);
+      console.error(`Gemini API error (${res.status}):`, errText);
       return NextResponse.json(
-        { error: `Anthropic API error: ${res.status}` },
+        { error: `Gemini API error: ${res.status}` },
         { status: 502 },
       );
     }
 
     const data = await res.json();
-    const text: string = data.content?.[0]?.text || "";
+    const text: string =
+      data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {

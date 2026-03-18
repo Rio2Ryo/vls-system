@@ -260,7 +260,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     }
     setScoring(false);
     setScoreProgress({ current: 0, total: 0 });
-    onSave(scored > 0 ? `${scored}枚の品質スコアリングが完了しました` : "ANTHROPIC_API_KEY が未設定のためスコアリングできません");
+    onSave(scored > 0 ? `${scored}枚の品質スコアリングが完了しました` : "GEMINI_API_KEY が未設定のためスコアリングできません");
     if (scored > 0) logAudit("photo_score", { type: "photo", id: selectedEventId, name: selectedEvent?.name }, { scored });
   };
 
@@ -310,7 +310,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     }
     setDetecting(false);
     setDetectProgress({ current: 0, total: 0 });
-    onSave(detected > 0 ? `${detected}枚の顔検出が完了しました` : "ANTHROPIC_API_KEY が未設定のため顔検出できません");
+    onSave(detected > 0 ? `${detected}枚の顔検出が完了しました` : "GEMINI_API_KEY が未設定のため顔検出できません");
   };
 
   /** Group photos by detected faces via API */
@@ -412,7 +412,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     setClassifyProgress({ current: 0, total: 0 });
     onSave(
       apiAvailable === false
-        ? "ANTHROPIC_API_KEY が未設定です。手動分類をご利用ください"
+        ? "GEMINI_API_KEY が未設定です。手動分類をご利用ください"
         : `${classified}枚を自動分類しました`
     );
     if (classified > 0) logAudit("photo_classify", { type: "photo", id: selectedEventId, name: selectedEvent?.name }, { classified });
@@ -614,7 +614,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
 
           {apiAvailable === false && (
             <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg mb-3">
-              ANTHROPIC_API_KEY が未設定のため自動分類は利用できません。写真をクリックして手動分類してください。
+              GEMINI_API_KEY が未設定のため自動分類は利用できません。写真をクリックして手動分類してください。
             </p>
           )}
 

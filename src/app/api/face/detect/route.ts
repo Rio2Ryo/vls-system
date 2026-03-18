@@ -27,7 +27,7 @@ import {
  *    Body: { action: "detect", imageUrl }
  */
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
 interface StoreFace {
   faceIndex: number;
@@ -157,32 +157,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!ANTHROPIC_API_KEY) {
+    if (!GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "ANTHROPIC_API_KEY not configured — use client-side face-api.js instead" },
+        { error: "GEMINI_API_KEY not configured — use client-side face-api.js instead" },
         { status: 503 },
       );
     }
 
-    let imageBlock: Record<string, unknown>;
+    let imagePart: Record<string, unknown>;
     if (imageUrl.startsWith("data:")) {
       const dataIdx = imageUrl.indexOf(";base64,");
       if (dataIdx <= 5) {
         return NextResponse.json({ error: "Invalid data URL" }, { status: 400 });
       }
-      imageBlock = {
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: imageUrl.slice(5, dataIdx),
+      imagePart = {
+        inlineData: {
+          mimeType: imageUrl.slice(5, dataIdx),
           data: imageUrl.slice(dataIdx + 8),
         },
       };
     } else {
-      imageBlock = {
-        type: "image",
-        source: { type: "url", url: imageUrl },
-      };
+      try {
+        const imgRes = await fetch(imageUrl);
+        if (!imgRes.ok) {
+          return NextResponse.json({ error: "Failed to fetch image" }, { status: 400 });
+        }
+        const arrayBuf = await imgRes.arrayBuffer();
+        const base64Data = Buffer.from(arrayBuf).toString("base64");
+        const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+        imagePart = {
+          inlineData: { mimeType: contentType, data: base64Data },
+        };
+      } catch {
+        return NextResponse.json({ error: "Failed to fetch image URL" }, { status: 400 });
+      }
     }
 
     const detectPrompt = `Analyze this photo and detect all human faces.
@@ -195,34 +203,27 @@ Respond ONLY with JSON:
 No faces: {"faces":[]}`;
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 500,
-          messages: [
-            {
-              role: "user",
-              content: [imageBlock, { type: "text", text: detectPrompt }],
-            },
-          ],
-        }),
-      });
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [imagePart, { text: detectPrompt }] }],
+            generationConfig: { maxOutputTokens: 500, temperature: 0.1 },
+          }),
+        }
+      );
 
       if (!res.ok) {
         return NextResponse.json(
-          { error: `Vision API error: ${res.status}` },
+          { error: `Gemini Vision API error: ${res.status}` },
           { status: 502 },
         );
       }
 
       const data = await res.json();
-      const text: string = data.content?.[0]?.text || "";
+      const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const jsonMatch = text.match(/\{[\s\S]*\}/);
 
       if (jsonMatch) {
