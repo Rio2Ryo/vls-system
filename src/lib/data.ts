@@ -251,6 +251,19 @@ export const COMPANIES: Company[] = [
     offerUrl: "https://example.com/sakusaku-food",
     couponCode: "VLSFOOD2026",
   },
+  // === Mother Vegetable (Platinum) ===
+  {
+    id: "co-platinum-mv",
+    name: "Mother Vegetable",
+    logoUrl: "/logos/co-platinum-mv.svg",
+    tier: "platinum",
+    tags: ["food", "food_product", "nature", "age_0_3", "age_4_6", "age_7_9", "age_10_12", "age_13_plus"],
+    videos: { cm15: "LcODhoVAWUE", cm30: "nxiChGXQ8rA", cm60: "Nc1Tq5-OCog" },
+    offerText: "Mother Vegetable 48栄養素サプリ お試しセット送料無料",
+    offerUrl: "https://mothervegetable.com",
+    couponCode: "VLSMV2026",
+    portalPassword: "MOTHER2026",
+  },
 ];
 
 // --- Demo Events ---
@@ -286,7 +299,7 @@ export const EVENTS: EventData[] = [
     photos: generateDemoPhotos("sports", 9),
     slug: "sports2026",
     tenantId: "tenant-school-a",
-    companyIds: ["co-platinum-1", "co-gold-2", "co-silver-1", "co-silver-2", "co-bronze-3", "co-silver-5", "co-silver-6"],
+    companyIds: ["co-platinum-mv", "co-platinum-1", "co-gold-2", "co-silver-1", "co-silver-2", "co-bronze-3", "co-silver-5", "co-silver-6"],
   },
   {
     id: "evt-graduation",
@@ -297,7 +310,7 @@ export const EVENTS: EventData[] = [
     photos: generateDemoPhotos("graduation", 15),
     slug: "graduation2026",
     tenantId: "tenant-school-b",
-    companyIds: ["co-platinum-1", "co-platinum-2", "co-gold-3", "co-silver-1", "co-silver-3", "co-bronze-2", "co-platinum-3", "co-silver-7", "co-bronze-4"],
+    companyIds: ["co-platinum-mv", "co-platinum-1", "co-platinum-2", "co-gold-3", "co-silver-1", "co-silver-3", "co-bronze-2", "co-platinum-3", "co-silver-7", "co-bronze-4"],
   },
   {
     id: "evt-techfes",
@@ -309,7 +322,7 @@ export const EVENTS: EventData[] = [
     slug: "techfes2026",
     tenantId: "tenant-corp-a",
     companyIds: [
-      "co-platinum-3", "co-platinum-4",
+      "co-platinum-mv", "co-platinum-3", "co-platinum-4",
       "co-gold-4", "co-gold-5", "co-gold-6",
       "co-silver-4", "co-silver-5", "co-silver-6",
       "co-bronze-4", "co-bronze-5",
