@@ -223,7 +223,7 @@ export const DEFAULT_WATERMARK_CONFIG: Omit<WatermarkConfig, "tenantId"> = {
   opacity: 0.3,
   rotation: -30,
   position: "tile",
-  blur: true,
+  blur: false,
   gridCols: 3,
   gridRows: 3,
 };

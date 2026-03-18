@@ -78,27 +78,17 @@ function LargeWatermarkedImage({ src, wmConfig }: { src: string; wmConfig: Omit<
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      // Render at 30% resolution for low-quality preview
-      const w = Math.floor(img.width * 0.3);
-      const h = Math.floor(img.height * 0.3);
-      canvas.width = w;
-      canvas.height = h;
-      ctx.drawImage(img, 0, 0, w, h);
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
 
-      // Apply blur if enabled
-      if (wmConfig.blur) {
-        ctx.filter = "blur(1.5px)";
-        ctx.drawImage(canvas, 0, 0);
-        ctx.filter = "none";
-      }
-
-      // Draw watermark using config
-      drawWatermark(ctx, w, h, wmConfig);
+      // Draw watermark using config (blur is intentionally never applied in preview)
+      drawWatermark(ctx, img.width, img.height, wmConfig);
     };
     img.src = src;
   }, [src, wmConfig]);
 
-  return <canvas ref={canvasRef} className="max-w-full max-h-[70vh] rounded-2xl" />;
+  return <canvas ref={canvasRef} className="max-w-[90vw] max-h-[80vh] rounded-2xl" />;
 }
 
 export default function PhotoModal({ photo, onClose }: PhotoModalProps) {
