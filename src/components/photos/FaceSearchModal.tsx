@@ -127,27 +127,56 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setStep("loading");
     setStatusText("モデル読込中...");
 
+    // Step 1: Load face-api.js models
+    let faceapi: Awaited<ReturnType<typeof loadFaceApi>> | null = null;
     try {
-      const faceapi = await loadFaceApi();
-      setStatusText("顔検出中...");
+      faceapi = await loadFaceApi();
+    } catch (err) {
+      console.error("[FaceSearch] Model load failed:", err);
+      // Fallback: use Gemini Vision to confirm face presence
+      setStatusText("AIモデルの読み込みに失敗しました。代替APIで確認中...");
+      await fallbackGeminiDetect(imageDataUrl);
+      return;
+    }
 
-      const img = await loadImage(imageDataUrl);
-      const detections = await faceapi
+    // Step 2: Load image element
+    let img: HTMLImageElement;
+    try {
+      setStatusText("画像読込中...");
+      img = await loadImage(imageDataUrl);
+    } catch (err) {
+      console.error("[FaceSearch] Image load failed:", err);
+      setStep("error");
+      setStatusText("画像の読み込みに失敗しました。別の形式の画像をお試しください。");
+      return;
+    }
+
+    // Step 3: Detect faces
+    let detections: { descriptor: Float32Array }[] = [];
+    try {
+      setStatusText("顔検出中...");
+      detections = await faceapi
         .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptors();
+    } catch (err) {
+      console.error("[FaceSearch] Detection failed:", err);
+      setStep("error");
+      setStatusText("顔の検出に失敗しました。別の写真をお試しください。");
+      return;
+    }
 
-      if (detections.length === 0) {
-        setStep("error");
-        setStatusText("顔が検出されませんでした。別の写真をお試しください。");
-        return;
-      }
+    if (detections.length === 0) {
+      setStep("error");
+      setStatusText("顔が検出されませんでした。別の写真をお試しください。");
+      return;
+    }
 
-      setStatusText(`${detections.length}件の顔を検出。検索中...`);
+    setStatusText(`${detections.length}件の顔を検出。検索中...`);
 
-      // Use first face for search
-      const queryEmbedding = Array.from(detections[0].descriptor);
-
+    // Step 4: Search API
+    const queryEmbedding = Array.from(detections[0].descriptor);
+    try {
       const csrfToken = getCsrfToken();
       const res = await fetch("/api/face/search", {
         method: "POST",
@@ -164,13 +193,14 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       });
 
       if (!res.ok) {
-        throw new Error(`Search failed: ${res.status}`);
+        setStep("error");
+        setStatusText(`検索 API エラー: ${res.status}`);
+        return;
       }
 
       const data = await res.json();
       const results = (data.results || []) as FaceSearchResult[];
-      
-      // Keep results with similarity scores, not just photoIds
+
       const photoIds = Array.from(new Set(results.map((r) => r.photoId)));
       const resultsWithPercent = results.map((r) => ({
         ...r,
@@ -179,13 +209,54 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
       setMatchCount(photoIds.length);
       setMatchPhotos(photoIds);
-      // Store full results with similarity for display
       (window as unknown as { __faceSearchResults?: FaceSearchResult[] }).__faceSearchResults = resultsWithPercent;
       setStep("results");
     } catch (err) {
-      console.error("[FaceSearch] Error:", err);
+      console.error("[FaceSearch] Search API failed:", err);
       setStep("error");
-      setStatusText("顔検索に失敗しました。もう一度お試しください。");
+      setStatusText("検索 API への接続に失敗しました。ネットワーク環境をご確認ください。");
+    }
+  };
+
+  /**
+   * Gemini Vision fallback: confirm face presence when face-api.js models fail to load.
+   * Cannot produce embeddings, so full similarity search is unavailable.
+   */
+  const fallbackGeminiDetect = async (imageDataUrl: string) => {
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch("/api/face/detect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ action: "detect", imageUrl: imageDataUrl }),
+      });
+
+      if (!res.ok) {
+        setStep("error");
+        setStatusText(`AIモデルの読み込みに失敗しました（代替 API エラー: ${res.status}）。ネットワーク環境をご確認の上、再試行してください。`);
+        return;
+      }
+
+      const data = await res.json();
+      const faceCount: number = data.faceCount ?? 0;
+
+      if (faceCount === 0) {
+        setStep("error");
+        setStatusText("顔が検出されませんでした。別の写真をお試しください。");
+      } else {
+        setStep("error");
+        setStatusText(
+          `顔は検出されましたが、AIモデルが利用できないため詳細な検索ができません。` +
+          `ネットワーク環境を確認の上、再試行してください。`
+        );
+      }
+    } catch (err) {
+      console.error("[FaceSearch] Gemini fallback failed:", err);
+      setStep("error");
+      setStatusText("AIモデルの読み込みに失敗しました。ネットワーク環境をご確認の上、再試行してください。");
     }
   };
 
