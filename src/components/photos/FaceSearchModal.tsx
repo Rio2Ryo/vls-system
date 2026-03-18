@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getCsrfToken } from "@/lib/csrf";
+import { DEFAULT_WATERMARK_CONFIG, WatermarkConfig } from "@/lib/types";
+import { getWatermarkConfig } from "@/lib/store";
 
 
 interface FaceSearchResult {
@@ -10,6 +12,7 @@ interface FaceSearchResult {
   faceId: string;
   similarity: number;
   matchPercent?: number;
+  bbox?: { x: number; y: number; width: number; height: number };
 }
 
 interface Props {
@@ -46,6 +49,94 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+function extractFaceThumbnail(imageUrl: string, bbox: { x: number; y: number; width: number; height: number }): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const padding = 0.3;
+      const srcX = Math.max(0, Math.floor(bbox.x - bbox.width * padding));
+      const srcY = Math.max(0, Math.floor(bbox.y - bbox.height * padding));
+      const srcW = Math.floor(bbox.width * (1 + padding * 2));
+      const srcH = Math.floor(bbox.height * (1 + padding * 2));
+      canvas.width = srcW;
+      canvas.height = srcH;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("No context")); return; }
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
+    };
+    img.onerror = reject;
+    img.src = imageUrl;
+  });
+}
+
+function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number, config: Omit<WatermarkConfig, "tenantId">) {
+  if (!config.enabled || !config.text) return;
+  ctx.save();
+  ctx.globalAlpha = config.opacity;
+  ctx.fillStyle = config.fontColor;
+  const fontSize = Math.max((config.fontSize * w) / 600, 10);
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  if (config.position === "tile") {
+    const rad = (config.rotation * Math.PI) / 180;
+    ctx.save();
+    ctx.rotate(rad);
+    const cols = config.gridCols || 3;
+    const rows = config.gridRows || 3;
+    const stepX = (w * 1.5) / cols;
+    const stepY = (h * 1.5) / rows;
+    const offsetX = -w * 0.25;
+    const offsetY = -h * 0.25;
+    for (let r = 0; r <= rows + 1; r++) {
+      for (let c = 0; c <= cols + 1; c++) {
+        ctx.fillText(config.text, offsetX + c * stepX, offsetY + r * stepY);
+      }
+    }
+    ctx.restore();
+  } else {
+    let x = w / 2;
+    let y = h / 2;
+    ctx.textAlign = "center";
+    if (config.position === "bottom-right") { x = w - fontSize * 2; y = h - fontSize; ctx.textAlign = "right"; }
+    else if (config.position === "bottom-left") { x = fontSize * 2; y = h - fontSize; ctx.textAlign = "left"; }
+    else if (config.position === "top-right") { x = w - fontSize * 2; y = fontSize * 1.5; ctx.textAlign = "right"; }
+    else if (config.position === "top-left") { x = fontSize * 2; y = fontSize * 1.5; ctx.textAlign = "left"; }
+    ctx.save();
+    const rad = (config.rotation * Math.PI) / 180;
+    ctx.translate(x, y);
+    ctx.rotate(rad);
+    ctx.shadowColor = "rgba(255,255,255,0.5)";
+    ctx.shadowBlur = 4;
+    ctx.fillText(config.text, 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function WatermarkedPhoto({ src, wmConfig, className }: { src: string; wmConfig: Omit<WatermarkConfig, "tenantId">; className?: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      drawWatermark(ctx, img.width, img.height, wmConfig);
+    };
+    img.src = src;
+  }, [src, wmConfig]);
+  return <canvas ref={canvasRef} className={className} />;
+}
+
 export default function FaceSearchModal({ open, onClose, eventId, onResults, allPhotos = [] }: Props) {
   const [step, setStep] = useState<Step>("select");
   const [statusText, setStatusText] = useState("");
@@ -54,9 +145,17 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
+  const [detectedFaceUrl, setDetectedFaceUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
+
+  // Watermark config
+  const wmConfig = useMemo(() => {
+    if (typeof window === "undefined") return DEFAULT_WATERMARK_CONFIG;
+    const tenantId = sessionStorage.getItem("adminTenantId") || sessionStorage.getItem("tenantId") || "default";
+    return getWatermarkConfig(tenantId);
+  }, []);
   const streamRef = useRef<MediaStream | null>(null);
 
   const stopCamera = useCallback(() => {
@@ -75,6 +174,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       setPreviewUrl(null);
       setMatchCount(0);
       setMatchPhotos([]);
+      setDetectedFaceUrl(null);
       setShowPhotoPreview(false);
       setCurrentPhotoIndex(0);
     }
@@ -209,6 +309,15 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
       setMatchCount(photoIds.length);
       setMatchPhotos(photoIds);
+      // Extract face thumbnail from first result
+      if (resultsWithPercent.length > 0 && resultsWithPercent[0].bbox) {
+        const firstPhoto = allPhotos.find(p => p.id === resultsWithPercent[0].photoId);
+        if (firstPhoto?.originalUrl && resultsWithPercent[0].bbox) {
+          extractFaceThumbnail(firstPhoto.originalUrl, resultsWithPercent[0].bbox)
+            .then(setDetectedFaceUrl)
+            .catch(() => setDetectedFaceUrl(null));
+        }
+      }
       (window as unknown as { __faceSearchResults?: FaceSearchResult[] }).__faceSearchResults = resultsWithPercent;
       setStep("results");
     } catch (err) {
@@ -422,9 +531,20 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                 
                 {/* Match confidence badges */}
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {/* Detected face thumbnail */}
+                {detectedFaceUrl && (
+                  <div className="mb-4 text-center">
+                    <p className="text-sm text-gray-600 mb-2">検出された顔</p>
+                    <img src={detectedFaceUrl} alt="検出顔" className="w-32 h-32 object-cover rounded-full border-4 border-blue-400 shadow-lg mx-auto" />
+                  </div>
+                )}
+                
+                {/* Match percent badges */}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {(window as any).__faceSearchResults?.length > 0 && (
                   <div className="flex flex-wrap justify-center gap-2">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */}
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {((window as any).__faceSearchResults as FaceSearchResult[])
                       .slice(0, 10)
                       .map((r: FaceSearchResult) => (
@@ -438,7 +558,10 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                               : "bg-red-100 text-red-700"
                           }`}
                         >
-                          {r.matchPercent || 0}%
+                          {r.matchPercent || 0}%{
+                            (r.matchPercent || 0) >= 80 ? "（高）" :
+                            (r.matchPercent || 0) >= 60 ? "（中）" : "（低）"
+                          }
                         </span>
                       ))}
                   </div>
@@ -518,9 +641,9 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
               </div>
 
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={currentPhoto.originalUrl || currentPhoto.url || currentPhoto.thumbnailUrl}
-                alt={`写真 ${currentPhotoIndex + 1}`}
+              <WatermarkedPhoto
+                src={currentPhoto?.originalUrl || currentPhoto?.url || currentPhoto?.thumbnailUrl || ""}
+                wmConfig={wmConfig}
                 className="w-full h-full object-contain"
               />
 
