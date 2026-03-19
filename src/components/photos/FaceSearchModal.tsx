@@ -117,7 +117,7 @@ function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number, conf
   ctx.restore();
 }
 
-function WatermarkedPhoto({ src, wmConfig, className }: { src: string; wmConfig: Omit<WatermarkConfig, "tenantId">; className?: string }) {
+function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string; wmConfig: Omit<WatermarkConfig, "tenantId">; className?: string; faceBbox?: { x: number; y: number; width: number; height: number } }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -131,9 +131,50 @@ function WatermarkedPhoto({ src, wmConfig, className }: { src: string; wmConfig:
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
       drawWatermark(ctx, img.width, img.height, wmConfig);
+      // Draw face highlight if bbox provided
+      if (faceBbox) {
+        const padding = 0.2;
+        const x = faceBbox.x - faceBbox.width * padding;
+        const y = faceBbox.y - faceBbox.height * padding;
+        const w = faceBbox.width * (1 + padding * 2);
+        const h = faceBbox.height * (1 + padding * 2);
+        ctx.strokeStyle = "#3b82f6";
+        ctx.lineWidth = Math.max(3, Math.min(img.width, img.height) / 100);
+        ctx.setLineDash([10, 5]);
+        ctx.strokeRect(x, y, w, h);
+        ctx.setLineDash([]);
+        // Add corner markers
+        const cornerSize = Math.max(10, Math.min(img.width, img.height) / 50);
+        ctx.strokeStyle = "#60a5fa";
+        ctx.lineWidth = Math.max(5, Math.min(img.width, img.height) / 50);
+        // Top-left
+        ctx.beginPath();
+        ctx.moveTo(x, y + cornerSize);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + cornerSize, y);
+        ctx.stroke();
+        // Top-right
+        ctx.beginPath();
+        ctx.moveTo(x + w - cornerSize, y);
+        ctx.lineTo(x + w, y);
+        ctx.lineTo(x + w, y + cornerSize);
+        ctx.stroke();
+        // Bottom-left
+        ctx.beginPath();
+        ctx.moveTo(x, y + h - cornerSize);
+        ctx.lineTo(x, y + h);
+        ctx.lineTo(x + cornerSize, y + h);
+        ctx.stroke();
+        // Bottom-right
+        ctx.beginPath();
+        ctx.moveTo(x + w - cornerSize, y + h);
+        ctx.lineTo(x + w, y + h);
+        ctx.lineTo(x + w, y + h - cornerSize);
+        ctx.stroke();
+      }
     };
     img.src = src;
-  }, [src, wmConfig]);
+  }, [src, wmConfig, faceBbox]);
   return <canvas ref={canvasRef} className={className} />;
 }
 
@@ -146,6 +187,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
   const [detectedFaceUrl, setDetectedFaceUrl] = useState<string | null>(null);
+  const [currentFaceBbox, setCurrentFaceBbox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -175,6 +217,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       setMatchCount(0);
       setMatchPhotos([]);
       setDetectedFaceUrl(null);
+      setCurrentFaceBbox(null);
       setShowPhotoPreview(false);
       setCurrentPhotoIndex(0);
     }
@@ -316,6 +359,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
           extractFaceThumbnail(firstPhoto.originalUrl, resultsWithPercent[0].bbox)
             .then(setDetectedFaceUrl)
             .catch(() => setDetectedFaceUrl(null));
+        setCurrentFaceBbox(resultsWithPercent[0].bbox || null);
         }
       }
       (window as unknown as { __faceSearchResults?: FaceSearchResult[] }).__faceSearchResults = resultsWithPercent;
@@ -644,6 +688,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
               <WatermarkedPhoto
                 src={currentPhoto?.originalUrl || currentPhoto?.url || currentPhoto?.thumbnailUrl || ""}
                 wmConfig={wmConfig}
+                faceBbox={currentFaceBbox || undefined}
                 className="w-full h-full object-contain"
               />
 
