@@ -200,6 +200,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
   const [detectedFaceUrl, setDetectedFaceUrl] = useState<string | null>(null);
   const [currentFaceBbox, setCurrentFaceBbox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [searchResults, setSearchResults] = useState<FaceSearchResult[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -230,6 +231,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       setMatchPhotos([]);
       setDetectedFaceUrl(null);
       setCurrentFaceBbox(null);
+      setSearchResults([]);
       setShowPhotoPreview(false);
       setCurrentPhotoIndex(0);
     }
@@ -375,6 +377,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         console.log("[FaceSearch] bbox received:", resultsWithPercent[0].bbox);
         }
       }
+      setSearchResults(resultsWithPercent);
       (window as unknown as { __faceSearchResults?: FaceSearchResult[] }).__faceSearchResults = resultsWithPercent;
       setStep("results");
     } catch (err) {
@@ -435,7 +438,10 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const goToPhoto = useCallback((index: number) => {
     if (index < 0 || index >= matchPhotos.length) return;
     setCurrentPhotoIndex(index);
-  }, [matchPhotos.length]);
+    const photoId = matchPhotos[index];
+    const result = searchResults.find(r => r.photoId === photoId);
+    setCurrentFaceBbox(result?.bbox || null);
+  }, [matchPhotos, searchResults]);
 
   const goToNextPhoto = useCallback(() => {
     goToPhoto((currentPhotoIndex + 1) % matchPhotos.length);
@@ -444,6 +450,14 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const goToPrevPhoto = useCallback(() => {
     goToPhoto((currentPhotoIndex - 1 + matchPhotos.length) % matchPhotos.length);
   }, [currentPhotoIndex, matchPhotos.length, goToPhoto]);
+
+  // Update face bbox when currentPhotoIndex changes
+  useEffect(() => {
+    if (!showPhotoPreview || matchPhotos.length === 0 || searchResults.length === 0) return;
+    const photoId = matchPhotos[currentPhotoIndex];
+    const result = searchResults.find(r => r.photoId === photoId);
+    setCurrentFaceBbox(result?.bbox || null);
+  }, [currentPhotoIndex, showPhotoPreview, matchPhotos, searchResults]);
 
   // Keyboard navigation for photo preview
   useEffect(() => {
