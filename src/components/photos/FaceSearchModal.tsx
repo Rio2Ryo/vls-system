@@ -132,12 +132,23 @@ function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string;
       ctx.drawImage(img, 0, 0);
       drawWatermark(ctx, img.width, img.height, wmConfig);
       // Draw face highlight if bbox provided
+      console.log("[WatermarkedPhoto] faceBbox:", faceBbox, "image size:", img.width, "x", img.height);
       if (faceBbox) {
         const padding = 0.2;
-        const x = faceBbox.x - faceBbox.width * padding;
-        const y = faceBbox.y - faceBbox.height * padding;
-        const w = faceBbox.width * (1 + padding * 2);
-        const h = faceBbox.height * (1 + padding * 2);
+        // Ensure bbox values are valid numbers
+        const bx = Number(faceBbox.x) || 0;
+        const by = Number(faceBbox.y) || 0;
+        const bw = Number(faceBbox.width) || 0;
+        const bh = Number(faceBbox.height) || 0;
+        
+        // Skip if bbox is invalid (all zeros or negative)
+        if (bw <= 0 || bh <= 0) {
+          console.warn("[WatermarkedPhoto] Invalid bbox:", faceBbox);
+        } else {
+          const x = bx - bw * padding;
+          const y = by - bh * padding;
+          const w = bw * (1 + padding * 2);
+          const h = bh * (1 + padding * 2);
         ctx.strokeStyle = "#3b82f6";
         ctx.lineWidth = Math.max(3, Math.min(img.width, img.height) / 100);
         ctx.setLineDash([10, 5]);
@@ -171,6 +182,7 @@ function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string;
         ctx.lineTo(x + w, y + h);
         ctx.lineTo(x + w, y + h - cornerSize);
         ctx.stroke();
+        }
       }
     };
     img.src = src;
@@ -360,6 +372,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
             .then(setDetectedFaceUrl)
             .catch(() => setDetectedFaceUrl(null));
         setCurrentFaceBbox(resultsWithPercent[0].bbox || null);
+        console.log("[FaceSearch] bbox received:", resultsWithPercent[0].bbox);
         }
       }
       (window as unknown as { __faceSearchResults?: FaceSearchResult[] }).__faceSearchResults = resultsWithPercent;
