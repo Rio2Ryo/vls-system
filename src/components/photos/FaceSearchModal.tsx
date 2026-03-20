@@ -355,7 +355,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           queryEmbedding,
-          threshold: 0.45, // Euclidean distance: same person < 0.5 (dlib standard is 0.6)
+          threshold: 0.4, // Euclidean distance: stricter threshold for higher accuracy
           limit: 100,
         }),
       });

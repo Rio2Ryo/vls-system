@@ -51,6 +51,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const [uploadFileNames, setUploadFileNames] = useState<string[]>([]);
   const [faceIndexing, setFaceIndexing] = useState(false);
   const [faceIndexProgress, setFaceIndexProgress] = useState({ current: 0, total: 0, faces: 0 });
+  const [reindexing, setReindexing] = useState(false);
 
   useEffect(() => {
     const evts = tenantId ? getEventsForTenant(tenantId) : getStoredEvents();
@@ -364,6 +365,37 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
       onSave("グルーピングに失敗しました");
     }
     setGrouping(false);
+  };
+
+  /** Delete all face embeddings for event then re-index all photos */
+  const handleFaceReindex = async () => {
+    if (!selectedEvent || reindexing || faceIndexing) return;
+    if (!window.confirm(`イベント「${selectedEvent.name}」の顔インデックスをすべて削除して再構築しますか？\n写真 ${selectedEvent.photos.length} 枚を再解析します。`)) return;
+
+    setReindexing(true);
+    try {
+      await fetch("/api/face/reindex", {
+        method: "DELETE",
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ eventId: selectedEventId }),
+      });
+    } catch {
+      // ignore delete errors, proceed with reindex
+    }
+    setReindexing(false);
+
+    const allPhotos = selectedEvent.photos.filter((p) => p.originalUrl);
+    if (allPhotos.length === 0) return;
+
+    setFaceIndexing(true);
+    setFaceIndexProgress({ current: 0, total: allPhotos.length, faces: 0 });
+    indexBatchPhotoFaces(
+      allPhotos.map((p) => ({ imageUrl: p.originalUrl, eventId: selectedEventId, photoId: p.id })),
+      (cur, tot, faces) => setFaceIndexProgress({ current: cur, total: tot, faces }),
+    ).then((result) => {
+      setFaceIndexing(false);
+      onSave(`顔インデックス再構築完了: ${result.indexed}件の顔を検出`);
+    }).catch(() => setFaceIndexing(false));
   };
 
   /** Auto-classify all unclassified photos in the selected event */
@@ -709,6 +741,29 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
               />
             </div>
           )}
+
+          {/* Face reindex controls */}
+          <div className="flex items-center justify-between mb-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <div>
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">顔インデックス再構築</h3>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">全写真の顔 embedding を削除して再生成します</p>
+            </div>
+            {reindexing || faceIndexing ? (
+              <div className="flex items-center gap-2 text-xs text-purple-600">
+                <span className="animate-spin h-3 w-3 border-2 border-purple-500 border-t-transparent rounded-full" aria-hidden="true" />
+                {reindexing ? "削除中..." : `再インデックス中... (${faceIndexProgress.current}/${faceIndexProgress.total})`}
+              </div>
+            ) : (
+              <button
+                onClick={handleFaceReindex}
+                disabled={!selectedEvent || selectedEvent.photos.length === 0}
+                aria-label="顔インデックスを削除して全写真を再インデックス"
+                className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-orange-500 text-white font-medium hover:from-rose-600 hover:to-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+              >
+                再構築 ({selectedEvent ? selectedEvent.photos.length : 0}枚)
+              </button>
+            )}
+          </div>
 
           {/* Face groups display */}
           {faceGroups.length > 0 && (

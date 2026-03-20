@@ -428,6 +428,16 @@ export async function getFaceEmbeddingsByPhoto(
   );
 }
 
+/** Delete all face embeddings for an event (used before reindexing). */
+export async function deleteFaceEmbeddingsByEvent(eventId: string): Promise<number> {
+  await ensureFaceTables();
+  const result = await d1Query(
+    `DELETE FROM face_embeddings WHERE event_id = ?`,
+    [eventId]
+  );
+  return (result as { meta?: { changes?: number } })?.meta?.changes ?? 0;
+}
+
 /** Insert a face search session. */
 export async function insertFaceSearchSession(row: {
   id: string;
