@@ -10,11 +10,11 @@ import { getCsrfToken } from "@/lib/csrf";
 
 let modelsLoaded = false;
 
-/** Dynamically load face-api.js (avoids SSR import). */
+/** Dynamically load @vladmandic/face-api (avoids SSR import). */
 async function loadFaceApi() {
-  const faceapi = await import("face-api.js");
+  const faceapi = await import("@vladmandic/face-api");
   if (!modelsLoaded) {
-    await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
+    await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
     await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
     await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
     modelsLoaded = true;
@@ -60,7 +60,7 @@ export async function indexPhotoFaces(
 
     // Detect faces with landmarks + descriptors
     const detections = await faceapi
-      .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.4 }))
+      .detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
       .withFaceLandmarks()
       .withFaceDescriptors();
 

@@ -29,9 +29,9 @@ type Step = "select" | "loading" | "results" | "error";
 let faceApiLoaded = false;
 
 async function loadFaceApi() {
-  const faceapi = await import("face-api.js");
+  const faceapi = await import("@vladmandic/face-api");
   if (!faceApiLoaded) {
-    await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
+    await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
     await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
     await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
     faceApiLoaded = true;
@@ -315,19 +315,19 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         setStep("results");
         geminiSuccess = true;
       } else if (res.status !== 503) {
-        // 503 = GEMINI_API_KEY not configured → fall through to face-api.js
+        // 503 = GEMINI_API_KEY not configured → fall through to @vladmandic/face-api
         setStep("error");
         setStatusText(`Gemini Vision API エラー: ${res.status}`);
         return;
       }
     } catch (err) {
       console.error("[FaceSearch] Gemini Vision failed:", err);
-      // Network error → fall through to face-api.js
+      // Network error → fall through to @vladmandic/face-api
     }
 
     if (geminiSuccess) return;
 
-    // Fallback: face-api.js (client-side 128-dim descriptor matching)
+    // Fallback: @vladmandic/face-api (client-side 128-dim descriptor matching)
     setStatusText("ローカルモデルで検索中...");
 
     let faceapi: Awaited<ReturnType<typeof loadFaceApi>> | null = null;
@@ -355,7 +355,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     try {
       setStatusText("顔検出中...");
       detections = await faceapi
-        .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.4 }))
+        .detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptors();
     } catch (err) {
