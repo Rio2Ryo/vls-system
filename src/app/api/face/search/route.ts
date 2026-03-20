@@ -5,22 +5,31 @@ import {
   insertFaceSearchSession,
 } from "@/lib/d1";
 import { cosineSimilarity, type FaceBox, type FaceSearchResult } from "@/lib/face";
+import { generateImageEmbedding, isCfAiConfigured } from "@/lib/cf-ai";
 
 /**
  * POST /api/face/search
  *
  * Cosine-similarity search across all face embeddings in an event.
- * Threshold 0.5: same person when cosine similarity >= 0.5.
  *
- * Body:
- *   queryEmbedding: number[]   — 128-dim face descriptor from face-api.js
- *   eventId:        string     — target event
- *   threshold?:     number     — min cosine similarity to match (default 0.5, range 0.0–1.0)
- *   limit?:         number     — max results (default 50, max 200)
- *   userId?:        string     — optional caller ID for session log
+ * Body (two modes):
+ *   Mode A — CF Workers AI (preferred):
+ *     imageBase64: string     — base64 encoded image (with or without data URL prefix)
+ *     eventId:     string
+ *     threshold?:  number     — min cosine similarity (default 0.5)
+ *     limit?:      number     — max results (default 50, max 200)
+ *     userId?:     string
+ *
+ *   Mode B — direct embedding (legacy / fallback):
+ *     queryEmbedding: number[]
+ *     eventId:        string
+ *     threshold?:     number
+ *     limit?:         number
+ *     userId?:        string
  *
  * Returns:
  *   { sessionId, matchCount, uniquePhotos, results: FaceSearchResult[] }
+ *   or on CF AI failure: { error, fallbackRequired: true }
  */
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -30,9 +39,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const queryEmbedding = body.queryEmbedding as number[] | undefined;
+  const imageBase64 = body.imageBase64 as string | undefined;
+  const rawEmbedding = body.queryEmbedding as number[] | undefined;
   const eventId = body.eventId as string | undefined;
-  // Cosine similarity threshold: >= 0.5 considered same person.
   const rawThreshold = Number(body.threshold) || 0.5;
   const threshold = Math.max(0.0, Math.min(1.0, rawThreshold));
   const limit = Math.min(200, Math.max(1, Number(body.limit) || 50));
@@ -41,18 +50,40 @@ export async function POST(req: NextRequest) {
   if (!eventId || typeof eventId !== "string") {
     return NextResponse.json({ error: "eventId (string) required" }, { status: 400 });
   }
-  if (!queryEmbedding || !Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
+  if (!imageBase64 && (!rawEmbedding || !Array.isArray(rawEmbedding) || rawEmbedding.length === 0)) {
     return NextResponse.json(
-      { error: "queryEmbedding (number[]) required" },
+      { error: "imageBase64 or queryEmbedding required" },
       { status: 400 },
     );
   }
-
   if (!isD1Configured()) {
     return NextResponse.json({ error: "D1 not configured" }, { status: 503 });
   }
 
-  // Fetch all event embeddings
+  // Resolve embedding: prefer CF AI from imageBase64, fall back to direct queryEmbedding
+  let queryEmbedding: number[];
+  if (imageBase64) {
+    if (!isCfAiConfigured()) {
+      // CF AI not configured — signal client to fall back to face-api.js
+      return NextResponse.json(
+        { error: "CF Workers AI not configured", fallbackRequired: true },
+        { status: 503 },
+      );
+    }
+    try {
+      queryEmbedding = await generateImageEmbedding(imageBase64);
+    } catch (err) {
+      console.error("[face/search] CF AI embedding failed:", err);
+      return NextResponse.json(
+        { error: `CF Workers AI failed: ${String(err)}`, fallbackRequired: true },
+        { status: 502 },
+      );
+    }
+  } else {
+    queryEmbedding = rawEmbedding!;
+  }
+
+  // Fetch all event embeddings from D1
   const rows = await getFaceEmbeddingsByEvent(eventId);
   if (rows.length === 0) {
     return NextResponse.json({
@@ -63,7 +94,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Compute cosine similarity. Higher = more similar. Threshold >= 0.5 = same person.
+  // Compute cosine similarity
   const results: FaceSearchResult[] = [];
   for (const row of rows) {
     const stored = JSON.parse(row.embedding as string) as number[];
@@ -80,10 +111,8 @@ export async function POST(req: NextRequest) {
   results.sort((a, b) => b.similarity - a.similarity);
   const limited = results.slice(0, limit);
 
-  // Unique photo IDs
   const uniquePhotos = new Set(limited.map((r) => r.photoId)).size;
 
-  // Persist search session
   const sessionId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   try {
     await insertFaceSearchSession({
@@ -95,7 +124,6 @@ export async function POST(req: NextRequest) {
       threshold,
     });
   } catch {
-    // Non-critical — log but don't fail the response
     console.error("Failed to save face search session");
   }
 

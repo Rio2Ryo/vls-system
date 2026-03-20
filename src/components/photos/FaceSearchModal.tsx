@@ -277,6 +277,57 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
   const processImage = async (imageDataUrl: string) => {
     setStep("loading");
+    setStatusText("サーバーで顔を解析中...");
+
+    const csrfToken = getCsrfToken();
+
+    // Primary: CF Workers AI server-side processing
+    try {
+      const res = await fetch("/api/face/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({
+          eventId,
+          imageBase64: imageDataUrl,
+          threshold: 0.4,
+          limit: 100,
+        }),
+      });
+
+      const data = await res.json();
+
+      // If server signals fallback required (CF AI not configured or failed), use face-api.js
+      if (!res.ok && data?.fallbackRequired) {
+        console.warn("[FaceSearch] CF AI unavailable, falling back to face-api.js");
+        await processImageWithFaceApi(imageDataUrl);
+        return;
+      }
+
+      if (!res.ok) {
+        setStep("error");
+        setStatusText(`検索 API エラー: ${res.status}`);
+        return;
+      }
+
+      const results = (data.results || []) as FaceSearchResult[];
+      const resultsWithPercent = results
+        .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
+        .sort((a, b) => b.similarity - a.similarity);
+
+      setAllSearchResults(resultsWithPercent);
+      setStep("results");
+    } catch (err) {
+      console.error("[FaceSearch] Search API failed:", err);
+      setStep("error");
+      setStatusText("検索 API への接続に失敗しました。ネットワーク環境をご確認ください。");
+    }
+  };
+
+  // Fallback: face-api.js client-side processing (used when CF AI is unavailable)
+  const processImageWithFaceApi = async (imageDataUrl: string) => {
     setStatusText("AIモデルを読み込み中...");
 
     const csrfToken = getCsrfToken();
@@ -336,7 +387,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
     const queryEmbedding = Array.from(detections[0].descriptor);
     try {
-      // Request with low threshold to get all candidates; client-side filters with slider
       const res = await fetch("/api/face/search", {
         method: "POST",
         headers: {
