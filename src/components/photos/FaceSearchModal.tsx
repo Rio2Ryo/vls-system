@@ -26,6 +26,9 @@ interface Props {
 
 type Step = "select" | "loading" | "results" | "error";
 
+const MAX_RESULTS = 12;
+const DEFAULT_THRESHOLD = 0.6;
+
 let faceApiLoaded = false;
 
 async function loadFaceApi() {
@@ -131,57 +134,29 @@ function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
       drawWatermark(ctx, img.width, img.height, wmConfig);
-      // Draw face highlight if bbox provided
-      console.log("[WatermarkedPhoto] faceBbox:", faceBbox, "image size:", img.width, "x", img.height);
       if (faceBbox) {
         const padding = 0.2;
-        // Ensure bbox values are valid numbers
         const bx = Number(faceBbox.x) || 0;
         const by = Number(faceBbox.y) || 0;
         const bw = Number(faceBbox.width) || 0;
         const bh = Number(faceBbox.height) || 0;
-        
-        // Skip if bbox is invalid (all zeros or negative)
-        if (bw <= 0 || bh <= 0) {
-          console.warn("[WatermarkedPhoto] Invalid bbox:", faceBbox);
-        } else {
+        if (bw > 0 && bh > 0) {
           const x = bx - bw * padding;
           const y = by - bh * padding;
           const w = bw * (1 + padding * 2);
           const h = bh * (1 + padding * 2);
-        ctx.strokeStyle = "#3b82f6";
-        ctx.lineWidth = Math.max(3, Math.min(img.width, img.height) / 100);
-        ctx.setLineDash([10, 5]);
-        ctx.strokeRect(x, y, w, h);
-        ctx.setLineDash([]);
-        // Add corner markers
-        const cornerSize = Math.max(10, Math.min(img.width, img.height) / 50);
-        ctx.strokeStyle = "#60a5fa";
-        ctx.lineWidth = Math.max(5, Math.min(img.width, img.height) / 50);
-        // Top-left
-        ctx.beginPath();
-        ctx.moveTo(x, y + cornerSize);
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + cornerSize, y);
-        ctx.stroke();
-        // Top-right
-        ctx.beginPath();
-        ctx.moveTo(x + w - cornerSize, y);
-        ctx.lineTo(x + w, y);
-        ctx.lineTo(x + w, y + cornerSize);
-        ctx.stroke();
-        // Bottom-left
-        ctx.beginPath();
-        ctx.moveTo(x, y + h - cornerSize);
-        ctx.lineTo(x, y + h);
-        ctx.lineTo(x + cornerSize, y + h);
-        ctx.stroke();
-        // Bottom-right
-        ctx.beginPath();
-        ctx.moveTo(x + w - cornerSize, y + h);
-        ctx.lineTo(x + w, y + h);
-        ctx.lineTo(x + w, y + h - cornerSize);
-        ctx.stroke();
+          ctx.strokeStyle = "#3b82f6";
+          ctx.lineWidth = Math.max(3, Math.min(img.width, img.height) / 100);
+          ctx.setLineDash([10, 5]);
+          ctx.strokeRect(x, y, w, h);
+          ctx.setLineDash([]);
+          const cornerSize = Math.max(10, Math.min(img.width, img.height) / 50);
+          ctx.strokeStyle = "#60a5fa";
+          ctx.lineWidth = Math.max(5, Math.min(img.width, img.height) / 50);
+          ctx.beginPath(); ctx.moveTo(x, y + cornerSize); ctx.lineTo(x, y); ctx.lineTo(x + cornerSize, y); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x + w - cornerSize, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + cornerSize); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x, y + h - cornerSize); ctx.lineTo(x, y + h); ctx.lineTo(x + cornerSize, y + h); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x + w - cornerSize, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - cornerSize); ctx.stroke();
         }
       }
     };
@@ -190,17 +165,22 @@ function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string;
   return <canvas ref={canvasRef} className={className} />;
 }
 
+function getMatchLevel(similarity: number): { label: string; color: string; bg: string } {
+  if (similarity >= 0.7) return { label: "高一致", color: "text-green-700", bg: "bg-green-100" };
+  if (similarity >= 0.6) return { label: "中一致", color: "text-yellow-700", bg: "bg-yellow-100" };
+  return { label: "低一致", color: "text-red-700", bg: "bg-red-100" };
+}
+
 export default function FaceSearchModal({ open, onClose, eventId, onResults, allPhotos = [] }: Props) {
   const [step, setStep] = useState<Step>("select");
   const [statusText, setStatusText] = useState("");
-  const [matchCount, setMatchCount] = useState(0);
-  const [matchPhotos, setMatchPhotos] = useState<string[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
   const [detectedFaceUrl, setDetectedFaceUrl] = useState<string | null>(null);
   const [currentFaceBbox, setCurrentFaceBbox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [searchResults, setSearchResults] = useState<FaceSearchResult[]>([]);
+  const [allSearchResults, setAllSearchResults] = useState<FaceSearchResult[]>([]);
+  const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -212,6 +192,22 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     return getWatermarkConfig(tenantId);
   }, []);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Filter and sort results based on current threshold, deduplicate by photoId, limit to MAX_RESULTS
+  const filteredResults = useMemo(() => {
+    const seen = new Set<string>();
+    return allSearchResults
+      .filter((r) => r.similarity >= threshold)
+      .sort((a, b) => b.similarity - a.similarity)
+      .filter((r) => {
+        if (seen.has(r.photoId)) return false;
+        seen.add(r.photoId);
+        return true;
+      })
+      .slice(0, MAX_RESULTS);
+  }, [allSearchResults, threshold]);
+
+  const matchPhotos = useMemo(() => filteredResults.map((r) => r.photoId), [filteredResults]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -227,13 +223,12 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       stopCamera();
       setStep("select");
       setPreviewUrl(null);
-      setMatchCount(0);
-      setMatchPhotos([]);
+      setAllSearchResults([]);
       setDetectedFaceUrl(null);
       setCurrentFaceBbox(null);
-      setSearchResults([]);
       setShowPhotoPreview(false);
       setCurrentPhotoIndex(0);
+      setThreshold(DEFAULT_THRESHOLD);
     }
   }, [open, stopCamera]);
 
@@ -286,7 +281,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
     const csrfToken = getCsrfToken();
 
-    // Load face-api.js (TinyFaceDetector)
     let faceapi: Awaited<ReturnType<typeof loadFaceApi>> | null = null;
     try {
       faceapi = await loadFaceApi();
@@ -342,6 +336,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
     const queryEmbedding = Array.from(detections[0].descriptor);
     try {
+      // Request with low threshold to get all candidates; client-side filters with slider
       const res = await fetch("/api/face/search", {
         method: "POST",
         headers: {
@@ -351,7 +346,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           queryEmbedding,
-          threshold: 0.5,
+          threshold: 0.4,
           limit: 100,
         }),
       });
@@ -364,19 +359,11 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
       const data = await res.json();
       const results = (data.results || []) as FaceSearchResult[];
-      const photoIds = Array.from(new Set(results.map((r) => r.photoId)));
-      const resultsWithPercent = results.map((r) => ({
-        ...r,
-        matchPercent: Math.round(r.similarity * 100),
-      }));
+      const resultsWithPercent = results
+        .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
+        .sort((a, b) => b.similarity - a.similarity);
 
-      setMatchCount(photoIds.length);
-      setMatchPhotos(photoIds);
-      if (resultsWithPercent.length > 0 && resultsWithPercent[0].bbox) {
-        setCurrentFaceBbox(resultsWithPercent[0].bbox || null);
-      }
-      setSearchResults(resultsWithPercent);
-      (window as unknown as { __faceSearchResults?: FaceSearchResult[] }).__faceSearchResults = resultsWithPercent;
+      setAllSearchResults(resultsWithPercent);
       setStep("results");
     } catch (err) {
       console.error("[FaceSearch] Search API failed:", err);
@@ -395,9 +382,9 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     if (index < 0 || index >= matchPhotos.length) return;
     setCurrentPhotoIndex(index);
     const photoId = matchPhotos[index];
-    const result = searchResults.find(r => r.photoId === photoId);
+    const result = filteredResults.find(r => r.photoId === photoId);
     setCurrentFaceBbox(result?.bbox || null);
-  }, [matchPhotos, searchResults]);
+  }, [matchPhotos, filteredResults]);
 
   const goToNextPhoto = useCallback(() => {
     goToPhoto((currentPhotoIndex + 1) % matchPhotos.length);
@@ -407,15 +394,13 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     goToPhoto((currentPhotoIndex - 1 + matchPhotos.length) % matchPhotos.length);
   }, [currentPhotoIndex, matchPhotos.length, goToPhoto]);
 
-  // Update face bbox when currentPhotoIndex changes
   useEffect(() => {
-    if (!showPhotoPreview || matchPhotos.length === 0 || searchResults.length === 0) return;
+    if (!showPhotoPreview || matchPhotos.length === 0 || filteredResults.length === 0) return;
     const photoId = matchPhotos[currentPhotoIndex];
-    const result = searchResults.find(r => r.photoId === photoId);
+    const result = filteredResults.find(r => r.photoId === photoId);
     setCurrentFaceBbox(result?.bbox || null);
-  }, [currentPhotoIndex, showPhotoPreview, matchPhotos, searchResults]);
+  }, [currentPhotoIndex, showPhotoPreview, matchPhotos, filteredResults]);
 
-  // Keyboard navigation for photo preview
   useEffect(() => {
     if (!showPhotoPreview) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -445,7 +430,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -483,6 +468,28 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                     <span className="text-3xl">🖼️</span>
                     <span className="text-sm font-medium text-gray-700">ファイル選択</span>
                   </button>
+                </div>
+
+                {/* Threshold slider */}
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-600">一致度の閾値</span>
+                    <span className="text-xs font-bold text-gray-800">{Math.round(threshold * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.4}
+                    max={0.9}
+                    step={0.05}
+                    value={threshold}
+                    onChange={(e) => setThreshold(Number(e.target.value))}
+                    className="w-full accent-[#6EC6FF]"
+                    aria-label="一致度の閾値"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>40%（緩い）</span>
+                    <span>90%（厳しい）</span>
+                  </div>
                 </div>
 
                 <input
@@ -544,73 +551,99 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
             {/* Results */}
             {step === "results" && (
-              <div className="text-center py-4 space-y-4">
-                {previewUrl && (
-                  <div className="w-20 h-20 mx-auto rounded-full overflow-hidden border-4 border-green-400">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={previewUrl} alt="検索顔" className="w-full h-full object-cover" />
+              <div className="space-y-4">
+                {/* Query face + summary */}
+                <div className="flex items-center gap-4">
+                  {(detectedFaceUrl || previewUrl) && (
+                    <div className="w-14 h-14 flex-shrink-0 rounded-full overflow-hidden border-3 border-green-400 shadow">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={detectedFaceUrl || previewUrl!} alt="検索顔" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <p className="text-xl font-bold text-gray-800">{matchPhotos.length}枚</p>
+                    <p className="text-xs text-gray-500">
+                      {matchPhotos.length > 0
+                        ? "あなたが写っている写真が見つかりました"
+                        : "一致する写真が見つかりませんでした"}
+                    </p>
                   </div>
-                )}
-                <div>
-                  <p className="text-2xl font-bold text-gray-800">{matchCount}枚</p>
-                  <p className="text-sm text-gray-500">
-                    {matchCount > 0
-                      ? "あなたが写っている写真が見つかりました"
-                      : "一致する写真が見つかりませんでした。別の写真でお試しください。"}
-                  </p>
                 </div>
-                
-                {/* Match confidence badges */}
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {/* Detected face thumbnail */}
-                {detectedFaceUrl && (
-                  <div className="mb-4 text-center">
-                    <p className="text-sm text-gray-600 mb-2">検出された顔</p>
-                    <img src={detectedFaceUrl} alt="検出顔" className="w-32 h-32 object-cover rounded-full border-4 border-blue-400 shadow-lg mx-auto" />
+
+                {/* Threshold slider (real-time filter) */}
+                <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-600">一致度の閾値（リアルタイム）</span>
+                    <span className="text-xs font-bold text-gray-800">{Math.round(threshold * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.4}
+                    max={0.9}
+                    step={0.05}
+                    value={threshold}
+                    onChange={(e) => setThreshold(Number(e.target.value))}
+                    className="w-full accent-[#6EC6FF]"
+                    aria-label="一致度の閾値"
+                  />
+                  <div className="flex gap-2 text-xs">
+                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">70%以上: 高一致</span>
+                    <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">60〜70%: 中一致</span>
+                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">〜60%: 低一致</span>
+                  </div>
+                </div>
+
+                {/* Photo grid with score badges */}
+                {filteredResults.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+                    {filteredResults.map((r) => {
+                      const photo = allPhotos.find((p) => p.id === r.photoId);
+                      const photoUrl = photo?.thumbnailUrl || photo?.url || photo?.originalUrl;
+                      const level = getMatchLevel(r.similarity);
+                      return (
+                        <div key={r.faceId} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                          {photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={photoUrl}
+                              alt="マッチ写真"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">
+                              No image
+                            </div>
+                          )}
+                          {/* Score badge top-left */}
+                          <div className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs font-bold ${level.bg} ${level.color} shadow`}>
+                            {r.matchPercent}%<br />
+                            <span className="text-xs leading-none">{level.label}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
-                
-                {/* Match percent badges */}
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {(window as any).__faceSearchResults?.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */}
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {((window as any).__faceSearchResults as FaceSearchResult[])
-                      .slice(0, 10)
-                      .map((r: FaceSearchResult) => (
-                        <span
-                          key={r.faceId}
-                          className={`text-xs font-bold px-3 py-1 rounded-full ${
-                            (r.matchPercent || 0) >= 80
-                              ? "bg-green-100 text-green-700"
-                              : (r.matchPercent || 0) >= 60
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                        >
-                          {r.matchPercent || 0}%{
-                            (r.matchPercent || 0) >= 80 ? "（高）" :
-                            (r.matchPercent || 0) >= 60 ? "（中）" : "（低）"
-                          }
-                        </span>
-                      ))}
-                  </div>
+
+                {matchPhotos.length === 0 && (
+                  <p className="text-center text-sm text-gray-400 py-4">
+                    閾値を下げると結果が増えます
+                  </p>
                 )}
-                
-                <div className="flex gap-2">
+
+                <div className="flex gap-2 pt-1">
                   <button
-                    onClick={() => { setStep("select"); setPreviewUrl(null); }}
+                    onClick={() => { setStep("select"); setPreviewUrl(null); setAllSearchResults([]); }}
                     className="flex-1 py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
                   >
                     やり直す
                   </button>
                   <button
                     onClick={handleApplyResults}
-                    disabled={matchCount === 0}
+                    disabled={matchPhotos.length === 0}
                     className="flex-1 py-2 rounded-xl bg-[#6EC6FF] text-white text-sm font-medium hover:bg-[#5ab5ee] transition-colors disabled:opacity-50"
                   >
-                    {matchCount > 0 ? `${matchCount}枚を表示` : "一致なし"}
+                    {matchPhotos.length > 0 ? `${matchPhotos.length}枚を表示` : "一致なし"}
                   </button>
                 </div>
               </div>
@@ -643,7 +676,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
             onClick={() => setShowPhotoPreview(false)}
           >
-            {/* Close button */}
             <button
               onClick={() => setShowPhotoPreview(false)}
               className="absolute top-4 right-4 text-white hover:text-white text-4xl leading-none z-10"
@@ -652,12 +684,22 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
               ×
             </button>
 
-            {/* Photo counter */}
             <div className="absolute top-4 left-4 bg-white/20 text-white text-sm px-4 py-2 rounded-full font-bold">
               {currentPhotoIndex + 1} / {matchPhotos.length}
             </div>
 
-            {/* Photo content */}
+            {/* Score badge for current photo */}
+            {(() => {
+              const r = filteredResults.find(r => r.photoId === currentPhotoId);
+              if (!r) return null;
+              const level = getMatchLevel(r.similarity);
+              return (
+                <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm font-bold ${level.bg} ${level.color} shadow-lg z-10`}>
+                  {r.matchPercent}% {level.label}
+                </div>
+              );
+            })()}
+
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -665,13 +707,11 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
               className="relative w-full max-w-6xl h-[85vh]"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Click zones for navigation */}
               <div className="absolute inset-0 flex" onClick={(e) => e.stopPropagation()}>
                 <div className="w-1/2 h-full cursor-pointer" onClick={goToPrevPhoto} aria-label="前の写真" />
                 <div className="w-1/2 h-full cursor-pointer" onClick={goToNextPhoto} aria-label="次の写真" />
               </div>
 
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <WatermarkedPhoto
                 src={currentPhoto?.originalUrl || currentPhoto?.url || currentPhoto?.thumbnailUrl || ""}
                 wmConfig={wmConfig}
@@ -679,7 +719,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                 className="w-full h-full object-contain"
               />
 
-              {/* Previous button - visible on screen */}
               <button
                 onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
                 className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-xl transition-all z-10"
@@ -690,7 +729,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                 </svg>
               </button>
 
-              {/* Next button - visible on screen */}
               <button
                 onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
                 className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-xl transition-all z-10"
