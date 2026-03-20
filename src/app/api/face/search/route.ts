@@ -4,17 +4,19 @@ import {
   getFaceEmbeddingsByEvent,
   insertFaceSearchSession,
 } from "@/lib/d1";
-import { cosineSimilarity, type FaceBox, type FaceSearchResult } from "@/lib/face";
+import { euclideanDistance, type FaceBox, type FaceSearchResult } from "@/lib/face";
 
 /**
  * POST /api/face/search
  *
- * Cosine-similarity search across all face embeddings in an event.
+ * Euclidean-distance search across all face embeddings in an event.
+ * face-api.js (dlib-based) descriptors must be compared with Euclidean distance,
+ * not cosine similarity. Same person: distance < 0.6 (dlib default threshold).
  *
  * Body:
  *   queryEmbedding: number[]   — 128-dim face descriptor from face-api.js
  *   eventId:        string     — target event
- *   threshold?:     number     — min similarity (default 0.6, range 0.1–1.0)
+ *   threshold?:     number     — max Euclidean distance to match (default 0.5, range 0.1–2.0)
  *   limit?:         number     — max results (default 50, max 200)
  *   userId?:        string     — optional caller ID for session log
  *
@@ -31,8 +33,11 @@ export async function POST(req: NextRequest) {
 
   const queryEmbedding = body.queryEmbedding as number[] | undefined;
   const eventId = body.eventId as string | undefined;
-  const rawThreshold = Number(body.threshold) || 0.6;
-  const threshold = Math.max(0.1, Math.min(1.0, rawThreshold));
+  // Euclidean distance threshold: face-api.js uses dlib descriptors designed for
+  // Euclidean distance comparison. Same person = distance < 0.6 (dlib default).
+  // Default 0.5 gives stricter matching; client may override (e.g. 0.45 for tighter).
+  const rawThreshold = Number(body.threshold) || 0.5;
+  const threshold = Math.max(0.1, Math.min(2.0, rawThreshold));
   const limit = Math.min(200, Math.max(1, Number(body.limit) || 50));
   const userId = (body.userId as string) || undefined;
 
@@ -61,12 +66,16 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Compute similarities
+  // Compute similarities using Euclidean distance (face-api.js / dlib standard).
+  // Lower distance = more similar. Threshold: < 0.5 same person, > 0.6 different.
+  // Convert distance to a 0-1 similarity score for display: 1 - distance/2.0
   const results: FaceSearchResult[] = [];
   for (const row of rows) {
     const stored = JSON.parse(row.embedding as string) as number[];
-    const similarity = cosineSimilarity(queryEmbedding, stored);
-    if (similarity >= threshold) {
+    const distance = euclideanDistance(queryEmbedding, stored);
+    if (distance <= threshold) {
+      // Map distance to [0,1]: distance 0 → 1.0 (perfect), distance 2 → 0.0 (max diff)
+      const similarity = Math.max(0, 1 - distance / 2.0);
       results.push({
         photoId: row.photo_id as string,
         faceId: row.id as string,

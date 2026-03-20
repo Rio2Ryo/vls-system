@@ -60,7 +60,7 @@ export async function indexPhotoFaces(
 
     // Detect faces with landmarks + descriptors
     const detections = await faceapi
-      .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
+      .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.4 }))
       .withFaceLandmarks()
       .withFaceDescriptors();
 

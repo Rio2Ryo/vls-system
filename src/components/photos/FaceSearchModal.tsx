@@ -313,7 +313,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     try {
       setStatusText("顔検出中...");
       detections = await faceapi
-        .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
+        .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.4 }))
         .withFaceLandmarks()
         .withFaceDescriptors();
     } catch (err) {
@@ -331,6 +331,17 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
     setStatusText(`${detections.length}件の顔を検出。検索中...`);
 
+    // Extract detected face thumbnail from the QUERY image (not from result photos)
+    const queryBox = (detections[0] as unknown as { detection: { box: { x: number; y: number; width: number; height: number } } }).detection?.box;
+    if (queryBox) {
+      extractFaceThumbnail(imageDataUrl, {
+        x: queryBox.x,
+        y: queryBox.y,
+        width: queryBox.width,
+        height: queryBox.height,
+      }).then(setDetectedFaceUrl).catch(() => setDetectedFaceUrl(null));
+    }
+
     // Step 4: Search API
     const queryEmbedding = Array.from(detections[0].descriptor);
     try {
@@ -344,7 +355,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           queryEmbedding,
-          threshold: 0.5,
+          threshold: 0.45, // Euclidean distance: same person < 0.5 (dlib standard is 0.6)
           limit: 100,
         }),
       });
@@ -366,16 +377,9 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
       setMatchCount(photoIds.length);
       setMatchPhotos(photoIds);
-      // Extract face thumbnail from first result
+      // Set bbox for the first result photo (for face highlight in preview)
       if (resultsWithPercent.length > 0 && resultsWithPercent[0].bbox) {
-        const firstPhoto = allPhotos.find(p => p.id === resultsWithPercent[0].photoId);
-        if (firstPhoto?.originalUrl && resultsWithPercent[0].bbox) {
-          extractFaceThumbnail(firstPhoto.originalUrl, resultsWithPercent[0].bbox)
-            .then(setDetectedFaceUrl)
-            .catch(() => setDetectedFaceUrl(null));
         setCurrentFaceBbox(resultsWithPercent[0].bbox || null);
-        console.log("[FaceSearch] bbox received:", resultsWithPercent[0].bbox);
-        }
       }
       setSearchResults(resultsWithPercent);
       (window as unknown as { __faceSearchResults?: FaceSearchResult[] }).__faceSearchResults = resultsWithPercent;
@@ -597,7 +601,11 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                 )}
                 <div>
                   <p className="text-2xl font-bold text-gray-800">{matchCount}枚</p>
-                  <p className="text-sm text-gray-500">あなたが写っている写真が見つかりました</p>
+                  <p className="text-sm text-gray-500">
+                    {matchCount > 0
+                      ? "あなたが写っている写真が見つかりました"
+                      : "一致する写真が見つかりませんでした。別の写真でお試しください。"}
+                  </p>
                 </div>
                 
                 {/* Match confidence badges */}
