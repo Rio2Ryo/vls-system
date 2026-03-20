@@ -71,10 +71,10 @@ export async function POST(req: NextRequest) {
         continue;
       }
       const buffer = await imgRes.arrayBuffer();
-      const base64 = Buffer.from(buffer).toString("base64");
+      const imgBuffer = Buffer.from(buffer);
 
-      // Generate embedding via CF Workers AI
-      const embedding = await generateImageEmbedding(base64);
+      // Generate embedding via CF Workers AI CLIP (pass Buffer directly)
+      const embedding = await generateImageEmbedding(imgBuffer);
 
       if (!embedding || embedding.length === 0) {
         results.push({ photoId: photo.photoId, faces: 0, error: "Empty embedding returned" });

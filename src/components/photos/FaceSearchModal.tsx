@@ -277,7 +277,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
   const processImage = async (imageDataUrl: string) => {
     setStep("loading");
-    setStatusText("サーバーで顔を解析中...");
+    setStatusText("Step 1: CLIP で候補写真を特定中...");
 
     const csrfToken = getCsrfToken();
 
@@ -296,6 +296,11 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
           limit: 100,
         }),
       });
+
+      // Update status for Gemini step (approximate timing)
+      setTimeout(() => {
+        setStatusText("Step 2: Gemini Vision で精密マッチング中...");
+      }, 2000);
 
       const data = await res.json();
 

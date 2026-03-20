@@ -3,6 +3,7 @@ import {
   isD1Configured,
   getFaceEmbeddingsByEvent,
   insertFaceSearchSession,
+  d1Get,
 } from "@/lib/d1";
 import { cosineSimilarity, type FaceBox, type FaceSearchResult } from "@/lib/face";
 import { generateImageEmbedding, isCfAiConfigured } from "@/lib/cf-ai";
@@ -10,13 +11,13 @@ import { generateImageEmbedding, isCfAiConfigured } from "@/lib/cf-ai";
 /**
  * POST /api/face/search
  *
- * Cosine-similarity search across all face embeddings in an event.
+ * Hybrid face search: CLIP embedding (CF Workers AI) → top-20 candidates → Gemini Vision.
  *
  * Body (two modes):
  *   Mode A — CF Workers AI (preferred):
  *     imageBase64: string     — base64 encoded image (with or without data URL prefix)
  *     eventId:     string
- *     threshold?:  number     — min cosine similarity (default 0.5)
+ *     threshold?:  number     — min cosine similarity for CLIP pre-filter (default 0.4)
  *     limit?:      number     — max results (default 50, max 200)
  *     userId?:     string
  *
@@ -31,6 +32,99 @@ import { generateImageEmbedding, isCfAiConfigured } from "@/lib/cf-ai";
  *   { sessionId, matchCount, uniquePhotos, results: FaceSearchResult[] }
  *   or on CF AI failure: { error, fallbackRequired: true }
  */
+
+export const maxDuration = 60;
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const CLIP_CANDIDATES = 20; // number of CLIP top-k candidates to send to Gemini
+
+interface PhotoRecord {
+  id: string;
+  originalUrl?: string;
+  thumbnailUrl?: string;
+}
+
+interface EventRecord {
+  id: string;
+  photos?: PhotoRecord[];
+}
+
+async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType: string } | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    return {
+      base64: Buffer.from(buf).toString("base64"),
+      mimeType: res.headers.get("content-type") || "image/jpeg",
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function runGeminiVision(
+  queryBase64: string,
+  queryMimeType: string,
+  candidates: { photoId: string; base64: string; mimeType: string; index: number }[]
+): Promise<string[]> {
+  const parts: Record<string, unknown>[] = [
+    {
+      text: "以下の【検索用写真】に写っている人物と同一人物が写っている写真を【候補写真】から探してください。",
+    },
+    { text: "【検索用写真（この人物を探しています）】" },
+    { inlineData: { mimeType: queryMimeType, data: queryBase64 } },
+    {
+      text: `【候補写真 ${candidates.length}枚（インデックス0〜${candidates.length - 1}）】`,
+    },
+  ];
+
+  for (const c of candidates) {
+    parts.push({ text: `写真インデックス ${c.index}:` });
+    parts.push({ inlineData: { mimeType: c.mimeType, data: c.base64 } });
+  }
+
+  parts.push({
+    text:
+      "上記候補写真のうち、検索用写真と同一人物が写っているものの インデックス番号をJSONで返してください。" +
+      "顔の特徴（目・鼻・口・輪郭など）で判断し、子供の場合は笑顔・走っている・俯いているなど異なる表情・姿勢でも同一人物を特定してください。" +
+      "確信が低い場合も含めてください。必ずこの形式のJSONのみを返してください: {\"matches\": [0, 2, 5]}" +
+      "一致なしの場合: {\"matches\": []}",
+  });
+
+  const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: { maxOutputTokens: 200, temperature: 0.1 },
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!res.ok) {
+    console.error(`[face/search] Gemini Vision error: ${res.status}`);
+    return [];
+  }
+
+  const data = await res.json();
+  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const jsonMatch = text.match(/\{[\s\S]*?\}/);
+  if (!jsonMatch) return [];
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    const indices: number[] = Array.isArray(parsed.matches) ? parsed.matches : [];
+    return indices
+      .map((i) => candidates.find((c) => c.index === i)?.photoId)
+      .filter((id): id is string => !!id);
+  } catch {
+    return [];
+  }
+}
+
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
@@ -42,7 +136,7 @@ export async function POST(req: NextRequest) {
   const imageBase64 = body.imageBase64 as string | undefined;
   const rawEmbedding = body.queryEmbedding as number[] | undefined;
   const eventId = body.eventId as string | undefined;
-  const rawThreshold = Number(body.threshold) || 0.5;
+  const rawThreshold = Number(body.threshold) || 0.4;
   const threshold = Math.max(0.0, Math.min(1.0, rawThreshold));
   const limit = Math.min(200, Math.max(1, Number(body.limit) || 50));
   const userId = (body.userId as string) || undefined;
@@ -94,25 +188,126 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Compute cosine similarity
-  const results: FaceSearchResult[] = [];
+  // Step 1: CLIP cosine similarity — compute scores for all photos, take top candidates
+  const scoredRows: Array<{ row: (typeof rows)[0]; similarity: number }> = [];
   for (const row of rows) {
     const stored = JSON.parse(row.embedding as string) as number[];
     const similarity = cosineSimilarity(queryEmbedding, stored);
-    if (similarity >= threshold) {
-      results.push({
-        photoId: row.photo_id as string,
-        faceId: row.id as string,
-        similarity: Math.round(similarity * 10000) / 10000,
-        bbox: row.bbox ? (JSON.parse(row.bbox as string) as FaceBox) : undefined,
-      });
+    scoredRows.push({ row, similarity });
+  }
+  scoredRows.sort((a, b) => b.similarity - a.similarity);
+
+  // Take top CLIP_CANDIDATES for Gemini; apply threshold for CLIP-only fallback
+  const topCandidates = scoredRows.slice(0, CLIP_CANDIDATES);
+
+  // Step 2: Gemini Vision precise matching (only when imageBase64 provided and key configured)
+  if (imageBase64 && GEMINI_API_KEY && topCandidates.length > 0) {
+    try {
+      // Get photo URLs from D1 events store
+      const eventsJson = await d1Get("vls_admin_events").catch(() => null);
+      if (eventsJson) {
+        const events = JSON.parse(eventsJson) as EventRecord[];
+        const event = events.find((e) => e.id === eventId);
+        if (event?.photos) {
+          // Build photoId → URL map for candidates
+          const candidatePhotoIds = new Set(topCandidates.map((c) => c.row.photo_id as string));
+          const photoUrlMap = new Map<string, string>();
+          for (const p of event.photos) {
+            if (candidatePhotoIds.has(p.id)) {
+              const url = p.originalUrl || p.thumbnailUrl;
+              if (url) photoUrlMap.set(p.id, url);
+            }
+          }
+
+          // Fetch candidate photos in parallel
+          const fetchResults = await Promise.all(
+            topCandidates.map(async (c, idx) => {
+              const photoId = c.row.photo_id as string;
+              const url = photoUrlMap.get(photoId);
+              if (!url) return null;
+              const img = await fetchPhotoBase64(url);
+              if (!img) return null;
+              return { photoId, base64: img.base64, mimeType: img.mimeType, index: idx };
+            })
+          );
+          const validCandidates = fetchResults.filter(
+            (r): r is { photoId: string; base64: string; mimeType: string; index: number } =>
+              r !== null
+          );
+
+          if (validCandidates.length > 0) {
+            // Parse query image
+            let queryBase64: string;
+            let queryMimeType: string;
+            if (imageBase64.startsWith("data:")) {
+              const sep = imageBase64.indexOf(";base64,");
+              queryBase64 = sep >= 0 ? imageBase64.slice(sep + 8) : imageBase64;
+              queryMimeType = sep >= 0 ? imageBase64.slice(5, sep) : "image/jpeg";
+            } else {
+              queryBase64 = imageBase64;
+              queryMimeType = "image/jpeg";
+            }
+
+            const matchedIds = await runGeminiVision(queryBase64, queryMimeType, validCandidates);
+
+            if (matchedIds.length > 0) {
+              // Build results from Gemini-confirmed matches, preserving CLIP similarity scores
+              const matchedSet = new Set(matchedIds);
+              const geminiResults: FaceSearchResult[] = topCandidates
+                .filter((c) => matchedSet.has(c.row.photo_id as string))
+                .map((c) => ({
+                  photoId: c.row.photo_id as string,
+                  faceId: c.row.id as string,
+                  similarity: Math.round(c.similarity * 10000) / 10000,
+                  bbox: c.row.bbox
+                    ? (JSON.parse(c.row.bbox as string) as FaceBox)
+                    : undefined,
+                }))
+                .slice(0, limit);
+
+              const uniquePhotos = new Set(geminiResults.map((r) => r.photoId)).size;
+              const sessionId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+              try {
+                await insertFaceSearchSession({
+                  id: sessionId,
+                  userId,
+                  eventId,
+                  queryEmbedding,
+                  results: geminiResults,
+                  threshold,
+                });
+              } catch {
+                console.error("[face/search] Failed to save search session");
+              }
+
+              return NextResponse.json({
+                sessionId,
+                matchCount: geminiResults.length,
+                uniquePhotos,
+                results: geminiResults,
+              });
+            }
+            // Gemini returned no matches — fall through to CLIP-only results
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[face/search] Gemini Vision step failed, falling back to CLIP:", err);
     }
   }
-  results.sort((a, b) => b.similarity - a.similarity);
-  const limited = results.slice(0, limit);
 
-  const uniquePhotos = new Set(limited.map((r) => r.photoId)).size;
+  // CLIP-only fallback: filter by threshold
+  const clipResults: FaceSearchResult[] = topCandidates
+    .filter((c) => c.similarity >= threshold)
+    .map((c) => ({
+      photoId: c.row.photo_id as string,
+      faceId: c.row.id as string,
+      similarity: Math.round(c.similarity * 10000) / 10000,
+      bbox: c.row.bbox ? (JSON.parse(c.row.bbox as string) as FaceBox) : undefined,
+    }))
+    .slice(0, limit);
 
+  const uniquePhotos = new Set(clipResults.map((r) => r.photoId)).size;
   const sessionId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   try {
     await insertFaceSearchSession({
@@ -120,17 +315,17 @@ export async function POST(req: NextRequest) {
       userId,
       eventId,
       queryEmbedding,
-      results: limited,
+      results: clipResults,
       threshold,
     });
   } catch {
-    console.error("Failed to save face search session");
+    console.error("[face/search] Failed to save search session");
   }
 
   return NextResponse.json({
     sessionId,
-    matchCount: limited.length,
+    matchCount: clipResults.length,
     uniquePhotos,
-    results: limited,
+    results: clipResults,
   });
 }

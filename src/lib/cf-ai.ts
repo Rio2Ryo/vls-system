@@ -1,21 +1,21 @@
 /**
  * Cloudflare Workers AI REST API client
- * Model: @cf/microsoft/resnet-50 (image classification / embedding)
+ * Model: @cf/openai/clip-vit-base-patch32 (image embedding, 512-dim)
  */
 
 const CF_AI_BASE = "https://api.cloudflare.com/client/v4/accounts";
-const MODEL = "@cf/microsoft/resnet-50";
+const MODEL = "@cf/openai/clip-vit-base-patch32";
 
 export function isCfAiConfigured(): boolean {
   return !!(process.env.CF_ACCOUNT_ID && process.env.CF_API_TOKEN);
 }
 
 /**
- * Generate image embedding via CF Workers AI ResNet-50.
- * @param imageBase64 - base64 encoded image (with or without data URL prefix)
- * @returns number[] embedding vector
+ * Generate image embedding via CF Workers AI CLIP.
+ * @param imageData - base64 encoded image (with or without data URL prefix) or raw Buffer
+ * @returns number[] 512-dim embedding vector
  */
-export async function generateImageEmbedding(imageBase64: string): Promise<number[]> {
+export async function generateImageEmbedding(imageData: string | Buffer): Promise<number[]> {
   const accountId = process.env.CF_ACCOUNT_ID;
   const apiToken = process.env.CF_API_TOKEN;
 
@@ -23,8 +23,15 @@ export async function generateImageEmbedding(imageBase64: string): Promise<numbe
     throw new Error("CF_ACCOUNT_ID and CF_API_TOKEN environment variables are required");
   }
 
-  // Strip data URL prefix if present
-  const base64Data = imageBase64.replace(/^data:image\/[^;]+;base64,/, "");
+  // Convert to Uint8Array number array required by CLIP API
+  let imageArray: number[];
+  if (typeof imageData === "string") {
+    // base64 string (with or without data URL prefix)
+    const base64 = imageData.replace(/^data:image\/[^;]+;base64,/, "");
+    imageArray = Array.from(Buffer.from(base64, "base64"));
+  } else {
+    imageArray = Array.from(imageData);
+  }
 
   const url = `${CF_AI_BASE}/${accountId}/ai/run/${MODEL}`;
 
@@ -34,17 +41,17 @@ export async function generateImageEmbedding(imageBase64: string): Promise<numbe
       Authorization: `Bearer ${apiToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ image: base64Data }),
+    body: JSON.stringify({ image: imageArray }),
   });
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "unknown error");
-    throw new Error(`CF Workers AI error: ${response.status} ${errorText}`);
+    throw new Error(`CF Workers AI CLIP error: ${response.status} ${errorText}`);
   }
 
   const data = (await response.json()) as {
     success: boolean;
-    result: { label: string; score: number }[] | number[];
+    result: { data: number[][] } | number[] | { label: string; score: number }[];
     errors?: { message: string }[];
   };
 
@@ -54,15 +61,26 @@ export async function generateImageEmbedding(imageBase64: string): Promise<numbe
   }
 
   const result = data.result;
-  if (!result || !Array.isArray(result)) {
-    throw new Error("Unexpected CF Workers AI response format: result is not an array");
+  if (!result) {
+    throw new Error("Unexpected CF Workers AI response: empty result");
   }
 
-  // ResNet-50 returns [{ label, score }, ...]. Extract scores as embedding vector.
-  if (result.length > 0 && typeof result[0] === "object" && result[0] !== null) {
-    return (result as { label: string; score: number }[]).map((r) => r.score);
+  // CLIP returns { data: [[...512_floats]] }
+  if (!Array.isArray(result) && typeof result === "object" && "data" in result) {
+    const embData = (result as { data: number[][] }).data;
+    if (Array.isArray(embData) && Array.isArray(embData[0])) {
+      return embData[0];
+    }
   }
 
-  // If already a number array, return directly
-  return result as number[];
+  // Fallback: plain number array
+  if (Array.isArray(result) && result.length > 0) {
+    if (typeof result[0] === "number") return result as number[];
+    // ResNet-50 style { label, score }[]
+    if (typeof result[0] === "object" && result[0] !== null) {
+      return (result as { label: string; score: number }[]).map((r) => r.score);
+    }
+  }
+
+  throw new Error("Unexpected CF Workers AI CLIP response format");
 }
