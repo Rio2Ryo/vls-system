@@ -31,7 +31,7 @@ let faceApiLoaded = false;
 async function loadFaceApi() {
   const faceapi = await import("@vladmandic/face-api");
   if (!faceApiLoaded) {
-    await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
+    await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
     await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
     await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
     faceApiLoaded = true;
@@ -282,61 +282,18 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
   const processImage = async (imageDataUrl: string) => {
     setStep("loading");
-    setStatusText("Gemini Vision AIで検索中...");
+    setStatusText("AIモデルを読み込み中...");
 
-    // Primary: Gemini Vision API (high-accuracy server-side matching)
     const csrfToken = getCsrfToken();
-    let geminiSuccess = false;
-    try {
-      const res = await fetch("/api/face/search-vision", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ imageBase64: imageDataUrl, eventId }),
-      });
 
-      if (res.ok) {
-        const data = await res.json();
-        const photoIds: string[] = data.matchedPhotoIds || [];
-        // Build minimal result objects (no bbox/similarity from Vision API)
-        const results: FaceSearchResult[] = photoIds.map((id) => ({
-          photoId: id,
-          faceId: `vision_${id}`,
-          similarity: 1,
-          matchPercent: 100,
-        }));
-        setMatchCount(photoIds.length);
-        setMatchPhotos(photoIds);
-        setCurrentFaceBbox(null);
-        setSearchResults(results);
-        (window as unknown as { __faceSearchResults?: FaceSearchResult[] }).__faceSearchResults = results;
-        setStep("results");
-        geminiSuccess = true;
-      } else if (res.status !== 503) {
-        // 503 = GEMINI_API_KEY not configured → fall through to @vladmandic/face-api
-        setStep("error");
-        setStatusText(`Gemini Vision API エラー: ${res.status}`);
-        return;
-      }
-    } catch (err) {
-      console.error("[FaceSearch] Gemini Vision failed:", err);
-      // Network error → fall through to @vladmandic/face-api
-    }
-
-    if (geminiSuccess) return;
-
-    // Fallback: @vladmandic/face-api (client-side 128-dim descriptor matching)
-    setStatusText("ローカルモデルで検索中...");
-
+    // Load face-api.js (TinyFaceDetector)
     let faceapi: Awaited<ReturnType<typeof loadFaceApi>> | null = null;
     try {
       faceapi = await loadFaceApi();
     } catch (err) {
       console.error("[FaceSearch] Model load failed:", err);
-      setStatusText("AIモデルの読み込みに失敗しました。代替APIで確認中...");
-      await fallbackGeminiDetect(imageDataUrl);
+      setStep("error");
+      setStatusText("AIモデルの読み込みに失敗しました。ネットワーク環境をご確認ください。");
       return;
     }
 
@@ -355,7 +312,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     try {
       setStatusText("顔検出中...");
       detections = await faceapi
-        .detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+        .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptors();
     } catch (err) {
@@ -394,7 +351,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           queryEmbedding,
-          threshold: 0.4,
+          threshold: 0.5,
           limit: 100,
         }),
       });
@@ -425,48 +382,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       console.error("[FaceSearch] Search API failed:", err);
       setStep("error");
       setStatusText("検索 API への接続に失敗しました。ネットワーク環境をご確認ください。");
-    }
-  };
-
-  /**
-   * Gemini Vision fallback: confirm face presence when face-api.js models fail to load.
-   * Cannot produce embeddings, so full similarity search is unavailable.
-   */
-  const fallbackGeminiDetect = async (imageDataUrl: string) => {
-    try {
-      const csrfToken = getCsrfToken();
-      const res = await fetch("/api/face/detect", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ action: "detect", imageUrl: imageDataUrl }),
-      });
-
-      if (!res.ok) {
-        setStep("error");
-        setStatusText(`AIモデルの読み込みに失敗しました（代替 API エラー: ${res.status}）。ネットワーク環境をご確認の上、再試行してください。`);
-        return;
-      }
-
-      const data = await res.json();
-      const faceCount: number = data.faceCount ?? 0;
-
-      if (faceCount === 0) {
-        setStep("error");
-        setStatusText("顔が検出されませんでした。別の写真をお試しください。");
-      } else {
-        setStep("error");
-        setStatusText(
-          `顔は検出されましたが、AIモデルが利用できないため詳細な検索ができません。` +
-          `ネットワーク環境を確認の上、再試行してください。`
-        );
-      }
-    } catch (err) {
-      console.error("[FaceSearch] Gemini fallback failed:", err);
-      setStep("error");
-      setStatusText("AIモデルの読み込みに失敗しました。ネットワーク環境をご確認の上、再試行してください。");
     }
   };
 
@@ -550,7 +465,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
             {step === "select" && !cameraActive && (
               <div className="space-y-4">
                 <p className="text-sm text-gray-500 text-center">
-                  自撮り写真またはファイルをアップロードすると、<br />Gemini Vision AIがあなたが写っている写真を自動で見つけます
+                  自撮り写真またはファイルをアップロードすると、<br />AIがあなたが写っている写真を自動で見つけます
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
