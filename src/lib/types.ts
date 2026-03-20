@@ -375,7 +375,8 @@ export type AuditAction =
   | "nps_send"
   | "admin_login" | "admin_logout"
   | "settings_update"
-  | "checkin" | "checkin_bulk";
+  | "checkin" | "checkin_bulk"
+  | "face_reindex_server";
 
 export interface AuditLog {
   id: string;

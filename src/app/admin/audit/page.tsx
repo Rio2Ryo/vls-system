@@ -29,8 +29,9 @@ const ACTION_MAP: Record<AuditAction, { label: string; color: string }> = {
   admin_login:    { label: "ログイン",         color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" },
   admin_logout:   { label: "ログアウト",       color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" },
   settings_update:{ label: "設定変更",         color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" },
-  checkin:        { label: "チェックイン",     color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400" },
-  checkin_bulk:   { label: "一括チェックイン", color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400" },
+  checkin:              { label: "チェックイン",         color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400" },
+  checkin_bulk:         { label: "一括チェックイン",     color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400" },
+  face_reindex_server:  { label: "顔再インデックス(サーバー)", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400" },
 };
 
 const ALL_ACTIONS = Object.keys(ACTION_MAP) as AuditAction[];

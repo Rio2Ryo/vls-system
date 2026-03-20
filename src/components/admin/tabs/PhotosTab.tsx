@@ -52,6 +52,22 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const [faceIndexing, setFaceIndexing] = useState(false);
   const [faceIndexProgress, setFaceIndexProgress] = useState({ current: 0, total: 0, faces: 0 });
   const [reindexing, setReindexing] = useState(false);
+  const [serverReindexing, setServerReindexing] = useState(false);
+  const [serverReindexProgress, setServerReindexProgress] = useState({ current: 0, total: 0 });
+  // Face search accuracy test state
+  const [testSearchFile, setTestSearchFile] = useState<File | null>(null);
+  const [testSearchDetecting, setTestSearchDetecting] = useState(false);
+  const [testSearchResults, setTestSearchResults] = useState<{
+    faces: Array<{ index: number; bbox: { x: number; y: number; width: number; height: number }; embedding: number[] }>;
+    searchResults: Array<{
+      faceIndex: number;
+      matchCount: number;
+      uniquePhotos: number;
+      totalEmbeddings: number;
+      scoreDistribution: { excellent: number; good: number; fair: number; poor: number };
+    }>;
+  } | null>(null);
+  const [testThreshold, setTestThreshold] = useState(0.5);
 
   useEffect(() => {
     const evts = tenantId ? getEventsForTenant(tenantId) : getStoredEvents();
@@ -396,6 +412,166 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
       setFaceIndexing(false);
       onSave(`顔インデックス再構築完了: ${result.indexed}件の顔を検出`);
     }).catch(() => setFaceIndexing(false));
+  };
+
+  /** Server-side reindex: calls /api/face/reindex-server which uses Node.js + canvas */
+  const handleServerReindex = async () => {
+    if (!selectedEvent || serverReindexing || faceIndexing) return;
+    if (!window.confirm(
+      `イベント「${selectedEvent.name}」の顔インデックスをサーバーサイドで再構築しますか？\n` +
+      `写真 ${selectedEvent.photos.length} 枚を Node.js + canvas で再解析します。\n` +
+      `（クライアントブラウザ不要、より安定した処理が可能です）`
+    )) return;
+
+    const allPhotos = selectedEvent.photos.filter((p) => p.originalUrl);
+    if (allPhotos.length === 0) {
+      onSave("写真がありません");
+      return;
+    }
+
+    setServerReindexing(true);
+    setServerReindexProgress({ current: 0, total: allPhotos.length });
+
+    try {
+      // Process in batches of 10 to avoid timeout
+      const BATCH_SIZE = 10;
+      let totalIndexed = 0;
+
+      for (let batchStart = 0; batchStart < allPhotos.length; batchStart += BATCH_SIZE) {
+        const batch = allPhotos.slice(batchStart, batchStart + BATCH_SIZE);
+        const isFirstBatch = batchStart === 0;
+
+        const res = await fetch("/api/face/reindex-server", {
+          method: "POST",
+          headers: csrfHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            eventId: selectedEventId,
+            photos: batch.map((p) => ({ photoId: p.id, url: p.originalUrl })),
+            deleteFirst: isFirstBatch, // Only delete on first batch
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Unknown error" }));
+          onSave(`サーバーサイド再構築エラー: ${err.error || res.statusText}`);
+          setServerReindexing(false);
+          setServerReindexProgress({ current: 0, total: 0 });
+          return;
+        }
+
+        const data = await res.json();
+        totalIndexed += data.indexed ?? 0;
+        setServerReindexProgress({ current: Math.min(batchStart + BATCH_SIZE, allPhotos.length), total: allPhotos.length });
+      }
+
+      onSave(`サーバーサイド再構築完了: ${totalIndexed}件の顔を検出`);
+      logAudit("face_reindex_server", { type: "photo", id: selectedEventId, name: selectedEvent?.name }, { indexed: totalIndexed });
+    } catch (err) {
+      onSave(`サーバーサイド再構築エラー: ${String(err)}`);
+    }
+
+    setServerReindexing(false);
+    setServerReindexProgress({ current: 0, total: 0 });
+  };
+
+  /** Face search accuracy test: detect faces in uploaded image, search D1, show results */
+  const handleFaceSearchTest = async () => {
+    if (!testSearchFile || !selectedEvent || testSearchDetecting) return;
+
+    setTestSearchDetecting(true);
+    setTestSearchResults(null);
+
+    try {
+      // Load face-api in browser and detect faces in the uploaded image
+      const { indexPhotoFaces } = await import("@/lib/faceIndex");
+      const faceapi = await import("@vladmandic/face-api");
+
+      // Load models if not loaded
+      try {
+        await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
+        await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
+        await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
+      } catch {
+        // Models may already be loaded
+      }
+
+      // Load image
+      const imageUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(testSearchFile);
+      });
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = imageUrl;
+      });
+
+      // Detect faces with embeddings
+      const detections = await faceapi
+        .detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+        .withFaceLandmarks()
+        .withFaceDescriptors();
+
+      if (detections.length === 0) {
+        onSave("テスト画像に顔が検出されませんでした");
+        setTestSearchDetecting(false);
+        return;
+      }
+
+      const faces = detections.map((d, i) => ({
+        index: i,
+        bbox: {
+          x: Math.round(d.detection.box.x),
+          y: Math.round(d.detection.box.y),
+          width: Math.round(d.detection.box.width),
+          height: Math.round(d.detection.box.height),
+        },
+        embedding: Array.from(d.descriptor) as number[],
+      }));
+
+      // Search D1 for each detected face
+      const searchResults = await Promise.all(
+        faces.map(async (face) => {
+          const res = await fetch("/api/face/test-search", {
+            method: "POST",
+            headers: csrfHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+              eventId: selectedEventId,
+              embedding: face.embedding,
+              threshold: testThreshold,
+            }),
+          });
+          if (!res.ok) {
+            return {
+              faceIndex: face.index,
+              matchCount: 0,
+              uniquePhotos: 0,
+              totalEmbeddings: 0,
+              scoreDistribution: { excellent: 0, good: 0, fair: 0, poor: 0 },
+            };
+          }
+          const data = await res.json();
+          return {
+            faceIndex: face.index,
+            matchCount: data.matchCount ?? 0,
+            uniquePhotos: data.uniquePhotos ?? 0,
+            totalEmbeddings: data.totalEmbeddings ?? 0,
+            scoreDistribution: data.scoreDistribution ?? { excellent: 0, good: 0, fair: 0, poor: 0 },
+          };
+        })
+      );
+
+      setTestSearchResults({ faces, searchResults });
+      void indexPhotoFaces; // suppress unused warning
+    } catch (err) {
+      onSave(`顔検索テストエラー: ${String(err)}`);
+    }
+
+    setTestSearchDetecting(false);
   };
 
   /** Auto-classify all unclassified photos in the selected event */
@@ -762,6 +938,126 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
               >
                 再構築 ({selectedEvent ? selectedEvent.photos.length : 0}枚)
               </button>
+            )}
+          </div>
+
+          {/* Server-side reindex controls */}
+          <div className="flex items-center justify-between mb-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <div>
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">サーバーサイド再構築</h3>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Node.js + canvas で embedding を生成（より安定・高精度）</p>
+            </div>
+            {serverReindexing ? (
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2 text-xs text-indigo-600">
+                  <span className="animate-spin h-3 w-3 border-2 border-indigo-500 border-t-transparent rounded-full" aria-hidden="true" />
+                  処理中... ({serverReindexProgress.current}/{serverReindexProgress.total})
+                </div>
+                {serverReindexProgress.total > 0 && (
+                  <div className="w-32 h-1.5 bg-indigo-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-500 rounded-full transition-all"
+                      style={{ width: `${(serverReindexProgress.current / serverReindexProgress.total) * 100}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={handleServerReindex}
+                disabled={!selectedEvent || selectedEvent.photos.length === 0 || faceIndexing}
+                aria-label="サーバーサイドで顔インデックスを再構築"
+                className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-medium hover:from-indigo-600 hover:to-violet-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                SSR再構築 ({selectedEvent ? selectedEvent.photos.length : 0}枚)
+              </button>
+            )}
+          </div>
+
+          {/* Face search accuracy test */}
+          <div className="mb-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm mb-2">顔検索精度テスト</h3>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-2">
+              テスト画像をアップロードして顔を検出し、D1インデックスとのマッチ精度を確認します
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="text-xs text-gray-600 file:mr-2 file:text-xs file:px-2 file:py-1 file:rounded file:border-0 file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200"
+                onChange={(e) => {
+                  setTestSearchFile(e.target.files?.[0] ?? null);
+                  setTestSearchResults(null);
+                }}
+              />
+              <div className="flex items-center gap-1 text-xs text-gray-600">
+                <span>閾値:</span>
+                <input
+                  type="number"
+                  min="0.1"
+                  max="1.0"
+                  step="0.05"
+                  value={testThreshold}
+                  onChange={(e) => setTestThreshold(parseFloat(e.target.value))}
+                  className="w-16 px-1.5 py-0.5 border border-gray-200 rounded text-xs"
+                />
+              </div>
+              {testSearchDetecting ? (
+                <div className="flex items-center gap-1 text-xs text-teal-600">
+                  <span className="animate-spin h-3 w-3 border-2 border-teal-500 border-t-transparent rounded-full" aria-hidden="true" />
+                  検出・検索中...
+                </div>
+              ) : (
+                <button
+                  onClick={handleFaceSearchTest}
+                  disabled={!testSearchFile || !selectedEvent}
+                  aria-label="テスト画像で顔検索精度を確認"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-medium hover:from-teal-600 hover:to-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+                >
+                  テスト実行
+                </button>
+              )}
+            </div>
+
+            {/* Test results */}
+            {testSearchResults && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                  検出顔数: {testSearchResults.faces.length}
+                </p>
+                {testSearchResults.searchResults.map((sr) => (
+                  <div key={sr.faceIndex} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-xs">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-gray-700 dark:text-gray-200">顔 #{sr.faceIndex + 1}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full font-medium ${sr.matchCount > 0 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                        {sr.matchCount}件マッチ / {sr.uniquePhotos}枚
+                      </span>
+                      <span className="text-gray-400">（インデックス総数: {sr.totalEmbeddings}件）</span>
+                    </div>
+                    <div className="flex gap-2 text-[10px]">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                        優 {sr.scoreDistribution.excellent}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
+                        良 {sr.scoreDistribution.good}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />
+                        可 {sr.scoreDistribution.fair}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-red-300 inline-block" />
+                        不可 {sr.scoreDistribution.poor}
+                      </span>
+                    </div>
+                    {sr.totalEmbeddings === 0 && (
+                      <p className="text-amber-600 mt-1">インデックスが空です。先に顔インデックス再構築を実行してください。</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
