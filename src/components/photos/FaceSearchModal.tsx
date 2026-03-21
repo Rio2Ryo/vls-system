@@ -277,36 +277,24 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
   const processImage = async (imageDataUrl: string) => {
     setStep("loading");
-    setStatusText("Step 1: CLIP で候補写真を特定中...");
+    setStatusText("Gemini Vision で写真を比較中...");
 
     const csrfToken = getCsrfToken();
 
-    // Primary: CF Workers AI server-side processing
+    // Primary: Gemini Vision server-side processing
     try {
-      const res = await fetch("/api/face/search", {
+      const res = await fetch("/api/face/search-vision", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
-        body: JSON.stringify({
-          eventId,
-          imageBase64: imageDataUrl,
-          threshold: 0.4,
-          limit: 100,
-        }),
+        body: JSON.stringify({ imageBase64: imageDataUrl, eventId }),
       });
 
-      // Update status for Gemini step (approximate timing)
-      setTimeout(() => {
-        setStatusText("Step 2: Gemini Vision で精密マッチング中...");
-      }, 2000);
-
-      const data = await res.json();
-
-      // If server signals fallback required (CF AI not configured or failed), use face-api.js
-      if (!res.ok && data?.fallbackRequired) {
-        console.warn("[FaceSearch] CF AI unavailable, falling back to face-api.js");
+      // Fallback to face-api.js if Gemini API key is not configured
+      if (res.status === 503) {
+        console.warn("[FaceSearch] Gemini not configured, falling back to face-api.js");
         await processImageWithFaceApi(imageDataUrl);
         return;
       }
@@ -317,17 +305,27 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         return;
       }
 
-      const results = (data.results || []) as FaceSearchResult[];
-      const resultsWithPercent = results
-        .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
-        .sort((a, b) => b.similarity - a.similarity);
+      const data = await res.json();
+      const matchedPhotoIds: string[] = data.matchedPhotoIds || [];
+      const confidenceMap: Record<string, string> = data.confidenceMap || {};
 
-      setAllSearchResults(resultsWithPercent);
+      // Convert to FaceSearchResult format using confidence → similarity mapping
+      const results: FaceSearchResult[] = matchedPhotoIds.map((photoId) => {
+        const confidence = confidenceMap[photoId] || "medium";
+        const similarity = confidence === "high" ? 0.85 : 0.65;
+        return {
+          photoId,
+          faceId: photoId,
+          similarity,
+          matchPercent: Math.round(similarity * 100),
+        };
+      });
+
+      setAllSearchResults(results.sort((a, b) => b.similarity - a.similarity));
       setStep("results");
     } catch (err) {
-      console.error("[FaceSearch] Search API failed:", err);
-      setStep("error");
-      setStatusText("検索 API への接続に失敗しました。ネットワーク環境をご確認ください。");
+      console.error("[FaceSearch] search-vision failed, falling back to face-api.js:", err);
+      await processImageWithFaceApi(imageDataUrl);
     }
   };
 

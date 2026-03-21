@@ -17,7 +17,7 @@ import { PhotoData } from "@/lib/types";
  */
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const BATCH_SIZE = 10;
+const BATCH_SIZE = 5;
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -46,11 +46,16 @@ async function fetchPhotoAsBase64(url: string): Promise<{ base64: string; mimeTy
   }
 }
 
+interface MatchWithConfidence {
+  index: number;
+  confidence: "high" | "medium";
+}
+
 async function searchBatch(
   queryBase64: string,
   queryMimeType: string,
   batch: PhotoFetchResult[]
-): Promise<number[]> {
+): Promise<MatchWithConfidence[]> {
   const parts: Record<string, unknown>[] = [
     {
       text:
@@ -70,9 +75,12 @@ async function searchBatch(
 
   parts.push({
     text:
-      "上記イベント写真のうち、検索用写真と同一人物が写っているものの インデックス番号をJSONで返してください。" +
-      "顔の特徴（目・鼻・口・輪郭など）で判断し、子供の場合は笑顔・走っている・俯いているなど異なる表情・姿勢でも同一人物を特定してください。" +
-      "確信が低い場合も含めてください。必ずこの形式のJSONのみを返してください: {\"matches\": [0, 2, 5]}" +
+      "上記イベント写真のうち、検索用写真と同一人物が写っているものを探してください。" +
+      "年齢・性別・髪型・服装・顔の特徴（目・鼻・口・輪郭など）を総合的に判断してください。" +
+      "子供の場合は笑顔・走っている・俯いているなど異なる表情・姿勢でも同一人物を特定してください。" +
+      "各写真について確信度を high（ほぼ確実）または medium（おそらく同一）で評価してください。" +
+      "low（確信なし）の場合は返さないでください。" +
+      "必ずこの形式のJSONのみを返してください: {\"matches\": [{\"index\": 0, \"confidence\": \"high\"}, {\"index\": 2, \"confidence\": \"medium\"}]}" +
       "一致なしの場合: {\"matches\": []}",
   });
 
@@ -81,7 +89,7 @@ async function searchBatch(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts }],
-      generationConfig: { maxOutputTokens: 200, temperature: 0.1 },
+      generationConfig: { maxOutputTokens: 300, temperature: 0.1 },
     }),
     signal: AbortSignal.timeout(30000),
   });
@@ -98,7 +106,17 @@ async function searchBatch(
 
   try {
     const parsed = JSON.parse(jsonMatch[0]);
-    return Array.isArray(parsed.matches) ? (parsed.matches as number[]) : [];
+    if (!Array.isArray(parsed.matches)) return [];
+    return parsed.matches
+      .filter(
+        (m: unknown): m is MatchWithConfidence =>
+          typeof m === "object" &&
+          m !== null &&
+          "index" in m &&
+          "confidence" in m &&
+          ((m as MatchWithConfidence).confidence === "high" ||
+            (m as MatchWithConfidence).confidence === "medium")
+      );
   } catch {
     return [];
   }
@@ -164,6 +182,7 @@ export async function POST(req: NextRequest) {
 
   const photos = event.photos;
   const matchedPhotoIds: string[] = [];
+  const confidenceMap: Record<string, "high" | "medium"> = {};
 
   // Process photos in batches
   for (let i = 0; i < photos.length; i += BATCH_SIZE) {
@@ -188,17 +207,18 @@ export async function POST(req: NextRequest) {
     const validBatch = fetchResults.filter((r): r is PhotoFetchResult => r !== null);
     if (validBatch.length === 0) continue;
 
-    const matchedIndices = await searchBatch(queryBase64, queryMimeType, validBatch).catch(
-      () => []
+    const matches = await searchBatch(queryBase64, queryMimeType, validBatch).catch(
+      () => [] as MatchWithConfidence[]
     );
 
-    for (const idx of matchedIndices) {
-      const pd = validBatch.find((p) => p.index === idx);
+    for (const match of matches) {
+      const pd = validBatch.find((p) => p.index === match.index);
       if (pd && !matchedPhotoIds.includes(pd.photoId)) {
         matchedPhotoIds.push(pd.photoId);
+        confidenceMap[pd.photoId] = match.confidence;
       }
     }
   }
 
-  return NextResponse.json({ matchedPhotoIds });
+  return NextResponse.json({ matchedPhotoIds, confidenceMap });
 }
