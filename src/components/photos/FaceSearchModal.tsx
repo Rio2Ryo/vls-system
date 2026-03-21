@@ -281,7 +281,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
   const processImage = async (imageDataUrl: string) => {
     setStep("loading");
-    setStatusText("Gemini Vision で写真を比較中...");
+    setStatusText("AI Vision で写真を比較中...");
     setSearchingMore(false);
     setSearchProgress(null);
 
@@ -304,9 +304,9 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     try {
       const res = await callSearchVision(0, PAGE1_LIMIT);
 
-      // Fallback to face-api.js if Gemini API key is not configured
+      // Fallback to face-api.js if no Vision API key is configured
       if (res.status === 503) {
-        console.warn("[FaceSearch] Gemini not configured, falling back to face-api.js");
+        console.warn("[FaceSearch] No Vision API configured, falling back to face-api.js");
         await processImageWithFaceApi(imageDataUrl);
         return;
       }
@@ -360,7 +360,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         }
       }
     } catch (err) {
-      console.error("[FaceSearch] search-vision failed, falling back to face-api.js:", err);
+      console.error("[FaceSearch] Vision API failed, falling back to face-api.js:", err);
       await processImageWithFaceApi(imageDataUrl);
     }
   };

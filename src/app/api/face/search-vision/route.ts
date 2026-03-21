@@ -5,7 +5,7 @@ import { PhotoData } from "@/lib/types";
 /**
  * POST /api/face/search-vision
  *
- * High-accuracy face search using Gemini Vision API.
+ * High-accuracy face search using Dashscope Qwen Vision API (primary) with Gemini fallback.
  * Supports offset/limit pagination to avoid Vercel 60s timeout.
  *
  * Body:
@@ -20,11 +20,16 @@ import { PhotoData } from "@/lib/types";
 
 export const maxDuration = 60;
 
+const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || "";
+const DASHSCOPE_URL = "https://coding-intl.dashscope.aliyuncs.com/v1/chat/completions";
+const DASHSCOPE_MODEL = "qwen3.5-plus";
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const BATCH_SIZE = 5;
-const PARALLEL_BATCHES = 3; // concurrent Gemini requests per round
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+
+const BATCH_SIZE = 3;
+const PARALLEL_BATCHES = 2;
 
 interface EventData {
   id: string;
@@ -56,16 +61,97 @@ interface MatchWithConfidence {
   confidence: "high" | "medium";
 }
 
-async function searchBatch(
+const FACE_SEARCH_PROMPT =
+  "【検索用写真】に写っている人物と同一人物が写っているイベント写真を探してください。\n" +
+  "以下の点を総合的に判断してください：\n" +
+  "- 顔の特徴（目・鼻・口・輪郭・耳の形）\n" +
+  "- 髪型・髪色\n" +
+  "- 体格・年齢\n" +
+  "- 服装（同じイベント内では同じ服を着ている可能性が高い）\n" +
+  "子供の場合、表情が大きく異なっていても（笑顔・泣き顔・真剣な顔）同一人物を特定してください。\n" +
+  "確信度: high（ほぼ確実）/ medium（おそらく同一）で評価。\n" +
+  "low（確信なし）の場合は返さないでください。\n" +
+  "JSON形式で返してください: {\"matches\": [{\"index\": 0, \"confidence\": \"high\"}]}\n" +
+  "一致なしの場合: {\"matches\": []}";
+
+function parseMatchesFromText(text: string): MatchWithConfidence[] {
+  const jsonMatch = text.match(/\{[\s\S]*?\}/);
+  if (!jsonMatch) return [];
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed.matches)) return [];
+    return parsed.matches.filter(
+      (m: unknown): m is MatchWithConfidence =>
+        typeof m === "object" &&
+        m !== null &&
+        "index" in m &&
+        "confidence" in m &&
+        ((m as MatchWithConfidence).confidence === "high" ||
+          (m as MatchWithConfidence).confidence === "medium")
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function searchBatchDashscope(
+  queryBase64: string,
+  queryMimeType: string,
+  batch: PhotoFetchResult[]
+): Promise<MatchWithConfidence[]> {
+  const content: Record<string, unknown>[] = [
+    { type: "text", text: "【検索用写真（この人物を探しています）】" },
+    {
+      type: "image_url",
+      image_url: { url: `data:${queryMimeType};base64,${queryBase64}` },
+    },
+    {
+      type: "text",
+      text: `【イベント写真 ${batch.length}枚（インデックス0〜${batch.length - 1}）】`,
+    },
+  ];
+
+  for (const pd of batch) {
+    content.push({ type: "text", text: `写真インデックス ${pd.index}:` });
+    content.push({
+      type: "image_url",
+      image_url: { url: `data:${pd.mimeType};base64,${pd.base64}` },
+    });
+  }
+
+  content.push({ type: "text", text: FACE_SEARCH_PROMPT });
+
+  const res = await fetch(DASHSCOPE_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${DASHSCOPE_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: DASHSCOPE_MODEL,
+      messages: [{ role: "user", content }],
+      max_tokens: 200,
+      temperature: 0.1,
+    }),
+    signal: AbortSignal.timeout(45000),
+  });
+
+  if (!res.ok) {
+    console.error(`[search-vision] Dashscope error: ${res.status}`);
+    return [];
+  }
+
+  const data = await res.json();
+  const text: string = data.choices?.[0]?.message?.content || "";
+  return parseMatchesFromText(text);
+}
+
+async function searchBatchGemini(
   queryBase64: string,
   queryMimeType: string,
   batch: PhotoFetchResult[]
 ): Promise<MatchWithConfidence[]> {
   const parts: Record<string, unknown>[] = [
-    {
-      text:
-        "以下の【検索用写真】に写っている人物と同一人物が写っている写真を【イベント写真】から探してください。",
-    },
     { text: "【検索用写真（この人物を探しています）】" },
     { inlineData: { mimeType: queryMimeType, data: queryBase64 } },
     {
@@ -78,16 +164,7 @@ async function searchBatch(
     parts.push({ inlineData: { mimeType: pd.mimeType, data: pd.base64 } });
   }
 
-  parts.push({
-    text:
-      "上記イベント写真のうち、検索用写真と同一人物が写っているものを探してください。" +
-      "年齢・性別・髪型・服装・顔の特徴（目・鼻・口・輪郭など）を総合的に判断してください。" +
-      "子供の場合は笑顔・走っている・俯いているなど異なる表情・姿勢でも同一人物を特定してください。" +
-      "各写真について確信度を high（ほぼ確実）または medium（おそらく同一）で評価してください。" +
-      "low（確信なし）の場合は返さないでください。" +
-      "必ずこの形式のJSONのみを返してください: {\"matches\": [{\"index\": 0, \"confidence\": \"high\"}, {\"index\": 2, \"confidence\": \"medium\"}]}" +
-      "一致なしの場合: {\"matches\": []}",
-  });
+  parts.push({ text: FACE_SEARCH_PROMPT });
 
   const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
     method: "POST",
@@ -106,25 +183,33 @@ async function searchBatch(
 
   const data = await res.json();
   const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const jsonMatch = text.match(/\{[\s\S]*?\}/);
-  if (!jsonMatch) return [];
+  return parseMatchesFromText(text);
+}
 
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(parsed.matches)) return [];
-    return parsed.matches
-      .filter(
-        (m: unknown): m is MatchWithConfidence =>
-          typeof m === "object" &&
-          m !== null &&
-          "index" in m &&
-          "confidence" in m &&
-          ((m as MatchWithConfidence).confidence === "high" ||
-            (m as MatchWithConfidence).confidence === "medium")
-      );
-  } catch {
-    return [];
+async function searchBatch(
+  queryBase64: string,
+  queryMimeType: string,
+  batch: PhotoFetchResult[]
+): Promise<MatchWithConfidence[]> {
+  // Primary: Dashscope Qwen Vision
+  if (DASHSCOPE_API_KEY) {
+    try {
+      return await searchBatchDashscope(queryBase64, queryMimeType, batch);
+    } catch (err) {
+      console.warn("[search-vision] Dashscope failed, falling back to Gemini:", err);
+    }
   }
+
+  // Fallback: Gemini Vision
+  if (GEMINI_API_KEY) {
+    try {
+      return await searchBatchGemini(queryBase64, queryMimeType, batch);
+    } catch (err) {
+      console.warn("[search-vision] Gemini also failed:", err);
+    }
+  }
+
+  return [];
 }
 
 function resolvePhotoUrl(url: string, reqUrl: string): string {
@@ -157,9 +242,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!GEMINI_API_KEY) {
+  if (!DASHSCOPE_API_KEY && !GEMINI_API_KEY) {
     return NextResponse.json(
-      { error: "GEMINI_API_KEY not configured" },
+      { error: "No Vision API key configured (DASHSCOPE_API_KEY or GEMINI_API_KEY required)" },
       { status: 503 }
     );
   }
@@ -203,6 +288,11 @@ export async function POST(req: NextRequest) {
   // Apply pagination
   const pagePhotos = allPhotos.slice(offset, offset + limit);
 
+  console.log(
+    `[search-vision] Processing ${pagePhotos.length} photos (offset=${offset}, limit=${limit}), ` +
+    `provider=${DASHSCOPE_API_KEY ? "dashscope" : "gemini"}`
+  );
+
   const matchedPhotoIds: string[] = [];
   const confidenceMap: Record<string, "high" | "medium"> = {};
 
@@ -216,13 +306,11 @@ export async function POST(req: NextRequest) {
   for (let roundStart = 0; roundStart < batches.length; roundStart += PARALLEL_BATCHES) {
     const roundBatches = batches.slice(roundStart, roundStart + PARALLEL_BATCHES);
 
-    // For each batch in this round, fetch photos and call Gemini in parallel
     const roundResults = await Promise.allSettled(
       roundBatches.map(async (batchPhotos, batchIdx) => {
         const globalBatchIdx = roundStart + batchIdx;
         const globalOffset = globalBatchIdx * BATCH_SIZE;
 
-        // Fetch all photos in this batch in parallel
         const fetchResults = await Promise.allSettled(
           batchPhotos.map(async (photo, localIdx) => {
             const rawUrl = photo.originalUrl || photo.thumbnailUrl;
@@ -257,7 +345,6 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // Collect results from all parallel batches in this round
     for (const roundResult of roundResults) {
       if (roundResult.status !== "fulfilled") continue;
       for (const item of roundResult.value) {
@@ -270,5 +357,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ matchedPhotoIds, confidenceMap, total });
+  const debugInfo =
+    process.env.NODE_ENV === "development"
+      ? {
+          photosProcessed: pagePhotos.length,
+          batchesCount: batches.length,
+          provider: DASHSCOPE_API_KEY ? "dashscope" : "gemini",
+        }
+      : undefined;
+
+  return NextResponse.json({ matchedPhotoIds, confidenceMap, total, debug: debugInfo });
 }
