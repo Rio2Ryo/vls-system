@@ -122,6 +122,17 @@ async function searchBatch(
   }
 }
 
+function resolvePhotoUrl(url: string, reqUrl: string): string {
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  // Relative URL - resolve against request origin
+  try {
+    const origin = new URL(reqUrl).origin;
+    return `${origin}${url.startsWith("/") ? url : `/${url}`}`;
+  } catch {
+    return url;
+  }
+}
+
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
@@ -191,8 +202,9 @@ export async function POST(req: NextRequest) {
     // Fetch each photo in parallel
     const fetchResults = await Promise.all(
       batchPhotos.map(async (photo, batchIdx) => {
-        const url = photo.originalUrl || photo.thumbnailUrl;
-        if (!url) return null;
+        const rawUrl = photo.originalUrl || photo.thumbnailUrl;
+        if (!rawUrl) return null;
+        const url = resolvePhotoUrl(rawUrl, req.url);
         const result = await fetchPhotoAsBase64(url);
         if (!result) return null;
         return {
