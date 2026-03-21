@@ -6,18 +6,23 @@ import { PhotoData } from "@/lib/types";
  * POST /api/face/search-vision
  *
  * High-accuracy face search using Gemini Vision API.
- * Replaces face-api.js 128-dim descriptor matching with full visual comparison.
+ * Supports offset/limit pagination to avoid Vercel 60s timeout.
  *
  * Body:
  *   imageBase64: string  — data URL or raw base64 of query face photo
  *   eventId:     string  — target event ID
+ *   offset?:     number  — photo slice start (default 0)
+ *   limit?:      number  — max photos to process (default 150)
  *
  * Returns:
- *   { matchedPhotoIds: string[] }
+ *   { matchedPhotoIds: string[], confidenceMap: Record<string, "high"|"medium">, total: number }
  */
+
+export const maxDuration = 60;
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BATCH_SIZE = 5;
+const PARALLEL_BATCHES = 3; // concurrent Gemini requests per round
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -124,7 +129,6 @@ async function searchBatch(
 
 function resolvePhotoUrl(url: string, reqUrl: string): string {
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  // Relative URL - resolve against request origin
   try {
     const origin = new URL(reqUrl).origin;
     return `${origin}${url.startsWith("/") ? url : `/${url}`}`;
@@ -143,6 +147,8 @@ export async function POST(req: NextRequest) {
 
   const imageBase64 = body.imageBase64 as string | undefined;
   const eventId = body.eventId as string | undefined;
+  const offset = typeof body.offset === "number" ? body.offset : 0;
+  const limit = typeof body.limit === "number" ? body.limit : 150;
 
   if (!imageBase64 || !eventId) {
     return NextResponse.json(
@@ -176,61 +182,93 @@ export async function POST(req: NextRequest) {
   // Fetch photos for the event from D1
   const eventsJson = await d1Get("vls_admin_events").catch(() => null);
   if (!eventsJson) {
-    return NextResponse.json({ matchedPhotoIds: [] });
+    return NextResponse.json({ matchedPhotoIds: [], confidenceMap: {}, total: 0 });
   }
 
   let events: EventData[];
   try {
     events = JSON.parse(eventsJson) as EventData[];
   } catch {
-    return NextResponse.json({ matchedPhotoIds: [] });
+    return NextResponse.json({ matchedPhotoIds: [], confidenceMap: {}, total: 0 });
   }
 
   const event = events.find((e) => e.id === eventId);
   if (!event || !Array.isArray(event.photos) || event.photos.length === 0) {
-    return NextResponse.json({ matchedPhotoIds: [] });
+    return NextResponse.json({ matchedPhotoIds: [], confidenceMap: {}, total: 0 });
   }
 
-  const photos = event.photos;
+  const allPhotos = event.photos;
+  const total = allPhotos.length;
+
+  // Apply pagination
+  const pagePhotos = allPhotos.slice(offset, offset + limit);
+
   const matchedPhotoIds: string[] = [];
   const confidenceMap: Record<string, "high" | "medium"> = {};
 
-  // Process photos in batches
-  for (let i = 0; i < photos.length; i += BATCH_SIZE) {
-    const batchPhotos = photos.slice(i, i + BATCH_SIZE);
+  // Build all batches
+  const batches: PhotoData[][] = [];
+  for (let i = 0; i < pagePhotos.length; i += BATCH_SIZE) {
+    batches.push(pagePhotos.slice(i, i + BATCH_SIZE));
+  }
 
-    // Fetch each photo in parallel
-    const fetchResults = await Promise.all(
-      batchPhotos.map(async (photo, batchIdx) => {
-        const rawUrl = photo.originalUrl || photo.thumbnailUrl;
-        if (!rawUrl) return null;
-        const url = resolvePhotoUrl(rawUrl, req.url);
-        const result = await fetchPhotoAsBase64(url);
-        if (!result) return null;
-        return {
-          photoId: photo.id,
-          base64: result.base64,
-          mimeType: result.mimeType,
-          index: batchIdx,
-        } satisfies PhotoFetchResult;
+  // Process batches in parallel rounds (PARALLEL_BATCHES at a time)
+  for (let roundStart = 0; roundStart < batches.length; roundStart += PARALLEL_BATCHES) {
+    const roundBatches = batches.slice(roundStart, roundStart + PARALLEL_BATCHES);
+
+    // For each batch in this round, fetch photos and call Gemini in parallel
+    const roundResults = await Promise.allSettled(
+      roundBatches.map(async (batchPhotos, batchIdx) => {
+        const globalBatchIdx = roundStart + batchIdx;
+        const globalOffset = globalBatchIdx * BATCH_SIZE;
+
+        // Fetch all photos in this batch in parallel
+        const fetchResults = await Promise.allSettled(
+          batchPhotos.map(async (photo, localIdx) => {
+            const rawUrl = photo.originalUrl || photo.thumbnailUrl;
+            if (!rawUrl) return null;
+            const url = resolvePhotoUrl(rawUrl, req.url);
+            const result = await fetchPhotoAsBase64(url);
+            if (!result) return null;
+            return {
+              photoId: photo.id,
+              base64: result.base64,
+              mimeType: result.mimeType,
+              index: localIdx,
+            } satisfies PhotoFetchResult;
+          })
+        );
+
+        const validBatch = fetchResults
+          .map((r) => (r.status === "fulfilled" ? r.value : null))
+          .filter((r): r is PhotoFetchResult => r !== null);
+
+        if (validBatch.length === 0) return [];
+
+        const matches = await searchBatch(queryBase64, queryMimeType, validBatch).catch(
+          () => [] as MatchWithConfidence[]
+        );
+
+        return matches.map((m) => ({
+          match: m,
+          photo: validBatch.find((p) => p.index === m.index) ?? null,
+          _offset: globalOffset,
+        }));
       })
     );
 
-    const validBatch = fetchResults.filter((r): r is PhotoFetchResult => r !== null);
-    if (validBatch.length === 0) continue;
-
-    const matches = await searchBatch(queryBase64, queryMimeType, validBatch).catch(
-      () => [] as MatchWithConfidence[]
-    );
-
-    for (const match of matches) {
-      const pd = validBatch.find((p) => p.index === match.index);
-      if (pd && !matchedPhotoIds.includes(pd.photoId)) {
-        matchedPhotoIds.push(pd.photoId);
-        confidenceMap[pd.photoId] = match.confidence;
+    // Collect results from all parallel batches in this round
+    for (const roundResult of roundResults) {
+      if (roundResult.status !== "fulfilled") continue;
+      for (const item of roundResult.value) {
+        if (!item.photo) continue;
+        if (!matchedPhotoIds.includes(item.photo.photoId)) {
+          matchedPhotoIds.push(item.photo.photoId);
+          confidenceMap[item.photo.photoId] = item.match.confidence;
+        }
       }
     }
   }
 
-  return NextResponse.json({ matchedPhotoIds, confidenceMap });
+  return NextResponse.json({ matchedPhotoIds, confidenceMap, total });
 }

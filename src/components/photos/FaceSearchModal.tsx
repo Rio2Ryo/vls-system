@@ -181,6 +181,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const [currentFaceBbox, setCurrentFaceBbox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [allSearchResults, setAllSearchResults] = useState<FaceSearchResult[]>([]);
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
+  const [searchingMore, setSearchingMore] = useState(false);
+  const [searchProgress, setSearchProgress] = useState<{ done: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -229,6 +231,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       setShowPhotoPreview(false);
       setCurrentPhotoIndex(0);
       setThreshold(DEFAULT_THRESHOLD);
+      setSearchingMore(false);
+      setSearchProgress(null);
     }
   }, [open, stopCamera]);
 
@@ -278,19 +282,27 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const processImage = async (imageDataUrl: string) => {
     setStep("loading");
     setStatusText("Gemini Vision で写真を比較中...");
+    setSearchingMore(false);
+    setSearchProgress(null);
 
     const csrfToken = getCsrfToken();
+    const PAGE1_LIMIT = 150;
 
-    // Primary: Gemini Vision server-side processing
-    try {
+    const callSearchVision = async (offset: number, limit: number) => {
       const res = await fetch("/api/face/search-vision", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
-        body: JSON.stringify({ imageBase64: imageDataUrl, eventId }),
+        body: JSON.stringify({ imageBase64: imageDataUrl, eventId, offset, limit }),
       });
+      return res;
+    };
+
+    // Primary: Gemini Vision server-side processing (page 1)
+    try {
+      const res = await callSearchVision(0, PAGE1_LIMIT);
 
       // Fallback to face-api.js if Gemini API key is not configured
       if (res.status === 503) {
@@ -308,21 +320,45 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       const data = await res.json();
       const matchedPhotoIds: string[] = data.matchedPhotoIds || [];
       const confidenceMap: Record<string, string> = data.confidenceMap || {};
+      const total: number = data.total || 0;
 
-      // Convert to FaceSearchResult format using confidence → similarity mapping
-      const results: FaceSearchResult[] = matchedPhotoIds.map((photoId) => {
-        const confidence = confidenceMap[photoId] || "medium";
-        const similarity = confidence === "high" ? 0.85 : 0.65;
-        return {
-          photoId,
-          faceId: photoId,
-          similarity,
-          matchPercent: Math.round(similarity * 100),
-        };
-      });
+      const toResults = (ids: string[], cmap: Record<string, string>): FaceSearchResult[] =>
+        ids.map((photoId) => {
+          const confidence = cmap[photoId] || "medium";
+          const similarity = confidence === "high" ? 0.85 : 0.65;
+          return { photoId, faceId: photoId, similarity, matchPercent: Math.round(similarity * 100) };
+        });
 
-      setAllSearchResults(results.sort((a, b) => b.similarity - a.similarity));
+      const page1Results = toResults(matchedPhotoIds, confidenceMap);
+      setAllSearchResults(page1Results.sort((a, b) => b.similarity - a.similarity));
       setStep("results");
+
+      // If there are more photos beyond page 1, fetch them in the background
+      if (total > PAGE1_LIMIT) {
+        setSearchingMore(true);
+        setSearchProgress({ done: PAGE1_LIMIT, total });
+
+        try {
+          const res2 = await callSearchVision(PAGE1_LIMIT, total - PAGE1_LIMIT);
+          if (res2.ok) {
+            const data2 = await res2.json();
+            const ids2: string[] = data2.matchedPhotoIds || [];
+            const cmap2: Record<string, string> = data2.confidenceMap || {};
+            const page2Results = toResults(ids2, cmap2);
+
+            setAllSearchResults((prev) => {
+              const seen = new Set(prev.map((r) => r.photoId));
+              const merged = [...prev, ...page2Results.filter((r) => !seen.has(r.photoId))];
+              return merged.sort((a, b) => b.similarity - a.similarity);
+            });
+          }
+        } catch (err) {
+          console.warn("[FaceSearch] page2 search failed:", err);
+        } finally {
+          setSearchingMore(false);
+          setSearchProgress(null);
+        }
+      }
     } catch (err) {
       console.error("[FaceSearch] search-vision failed, falling back to face-api.js:", err);
       await processImageWithFaceApi(imageDataUrl);
@@ -622,6 +658,14 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                     </p>
                   </div>
                 </div>
+
+                {/* Background search progress */}
+                {searchingMore && searchProgress && (
+                  <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+                    <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <span>さらに検索中... ({searchProgress.done}/{searchProgress.total}枚)</span>
+                  </div>
+                )}
 
                 {/* Threshold slider (real-time filter) */}
                 <div className="bg-gray-50 rounded-xl p-3 space-y-2">
