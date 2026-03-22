@@ -147,11 +147,17 @@ async function searchBatchDashscope(
   return parseMatchesFromText(text);
 }
 
+type SearchBatchResult = {
+  matches: MatchWithConfidence[];
+  provider: "gemini" | "dashscope" | "none";
+  debug?: string;
+};
+
 async function searchBatchGemini(
   queryBase64: string,
   queryMimeType: string,
   batch: PhotoFetchResult[]
-): Promise<MatchWithConfidence[]> {
+): Promise<SearchBatchResult> {
   const parts: Record<string, unknown>[] = [
     { text: "【検索用写真（この人物を探しています）】" },
     { inlineData: { mimeType: queryMimeType, data: queryBase64 } },
@@ -178,24 +184,28 @@ async function searchBatchGemini(
   });
 
   if (!res.ok) {
-    console.error(`[search-vision] Gemini error: ${res.status}`);
-    return [];
+    const bodyText = await res.text().catch(() => "");
+    const debug = `Gemini error ${res.status}: ${bodyText.slice(0, 500)}`;
+    console.error(`[search-vision] ${debug}`);
+    return { matches: [], provider: "gemini", debug };
   }
 
   const data = await res.json();
   const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  return parseMatchesFromText(text);
+  return { matches: parseMatchesFromText(text), provider: "gemini" };
 }
 
 async function searchBatch(
   queryBase64: string,
   queryMimeType: string,
   batch: PhotoFetchResult[]
-): Promise<MatchWithConfidence[]> {
+): Promise<SearchBatchResult> {
   // Primary: Gemini Vision (faster in Vercel environment)
   if (GEMINI_API_KEY) {
     try {
-      return await searchBatchGemini(queryBase64, queryMimeType, batch);
+      const result = await searchBatchGemini(queryBase64, queryMimeType, batch);
+      if (result.matches.length > 0 || !DASHSCOPE_API_KEY) return result;
+      console.warn("[search-vision] Gemini returned no matches/debug, falling back to Dashscope:", result.debug || "no-debug");
     } catch (err) {
       console.warn("[search-vision] Gemini failed, falling back to Dashscope:", err);
     }
@@ -204,13 +214,15 @@ async function searchBatch(
   // Fallback: Dashscope Qwen Vision
   if (DASHSCOPE_API_KEY) {
     try {
-      return await searchBatchDashscope(queryBase64, queryMimeType, batch);
+      const matches = await searchBatchDashscope(queryBase64, queryMimeType, batch);
+      return { matches, provider: "dashscope" };
     } catch (err) {
       console.warn("[search-vision] Dashscope also failed:", err);
+      return { matches: [], provider: "dashscope", debug: String(err) };
     }
   }
 
-  return [];
+  return { matches: [], provider: "none", debug: "No provider available" };
 }
 
 function resolvePhotoUrl(url: string, reqUrl: string): string {
@@ -290,11 +302,11 @@ export async function POST(req: NextRequest) {
       `provider=${DASHSCOPE_API_KEY ? "dashscope" : "gemini"}`
     );
 
-    const matches = await searchBatch(queryBase64, queryMimeType, batchPhotos).catch(
-      () => [] as MatchWithConfidence[]
+    const batchResult = await searchBatch(queryBase64, queryMimeType, batchPhotos).catch(
+      (err) => ({ matches: [], provider: "none", debug: String(err) } as SearchBatchResult)
     );
 
-    for (const m of matches) {
+    for (const m of batchResult.matches) {
       const photo = batchPhotos.find((p) => p.index === m.index);
       if (!photo) continue;
       if (!matchedPhotoIds.includes(photo.photoId)) {
@@ -307,8 +319,9 @@ export async function POST(req: NextRequest) {
       matchedPhotoIds,
       confidenceMap,
       total: batchPhotos.length,
-      provider: GEMINI_API_KEY ? "gemini" : "dashscope",
+      provider: batchResult.provider,
       photosProcessed: batchPhotos.length,
+      debug: batchResult.debug,
     });
   }
 
@@ -378,11 +391,11 @@ export async function POST(req: NextRequest) {
 
         if (validBatch.length === 0) return [];
 
-        const matches = await searchBatch(queryBase64, queryMimeType, validBatch).catch(
-          () => [] as MatchWithConfidence[]
+        const batchResult = await searchBatch(queryBase64, queryMimeType, validBatch).catch(
+          (err) => ({ matches: [], provider: "none", debug: String(err) } as SearchBatchResult)
         );
 
-        return matches.map((m) => ({
+        return batchResult.matches.map((m) => ({
           match: m,
           photo: validBatch.find((p) => p.index === m.index) ?? null,
           _offset: globalOffset,
