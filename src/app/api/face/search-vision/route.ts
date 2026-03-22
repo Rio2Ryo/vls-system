@@ -180,7 +180,7 @@ async function searchBatchGemini(
       contents: [{ parts }],
       generationConfig: { maxOutputTokens: 300, temperature: 0.1 },
     }),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(55000),
   });
 
   if (!res.ok) {
