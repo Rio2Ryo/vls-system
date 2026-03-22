@@ -25,6 +25,7 @@ interface Props {
 }
 
 type Step = "select" | "loading" | "results" | "error";
+type SearchMode = "recommended" | "strict" | "broad";
 
 const MAX_RESULTS = 12;
 const DEFAULT_THRESHOLD = 0.6;
@@ -181,6 +182,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const [currentFaceBbox, setCurrentFaceBbox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [allSearchResults, setAllSearchResults] = useState<FaceSearchResult[]>([]);
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
+  const [searchMode, setSearchMode] = useState<SearchMode>("recommended");
+  const [isVisionMode, setIsVisionMode] = useState(true);
   const [searchingMore, setSearchingMore] = useState(false);
   const [searchProgress, setSearchProgress] = useState<{ done: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -195,11 +198,14 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   }, []);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Filter and sort results based on current threshold, deduplicate by photoId, limit to MAX_RESULTS
+  // Filter and sort results, deduplicate by photoId, limit to MAX_RESULTS
   const filteredResults = useMemo(() => {
     const seen = new Set<string>();
+    const minSimilarity = isVisionMode
+      ? searchMode === "strict" ? 0.7 : searchMode === "broad" ? 0 : 0.6
+      : threshold;
     return allSearchResults
-      .filter((r) => r.similarity >= threshold)
+      .filter((r) => r.similarity >= minSimilarity)
       .sort((a, b) => b.similarity - a.similarity)
       .filter((r) => {
         if (seen.has(r.photoId)) return false;
@@ -207,7 +213,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         return true;
       })
       .slice(0, MAX_RESULTS);
-  }, [allSearchResults, threshold]);
+  }, [allSearchResults, threshold, searchMode, isVisionMode]);
 
   const matchPhotos = useMemo(() => filteredResults.map((r) => r.photoId), [filteredResults]);
 
@@ -231,6 +237,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       setShowPhotoPreview(false);
       setCurrentPhotoIndex(0);
       setThreshold(DEFAULT_THRESHOLD);
+      setSearchMode("recommended");
+      setIsVisionMode(true);
       setSearchingMore(false);
       setSearchProgress(null);
     }
@@ -330,6 +338,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         });
 
       const page1Results = toResults(matchedPhotoIds, confidenceMap);
+      setIsVisionMode(true);
       setAllSearchResults(page1Results.sort((a, b) => b.similarity - a.similarity));
       setStep("results");
 
@@ -367,6 +376,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
   // Fallback: face-api.js client-side processing (used when CF AI is unavailable)
   const processImageWithFaceApi = async (imageDataUrl: string) => {
+    setIsVisionMode(false);
     setStatusText("AIモデルを読み込み中...");
 
     const csrfToken = getCsrfToken();
@@ -559,27 +569,44 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                   </button>
                 </div>
 
-                {/* Threshold slider */}
-                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-600">一致度の閾値</span>
-                    <span className="text-xs font-bold text-gray-800">{Math.round(threshold * 100)}%</span>
+                {/* Search mode selector (Vision API) / threshold slider (face-api fallback) */}
+                {isVisionMode ? (
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                    <span className="text-xs font-medium text-gray-600">検索モード</span>
+                    <select
+                      value={searchMode}
+                      onChange={(e) => setSearchMode(e.target.value as SearchMode)}
+                      className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#6EC6FF]"
+                      aria-label="検索モード"
+                    >
+                      <option value="recommended">🎯 おすすめ（デフォルト）</option>
+                      <option value="strict">🔍 厳密</option>
+                      <option value="broad">📸 幅広く</option>
+                    </select>
+                    <p className="text-xs text-gray-400">AIが顔の特徴を分析して自動判定します</p>
                   </div>
-                  <input
-                    type="range"
-                    min={0.4}
-                    max={0.9}
-                    step={0.05}
-                    value={threshold}
-                    onChange={(e) => setThreshold(Number(e.target.value))}
-                    className="w-full accent-[#6EC6FF]"
-                    aria-label="一致度の閾値"
-                  />
-                  <div className="flex justify-between text-xs text-gray-400">
-                    <span>40%（緩い）</span>
-                    <span>90%（厳しい）</span>
+                ) : (
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-600">一致度の閾値</span>
+                      <span className="text-xs font-bold text-gray-800">{Math.round(threshold * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.4}
+                      max={0.9}
+                      step={0.05}
+                      value={threshold}
+                      onChange={(e) => setThreshold(Number(e.target.value))}
+                      className="w-full accent-[#6EC6FF]"
+                      aria-label="一致度の閾値"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <span>40%（緩い）</span>
+                      <span>90%（厳しい）</span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <input
                   ref={fileInputRef}
@@ -667,28 +694,48 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                   </div>
                 )}
 
-                {/* Threshold slider (real-time filter) */}
-                <div className="bg-gray-50 rounded-xl p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-600">一致度の閾値（リアルタイム）</span>
-                    <span className="text-xs font-bold text-gray-800">{Math.round(threshold * 100)}%</span>
+                {/* Search mode / threshold filter */}
+                {isVisionMode ? (
+                  <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                    <span className="text-xs font-medium text-gray-600">検索モード</span>
+                    <select
+                      value={searchMode}
+                      onChange={(e) => setSearchMode(e.target.value as SearchMode)}
+                      className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#6EC6FF]"
+                      aria-label="検索モード"
+                    >
+                      <option value="recommended">🎯 おすすめ（高一致＋中一致）</option>
+                      <option value="strict">🔍 厳密（高一致のみ）</option>
+                      <option value="broad">📸 幅広く（低確信も含む）</option>
+                    </select>
+                    <div className="flex gap-2 text-xs">
+                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">高一致</span>
+                      <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">中一致</span>
+                    </div>
                   </div>
-                  <input
-                    type="range"
-                    min={0.4}
-                    max={0.9}
-                    step={0.05}
-                    value={threshold}
-                    onChange={(e) => setThreshold(Number(e.target.value))}
-                    className="w-full accent-[#6EC6FF]"
-                    aria-label="一致度の閾値"
-                  />
-                  <div className="flex gap-2 text-xs">
-                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">70%以上: 高一致</span>
-                    <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">60〜70%: 中一致</span>
-                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">〜60%: 低一致</span>
+                ) : (
+                  <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-600">一致度の閾値（リアルタイム）</span>
+                      <span className="text-xs font-bold text-gray-800">{Math.round(threshold * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.4}
+                      max={0.9}
+                      step={0.05}
+                      value={threshold}
+                      onChange={(e) => setThreshold(Number(e.target.value))}
+                      className="w-full accent-[#6EC6FF]"
+                      aria-label="一致度の閾値"
+                    />
+                    <div className="flex gap-2 text-xs">
+                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">70%以上: 高一致</span>
+                      <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">60〜70%: 中一致</span>
+                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">〜60%: 低一致</span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Photo grid with score badges */}
                 {filteredResults.length > 0 && (
@@ -724,7 +771,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
                 {matchPhotos.length === 0 && (
                   <p className="text-center text-sm text-gray-400 py-4">
-                    閾値を下げると結果が増えます
+                    {isVisionMode ? "「幅広く」モードに変更すると結果が増えることがあります" : "閾値を下げると結果が増えます"}
                   </p>
                 )}
 
