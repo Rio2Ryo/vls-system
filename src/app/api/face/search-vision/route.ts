@@ -95,6 +95,7 @@ function parseMatchesFromText(text: string): MatchWithConfidence[] {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function searchBatchDashscope(
   queryBase64: string,
   queryMimeType: string,

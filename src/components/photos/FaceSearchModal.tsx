@@ -53,23 +53,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-async function resizeImage(url: string, maxSize = 800): Promise<string> {
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = reject;
-    img.src = url;
-  });
-  const canvas = document.createElement("canvas");
-  const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
-  canvas.width = Math.round(img.width * scale);
-  canvas.height = Math.round(img.height * scale);
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/jpeg", 0.8);
-}
-
 function extractFaceThumbnail(imageUrl: string, bbox: { x: number; y: number; width: number; height: number }): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -307,172 +290,12 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
   const processImage = async (imageDataUrl: string) => {
     setStep("loading");
-    setStatusText("AI Vision で写真を比較中...");
+    setStatusText("顔を解析して高速検索中...");
     setSearchingMore(false);
     setSearchProgress(null);
     stopSearchRef.current = false;
 
-    const csrfToken = getCsrfToken();
-    const BATCH_SIZE = 1; // 1 photo per request to stay within Vercel 60s limit
-
-    const toResults = (ids: string[], cmap: Record<string, string>): FaceSearchResult[] =>
-      ids.map((photoId) => {
-        const confidence = cmap[photoId] || "medium";
-        const similarity = confidence === "high" ? 0.85 : 0.65;
-        return { photoId, faceId: photoId, similarity, matchPercent: Math.round(similarity * 100) };
-      });
-
-    // Client-side path: fetch + resize photos in browser, send as base64 to server
-    if (allPhotos.length > 0) {
-      const total = allPhotos.length;
-      setSearchProgress({ done: 0, total });
-
-      // Show results step early so user sees progress
-      setIsVisionMode(true);
-      setAllSearchResults([]);
-      setStep("results");
-      setSearchingMore(true);
-
-      let done = 0;
-      for (let i = 0; i < total && !stopSearchRef.current; i += BATCH_SIZE) {
-        const batchPhotos = allPhotos.slice(i, i + BATCH_SIZE);
-
-        // Resize photos client-side (800px max, JPEG 80%)
-        const photoEntries = (
-          await Promise.all(
-            batchPhotos.map(async (photo) => {
-              const url = photo.originalUrl || photo.url || photo.thumbnailUrl;
-              if (!url) return null;
-              try {
-                const base64 = await resizeImage(url);
-                return { id: photo.id, base64 };
-              } catch {
-                return null;
-              }
-            })
-          )
-        ).filter((e): e is { id: string; base64: string } => e !== null);
-
-        if (photoEntries.length === 0) {
-          done += batchPhotos.length;
-          setSearchProgress({ done: Math.min(done, total), total });
-          continue;
-        }
-
-        try {
-          const res = await fetch("/api/face/search-vision", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-            },
-            body: JSON.stringify({ imageBase64: imageDataUrl, eventId, photoEntries }),
-          });
-
-          if (res.status === 503) {
-            // No Vision API key — fall back to face-api.js
-            console.warn("[FaceSearch] No Vision API configured, falling back to face-api.js");
-            setSearchingMore(false);
-            setSearchProgress(null);
-            await processImageWithFaceApi(imageDataUrl);
-            return;
-          }
-
-          if (res.ok) {
-            const data = await res.json();
-            const ids: string[] = data.matchedPhotoIds || [];
-            const cmap: Record<string, string> = data.confidenceMap || {};
-            const pageResults = toResults(ids, cmap);
-            setAllSearchResults((prev) => {
-              const seen = new Set(prev.map((r) => r.photoId));
-              const merged = [...prev, ...pageResults.filter((r) => !seen.has(r.photoId))];
-              return merged.sort((a, b) => b.similarity - a.similarity);
-            });
-          }
-        } catch (err) {
-          console.warn(`[FaceSearch] batch i=${i} failed:`, err);
-        }
-
-        done += batchPhotos.length;
-        setSearchProgress({ done: Math.min(done, total), total });
-      }
-
-      setSearchingMore(false);
-      setSearchProgress(null);
-      return;
-    }
-
-    // Fallback path: server-side photo fetching (when allPhotos not available)
-    const PAGE_LIMIT = 9;
-    const callSearchVision = async (offset: number, limit: number) => {
-      return fetch("/api/face/search-vision", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ imageBase64: imageDataUrl, eventId, offset, limit }),
-      });
-    };
-
-    try {
-      const res = await callSearchVision(0, PAGE_LIMIT);
-
-      if (res.status === 503) {
-        console.warn("[FaceSearch] No Vision API configured, falling back to face-api.js");
-        await processImageWithFaceApi(imageDataUrl);
-        return;
-      }
-
-      if (!res.ok) {
-        setStep("error");
-        setStatusText(`検索 API エラー: ${res.status}`);
-        return;
-      }
-
-      const data = await res.json();
-      const matchedPhotoIds: string[] = data.matchedPhotoIds || [];
-      const confidenceMap: Record<string, string> = data.confidenceMap || {};
-      const total: number = data.total || 0;
-
-      const page1Results = toResults(matchedPhotoIds, confidenceMap);
-      setIsVisionMode(true);
-      setAllSearchResults(page1Results.sort((a, b) => b.similarity - a.similarity));
-      setStep("results");
-
-      if (total <= PAGE_LIMIT || stopSearchRef.current) return;
-
-      setSearchingMore(true);
-      setSearchProgress({ done: PAGE_LIMIT, total });
-
-      let offset = PAGE_LIMIT;
-      while (offset < total && !stopSearchRef.current) {
-        try {
-          const res2 = await callSearchVision(offset, PAGE_LIMIT);
-          if (res2.ok) {
-            const data2 = await res2.json();
-            const ids2: string[] = data2.matchedPhotoIds || [];
-            const cmap2: Record<string, string> = data2.confidenceMap || {};
-            const pageResults = toResults(ids2, cmap2);
-            setAllSearchResults((prev) => {
-              const seen = new Set(prev.map((r) => r.photoId));
-              const merged = [...prev, ...pageResults.filter((r) => !seen.has(r.photoId))];
-              return merged.sort((a, b) => b.similarity - a.similarity);
-            });
-          }
-        } catch (err) {
-          console.warn(`[FaceSearch] page offset=${offset} failed:`, err);
-        }
-        offset += PAGE_LIMIT;
-        setSearchProgress({ done: Math.min(offset, total), total });
-      }
-    } catch (err) {
-      console.error("[FaceSearch] Vision API failed, falling back to face-api.js:", err);
-      await processImageWithFaceApi(imageDataUrl);
-    } finally {
-      setSearchingMore(false);
-      setSearchProgress(null);
-    }
+    await processImageWithFaceApi(imageDataUrl);
   };
 
   // Fallback: face-api.js client-side processing (used when CF AI is unavailable)
