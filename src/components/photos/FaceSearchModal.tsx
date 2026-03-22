@@ -313,7 +313,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     stopSearchRef.current = false;
 
     const csrfToken = getCsrfToken();
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = 1; // 1 photo per request to stay within Vercel 60s limit
 
     const toResults = (ids: string[], cmap: Record<string, string>): FaceSearchResult[] =>
       ids.map((photoId) => {

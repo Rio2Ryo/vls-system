@@ -192,21 +192,21 @@ async function searchBatch(
   queryMimeType: string,
   batch: PhotoFetchResult[]
 ): Promise<MatchWithConfidence[]> {
-  // Primary: Dashscope Qwen Vision
-  if (DASHSCOPE_API_KEY) {
-    try {
-      return await searchBatchDashscope(queryBase64, queryMimeType, batch);
-    } catch (err) {
-      console.warn("[search-vision] Dashscope failed, falling back to Gemini:", err);
-    }
-  }
-
-  // Fallback: Gemini Vision
+  // Primary: Gemini Vision (faster in Vercel environment)
   if (GEMINI_API_KEY) {
     try {
       return await searchBatchGemini(queryBase64, queryMimeType, batch);
     } catch (err) {
-      console.warn("[search-vision] Gemini also failed:", err);
+      console.warn("[search-vision] Gemini failed, falling back to Dashscope:", err);
+    }
+  }
+
+  // Fallback: Dashscope Qwen Vision
+  if (DASHSCOPE_API_KEY) {
+    try {
+      return await searchBatchDashscope(queryBase64, queryMimeType, batch);
+    } catch (err) {
+      console.warn("[search-vision] Dashscope also failed:", err);
     }
   }
 
@@ -307,7 +307,7 @@ export async function POST(req: NextRequest) {
       matchedPhotoIds,
       confidenceMap,
       total: batchPhotos.length,
-      provider: DASHSCOPE_API_KEY ? "dashscope" : "gemini",
+      provider: GEMINI_API_KEY ? "gemini" : "dashscope",
       photosProcessed: batchPhotos.length,
     });
   }
