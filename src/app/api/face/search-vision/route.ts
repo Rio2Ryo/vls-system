@@ -357,14 +357,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const debugInfo =
-    process.env.NODE_ENV === "development"
-      ? {
-          photosProcessed: pagePhotos.length,
-          batchesCount: batches.length,
-          provider: DASHSCOPE_API_KEY ? "dashscope" : "gemini",
-        }
-      : undefined;
-
-  return NextResponse.json({ matchedPhotoIds, confidenceMap, total, debug: debugInfo });
+  return NextResponse.json({
+    matchedPhotoIds,
+    confidenceMap,
+    total,
+    provider: DASHSCOPE_API_KEY ? "dashscope" : "gemini",
+    photosProcessed: pagePhotos.length,
+  });
 }
