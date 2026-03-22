@@ -9,10 +9,11 @@ import { PhotoData } from "@/lib/types";
  * Supports offset/limit pagination to avoid Vercel 60s timeout.
  *
  * Body:
- *   imageBase64: string  — data URL or raw base64 of query face photo
- *   eventId:     string  — target event ID
- *   offset?:     number  — photo slice start (default 0)
- *   limit?:      number  — max photos to process (default 150)
+ *   imageBase64:   string  — data URL or raw base64 of query face photo
+ *   eventId:       string  — target event ID
+ *   photoEntries?: Array<{id: string, base64: string}>  — pre-fetched/resized photos from client
+ *   offset?:       number  — photo slice start (default 0, used when photoEntries not provided)
+ *   limit?:        number  — max photos to process (default 150, used when photoEntries not provided)
  *
  * Returns:
  *   { matchedPhotoIds: string[], confidenceMap: Record<string, "high"|"medium">, total: number }
@@ -232,6 +233,7 @@ export async function POST(req: NextRequest) {
 
   const imageBase64 = body.imageBase64 as string | undefined;
   const eventId = body.eventId as string | undefined;
+  const photoEntries = body.photoEntries as Array<{ id: string; base64: string }> | undefined;
   const offset = typeof body.offset === "number" ? body.offset : 0;
   const limit = typeof body.limit === "number" ? body.limit : 9;
 
@@ -264,7 +266,53 @@ export async function POST(req: NextRequest) {
     queryMimeType = "image/jpeg";
   }
 
-  // Fetch photos for the event from D1
+  const matchedPhotoIds: string[] = [];
+  const confidenceMap: Record<string, "high" | "medium"> = {};
+
+  // Fast path: client provided pre-fetched/resized photos — skip server-side photo fetching
+  if (photoEntries && photoEntries.length > 0) {
+    const batchPhotos: PhotoFetchResult[] = photoEntries.map((entry, idx) => {
+      const dataUrl = entry.base64;
+      let base64 = dataUrl;
+      let mimeType = "image/jpeg";
+      if (dataUrl.startsWith("data:")) {
+        const sep = dataUrl.indexOf(";base64,");
+        if (sep >= 0) {
+          mimeType = dataUrl.slice(5, sep);
+          base64 = dataUrl.slice(sep + 8);
+        }
+      }
+      return { photoId: entry.id, base64, mimeType, index: idx };
+    });
+
+    console.log(
+      `[search-vision] Fast path: ${batchPhotos.length} pre-fetched photos from client, ` +
+      `provider=${DASHSCOPE_API_KEY ? "dashscope" : "gemini"}`
+    );
+
+    const matches = await searchBatch(queryBase64, queryMimeType, batchPhotos).catch(
+      () => [] as MatchWithConfidence[]
+    );
+
+    for (const m of matches) {
+      const photo = batchPhotos.find((p) => p.index === m.index);
+      if (!photo) continue;
+      if (!matchedPhotoIds.includes(photo.photoId)) {
+        matchedPhotoIds.push(photo.photoId);
+        confidenceMap[photo.photoId] = m.confidence;
+      }
+    }
+
+    return NextResponse.json({
+      matchedPhotoIds,
+      confidenceMap,
+      total: batchPhotos.length,
+      provider: DASHSCOPE_API_KEY ? "dashscope" : "gemini",
+      photosProcessed: batchPhotos.length,
+    });
+  }
+
+  // Fallback: server-side photo fetching via D1 event data
   const eventsJson = await d1Get("vls_admin_events").catch(() => null);
   if (!eventsJson) {
     return NextResponse.json({ matchedPhotoIds: [], confidenceMap: {}, total: 0 });
@@ -289,12 +337,9 @@ export async function POST(req: NextRequest) {
   const pagePhotos = allPhotos.slice(offset, offset + limit);
 
   console.log(
-    `[search-vision] Processing ${pagePhotos.length} photos (offset=${offset}, limit=${limit}), ` +
+    `[search-vision] Fallback path: ${pagePhotos.length} photos (offset=${offset}, limit=${limit}), ` +
     `provider=${DASHSCOPE_API_KEY ? "dashscope" : "gemini"}`
   );
-
-  const matchedPhotoIds: string[] = [];
-  const confidenceMap: Record<string, "high" | "medium"> = {};
 
   // Build all batches
   const batches: PhotoData[][] = [];
