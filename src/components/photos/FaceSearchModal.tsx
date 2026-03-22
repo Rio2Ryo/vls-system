@@ -189,6 +189,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const stopSearchRef = useRef(false);
 
   // Watermark config
   const wmConfig = useMemo(() => {
@@ -292,9 +293,10 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setStatusText("AI Vision で写真を比較中...");
     setSearchingMore(false);
     setSearchProgress(null);
+    stopSearchRef.current = false;
 
     const csrfToken = getCsrfToken();
-    const PAGE1_LIMIT = 150;
+    const PAGE_LIMIT = 9; // 3 batches × 3 photos per batch — fits within Vercel 60s
 
     const callSearchVision = async (offset: number, limit: number) => {
       const res = await fetch("/api/face/search-vision", {
@@ -308,9 +310,16 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       return res;
     };
 
-    // Primary: Gemini Vision server-side processing (page 1)
+    const toResults = (ids: string[], cmap: Record<string, string>): FaceSearchResult[] =>
+      ids.map((photoId) => {
+        const confidence = cmap[photoId] || "medium";
+        const similarity = confidence === "high" ? 0.85 : 0.65;
+        return { photoId, faceId: photoId, similarity, matchPercent: Math.round(similarity * 100) };
+      });
+
     try {
-      const res = await callSearchVision(0, PAGE1_LIMIT);
+      // First request: offset=0, limit=9
+      const res = await callSearchVision(0, PAGE_LIMIT);
 
       // Fallback to face-api.js if no Vision API key is configured
       if (res.status === 503) {
@@ -330,47 +339,46 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       const confidenceMap: Record<string, string> = data.confidenceMap || {};
       const total: number = data.total || 0;
 
-      const toResults = (ids: string[], cmap: Record<string, string>): FaceSearchResult[] =>
-        ids.map((photoId) => {
-          const confidence = cmap[photoId] || "medium";
-          const similarity = confidence === "high" ? 0.85 : 0.65;
-          return { photoId, faceId: photoId, similarity, matchPercent: Math.round(similarity * 100) };
-        });
-
       const page1Results = toResults(matchedPhotoIds, confidenceMap);
       setIsVisionMode(true);
       setAllSearchResults(page1Results.sort((a, b) => b.similarity - a.similarity));
       setStep("results");
 
-      // If there are more photos beyond page 1, fetch them in the background
-      if (total > PAGE1_LIMIT) {
-        setSearchingMore(true);
-        setSearchProgress({ done: PAGE1_LIMIT, total });
+      if (total <= PAGE_LIMIT || stopSearchRef.current) {
+        return;
+      }
 
+      // Continue fetching remaining pages in background
+      setSearchingMore(true);
+      setSearchProgress({ done: PAGE_LIMIT, total });
+
+      let offset = PAGE_LIMIT;
+      while (offset < total && !stopSearchRef.current) {
         try {
-          const res2 = await callSearchVision(PAGE1_LIMIT, total - PAGE1_LIMIT);
+          const res2 = await callSearchVision(offset, PAGE_LIMIT);
           if (res2.ok) {
             const data2 = await res2.json();
             const ids2: string[] = data2.matchedPhotoIds || [];
             const cmap2: Record<string, string> = data2.confidenceMap || {};
-            const page2Results = toResults(ids2, cmap2);
-
+            const pageResults = toResults(ids2, cmap2);
             setAllSearchResults((prev) => {
               const seen = new Set(prev.map((r) => r.photoId));
-              const merged = [...prev, ...page2Results.filter((r) => !seen.has(r.photoId))];
+              const merged = [...prev, ...pageResults.filter((r) => !seen.has(r.photoId))];
               return merged.sort((a, b) => b.similarity - a.similarity);
             });
           }
         } catch (err) {
-          console.warn("[FaceSearch] page2 search failed:", err);
-        } finally {
-          setSearchingMore(false);
-          setSearchProgress(null);
+          console.warn(`[FaceSearch] page offset=${offset} failed:`, err);
         }
+        offset += PAGE_LIMIT;
+        setSearchProgress({ done: Math.min(offset, total), total });
       }
     } catch (err) {
       console.error("[FaceSearch] Vision API failed, falling back to face-api.js:", err);
       await processImageWithFaceApi(imageDataUrl);
+    } finally {
+      setSearchingMore(false);
+      setSearchProgress(null);
     }
   };
 
@@ -662,6 +670,12 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                   <div className="w-8 h-8 mx-auto border-4 border-[#6EC6FF] border-t-transparent rounded-full animate-spin" />
                 </div>
                 <p className="text-sm text-gray-500">{statusText}</p>
+                <button
+                  onClick={() => { stopSearchRef.current = true; setStep("select"); setPreviewUrl(null); setAllSearchResults([]); }}
+                  className="px-4 py-1.5 rounded-lg bg-gray-100 text-gray-500 text-xs font-medium hover:bg-gray-200 transition-colors"
+                >
+                  キャンセル
+                </button>
               </div>
             )}
 
@@ -690,7 +704,13 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                 {searchingMore && searchProgress && (
                   <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
                     <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                    <span>さらに検索中... ({searchProgress.done}/{searchProgress.total}枚)</span>
+                    <span className="flex-1">検索中... {searchProgress.done}/{searchProgress.total}枚処理済み</span>
+                    <button
+                      onClick={() => { stopSearchRef.current = true; }}
+                      className="text-blue-500 hover:text-blue-700 font-medium underline whitespace-nowrap"
+                    >
+                      検索を停止
+                    </button>
                   </div>
                 )}
 

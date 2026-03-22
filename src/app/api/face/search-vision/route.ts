@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
   const imageBase64 = body.imageBase64 as string | undefined;
   const eventId = body.eventId as string | undefined;
   const offset = typeof body.offset === "number" ? body.offset : 0;
-  const limit = typeof body.limit === "number" ? body.limit : 150;
+  const limit = typeof body.limit === "number" ? body.limit : 9;
 
   if (!imageBase64 || !eventId) {
     return NextResponse.json(
