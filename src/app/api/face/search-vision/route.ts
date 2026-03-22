@@ -211,18 +211,7 @@ async function searchBatch(
     }
   }
 
-  // Fallback: Dashscope Qwen Vision
-  if (DASHSCOPE_API_KEY) {
-    try {
-      const matches = await searchBatchDashscope(queryBase64, queryMimeType, batch);
-      return { matches, provider: "dashscope" };
-    } catch (err) {
-      console.warn("[search-vision] Dashscope also failed:", err);
-      return { matches: [], provider: "dashscope", debug: String(err) };
-    }
-  }
-
-  return { matches: [], provider: "none", debug: "No provider available" };
+  return { matches: [], provider: "none", debug: "Gemini failed and Dashscope fallback disabled for debugging" };
 }
 
 function resolvePhotoUrl(url: string, reqUrl: string): string {
