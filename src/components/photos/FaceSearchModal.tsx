@@ -35,6 +35,14 @@ let faceApiLoaded = false;
 async function loadFaceApi() {
   const faceapi = await import("@vladmandic/face-api");
   if (!faceApiLoaded) {
+    try {
+      await import("@tensorflow/tfjs-backend-cpu");
+      const tfAny = faceapi.tf as unknown as { setBackend?: (name: string) => Promise<unknown>; ready?: () => Promise<unknown> };
+      if (tfAny.setBackend) await tfAny.setBackend("cpu");
+      if (tfAny.ready) await tfAny.ready();
+    } catch (err) {
+      console.warn("[FaceSearch] Failed to force tfjs cpu backend:", err);
+    }
     await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
     await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
     await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
