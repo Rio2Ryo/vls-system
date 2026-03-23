@@ -3,6 +3,7 @@ import { d1Query } from "@/lib/d1";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+// rollback marker: keep route on queryEmbedding-only path for production safety
 
 function cosine(a: number[], b: number[]) {
   let dot = 0;

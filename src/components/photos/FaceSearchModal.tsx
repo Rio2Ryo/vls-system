@@ -29,6 +29,7 @@ type SearchMode = "recommended" | "strict" | "broad";
 
 const MAX_RESULTS = 12;
 const DEFAULT_THRESHOLD = 0.6;
+// rollback marker: preserve non-broken browser queryEmbedding path until isolated PoC is ready
 
 let faceApiLoaded = false;
 
