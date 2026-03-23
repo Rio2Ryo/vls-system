@@ -290,10 +290,36 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
   const processImage = async (imageDataUrl: string) => {
     setStep("loading");
-    setStatusText("顔を解析して高速検索中...");
+    setStatusText("高精度顔認証で検索中...");
     setSearchingMore(false);
     setSearchProgress(null);
     stopSearchRef.current = false;
+
+    const csrfToken = getCsrfToken();
+    try {
+      const res = await fetch("/api/face/search-insightface", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ eventId, imageBase64: imageDataUrl, threshold: 0.17, limit: 12 }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const results = ((data.results || []) as FaceSearchResult[])
+          .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
+          .sort((a, b) => b.similarity - a.similarity);
+        setIsVisionMode(false);
+        setAllSearchResults(results);
+        setStep("results");
+        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
+        return;
+      }
+    } catch (err) {
+      console.warn("[FaceSearch] InsightFace PoC failed, falling back to face-api.js:", err);
+    }
 
     await processImageWithFaceApi(imageDataUrl);
   };
