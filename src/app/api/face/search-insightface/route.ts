@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { d1Query } from "@/lib/d1";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
-const execFileAsync = promisify(execFile);
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -46,33 +39,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "eventId and (queryEmbedding or imageBase64) required" }, { status: 400 });
   }
 
-  let resolvedEmbedding: number[];
-
-  if (queryEmbedding && Array.isArray(queryEmbedding)) {
-    resolvedEmbedding = queryEmbedding as number[];
-  } else {
-    const dir = await mkdtemp(path.join(tmpdir(), "if-query-"));
-    const queryPath = path.join(dir, "query.txt");
-    try {
-      await writeFile(queryPath, imageBase64 as string, "utf8");
-      const { stdout } = await execFileAsync("python3", ["scripts/encode_query_insightface.py", queryPath], {
-        cwd: process.cwd(),
-        timeout: 240000,
-        maxBuffer: 10 * 1024 * 1024,
-        env: process.env,
-      });
-      const lastLine = stdout.trim().split(/\n/).filter(Boolean).pop() || "{}";
-      const parsed = JSON.parse(lastLine) as { ok?: boolean; embedding?: number[]; error?: string };
-      if (!parsed.ok || !parsed.embedding) {
-        return NextResponse.json({ error: parsed.error || "Failed to encode query image" }, { status: 400 });
-      }
-      resolvedEmbedding = parsed.embedding;
-    } catch (err) {
-      return NextResponse.json({ error: `InsightFace query encoding failed: ${String(err)}` }, { status: 500 });
-    } finally {
-      await rm(dir, { recursive: true, force: true });
-    }
+  if (imageBase64 && (!queryEmbedding || !Array.isArray(queryEmbedding))) {
+    return NextResponse.json(
+      {
+        error: "imageBase64 input accepted, but server-side InsightFace query embedding generation is not yet available in the current Vercel runtime",
+        acceptedInput: "imageBase64",
+        nextStep: "provide queryEmbedding or move query embedding generation off the browser path",
+      },
+      { status: 501 }
+    );
   }
+
+  const resolvedEmbedding = queryEmbedding as number[];
 
   const rows = await d1Query(
     "SELECT id, photo_id, embedding, bbox FROM face_embeddings WHERE event_id = ? AND label = ? ORDER BY photo_id, face_index",
