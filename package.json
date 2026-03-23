@@ -17,6 +17,7 @@
   "dependencies": {
     "@next/bundle-analyzer": "^16.1.6",
     "@sentry/nextjs": "^10.40.0",
+    "@tensorflow/tfjs-backend-cpu": "^4.22.0",
     "@tensorflow/tfjs-converter": "^4.22.0",
     "@tensorflow/tfjs-core": "^4.22.0",
     "@vladmandic/face-api": "^1.7.15",
