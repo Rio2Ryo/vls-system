@@ -27,30 +27,12 @@ export async function POST(req: NextRequest) {
 
   const eventId = body.eventId as string | undefined;
   const queryEmbedding = body.queryEmbedding as number[] | undefined;
-  const imageBase64 = body.imageBase64 as string | undefined;
   const threshold = Number(body.threshold ?? 0.17);
   const limit = Number(body.limit ?? 12);
 
-  if (!eventId) {
-    return NextResponse.json({ error: "eventId required" }, { status: 400 });
+  if (!eventId || !queryEmbedding || !Array.isArray(queryEmbedding)) {
+    return NextResponse.json({ error: "eventId and queryEmbedding required" }, { status: 400 });
   }
-
-  if ((!queryEmbedding || !Array.isArray(queryEmbedding)) && !imageBase64) {
-    return NextResponse.json({ error: "eventId and (queryEmbedding or imageBase64) required" }, { status: 400 });
-  }
-
-  if (imageBase64 && (!queryEmbedding || !Array.isArray(queryEmbedding))) {
-    return NextResponse.json(
-      {
-        error: "imageBase64 input accepted, but server-side InsightFace query embedding generation is not yet available in the current Vercel runtime",
-        acceptedInput: "imageBase64",
-        nextStep: "provide queryEmbedding or move query embedding generation off the browser path",
-      },
-      { status: 501 }
-    );
-  }
-
-  const resolvedEmbedding = queryEmbedding as number[];
 
   const rows = await d1Query(
     "SELECT id, photo_id, embedding, bbox FROM face_embeddings WHERE event_id = ? AND label = ? ORDER BY photo_id, face_index",
@@ -62,7 +44,7 @@ export async function POST(req: NextRequest) {
     return {
       photoId: r.photo_id as string,
       faceId: r.id as string,
-      similarity: Number(cosine(resolvedEmbedding, embedding).toFixed(4)),
+      similarity: Number(cosine(queryEmbedding, embedding).toFixed(4)),
       bbox: r.bbox ? JSON.parse(r.bbox as string) : undefined,
     };
   }).filter((r) => r.similarity >= threshold)
