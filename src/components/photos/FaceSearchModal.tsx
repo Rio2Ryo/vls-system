@@ -297,25 +297,35 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
     const csrfToken = getCsrfToken();
     try {
-      const res = await fetch("/api/face/search-insightface", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ eventId, imageBase64: imageDataUrl, threshold: 0.17, limit: 12 }),
-      });
+      const faceapi = await loadFaceApi();
+      const img = await loadImage(imageDataUrl);
+      const detections = await faceapi
+        .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
+        .withFaceLandmarks()
+        .withFaceDescriptors();
 
-      if (res.ok) {
-        const data = await res.json();
-        const results = ((data.results || []) as FaceSearchResult[])
-          .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
-          .sort((a, b) => b.similarity - a.similarity);
-        setIsVisionMode(false);
-        setAllSearchResults(results);
-        setStep("results");
-        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
-        return;
+      if (detections.length > 0) {
+        const queryEmbedding = Array.from(detections[0].descriptor);
+        const res = await fetch("/api/face/search-insightface", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          },
+          body: JSON.stringify({ eventId, queryEmbedding, threshold: 0.17, limit: 12 }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const results = ((data.results || []) as FaceSearchResult[])
+            .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
+            .sort((a, b) => b.similarity - a.similarity);
+          setIsVisionMode(false);
+          setAllSearchResults(results);
+          setStep("results");
+          setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
+          return;
+        }
       }
     } catch (err) {
       console.warn("[FaceSearch] InsightFace PoC failed, falling back to face-api.js:", err);
