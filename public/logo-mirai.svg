@@ -1,4 +1,16 @@
 <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
-  <polygon points="40,4 74,22 74,58 40,76 6,58 6,22" fill="#1a237e"/>
-  <text x="40" y="48" font-size="28" font-weight="bold" fill="white" text-anchor="middle">M</text>
+  <defs>
+    <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1565C0"/>
+      <stop offset="100%" stop-color="#6A1B9A"/>
+    </linearGradient>
+  </defs>
+  <!-- Hexagon -->
+  <polygon points="40,4 74,22 74,58 40,76 6,58 6,22" fill="url(#hexGrad)"/>
+  <!-- み character -->
+  <text x="40" y="50" font-size="30" font-weight="bold" fill="white" text-anchor="middle" font-family="'Hiragino Sans', 'Yu Gothic', sans-serif">み</text>
+  <!-- Sparkle top-right -->
+  <g fill="white" opacity="0.85">
+    <polygon points="66,12 67.2,15.2 70.5,16 67.2,16.8 66,20 64.8,16.8 61.5,16 64.8,15.2" />
+  </g>
 </svg>
