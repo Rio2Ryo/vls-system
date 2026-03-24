@@ -5,15 +5,15 @@ import { PhotoData } from "@/lib/types";
 /**
  * POST /api/face/search-vision
  *
- * High-accuracy face search using Dashscope Qwen Vision API (primary) with Gemini fallback.
- * Supports offset/limit pagination to avoid Vercel 60s timeout.
+ * High-accuracy face search using Gemini Vision API (primary) with Dashscope fallback.
+ * Supports offset/limit pagination and pre-fetched photo entries from client.
  *
  * Body:
  *   imageBase64:   string  — data URL or raw base64 of query face photo
  *   eventId:       string  — target event ID
  *   photoEntries?: Array<{id: string, base64: string}>  — pre-fetched/resized photos from client
  *   offset?:       number  — photo slice start (default 0, used when photoEntries not provided)
- *   limit?:        number  — max photos to process (default 150, used when photoEntries not provided)
+ *   limit?:        number  — max photos to process (default 9, used when photoEntries not provided)
  *
  * Returns:
  *   { matchedPhotoIds: string[], confidenceMap: Record<string, "high"|"medium">, total: number }
@@ -31,6 +31,9 @@ const GEMINI_URL =
 
 const BATCH_SIZE = 3;
 const PARALLEL_BATCHES = 2;
+const PHOTO_FETCH_TIMEOUT_MS = 10000;
+const GEMINI_TIMEOUT_MS = 55000;
+const DASHSCOPE_TIMEOUT_MS = 45000;
 
 interface EventData {
   id: string;
@@ -44,15 +47,26 @@ interface PhotoFetchResult {
   index: number;
 }
 
+function log(level: "info" | "warn" | "error", msg: string, meta?: Record<string, unknown>) {
+  const entry = { ts: new Date().toISOString(), route: "face/search-vision", level, msg, ...meta };
+  if (level === "error") console.error(JSON.stringify(entry));
+  else if (level === "warn") console.warn(JSON.stringify(entry));
+  else console.log(JSON.stringify(entry));
+}
+
 async function fetchPhotoAsBase64(url: string): Promise<{ base64: string; mimeType: string } | null> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) return null;
+    const res = await fetch(url, { signal: AbortSignal.timeout(PHOTO_FETCH_TIMEOUT_MS) });
+    if (!res.ok) {
+      log("warn", "Photo fetch failed", { url: url.slice(0, 80), status: res.status });
+      return null;
+    }
     const arrayBuf = await res.arrayBuffer();
     const base64 = Buffer.from(arrayBuf).toString("base64");
     const mimeType = res.headers.get("content-type") || "image/jpeg";
     return { base64, mimeType };
-  } catch {
+  } catch (err) {
+    log("warn", "Photo fetch error", { url: url.slice(0, 80), error: String(err) });
     return null;
   }
 }
@@ -95,12 +109,59 @@ function parseMatchesFromText(text: string): MatchWithConfidence[] {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type SearchBatchResult = {
+  matches: MatchWithConfidence[];
+  provider: "gemini" | "dashscope" | "none";
+  error?: string;
+};
+
+async function searchBatchGemini(
+  queryBase64: string,
+  queryMimeType: string,
+  batch: PhotoFetchResult[]
+): Promise<SearchBatchResult> {
+  const parts: Record<string, unknown>[] = [
+    { text: "【検索用写真（この人物を探しています）】" },
+    { inlineData: { mimeType: queryMimeType, data: queryBase64 } },
+    {
+      text: `【イベント写真 ${batch.length}枚（インデックス0〜${batch.length - 1}）】`,
+    },
+  ];
+
+  for (const pd of batch) {
+    parts.push({ text: `写真インデックス ${pd.index}:` });
+    parts.push({ inlineData: { mimeType: pd.mimeType, data: pd.base64 } });
+  }
+
+  parts.push({ text: FACE_SEARCH_PROMPT });
+
+  const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: { maxOutputTokens: 300, temperature: 0.1 },
+    }),
+    signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+  });
+
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    const error = `Gemini ${res.status}: ${bodyText.slice(0, 200)}`;
+    log("error", "Gemini batch error", { status: res.status, body: bodyText.slice(0, 200) });
+    return { matches: [], provider: "gemini", error };
+  }
+
+  const data = await res.json();
+  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  return { matches: parseMatchesFromText(text), provider: "gemini" };
+}
+
 async function searchBatchDashscope(
   queryBase64: string,
   queryMimeType: string,
   batch: PhotoFetchResult[]
-): Promise<MatchWithConfidence[]> {
+): Promise<SearchBatchResult> {
   const content: Record<string, unknown>[] = [
     { type: "text", text: "【検索用写真（この人物を探しています）】" },
     {
@@ -135,65 +196,19 @@ async function searchBatchDashscope(
       max_tokens: 200,
       temperature: 0.1,
     }),
-    signal: AbortSignal.timeout(45000),
-  });
-
-  if (!res.ok) {
-    console.error(`[search-vision] Dashscope error: ${res.status}`);
-    return [];
-  }
-
-  const data = await res.json();
-  const text: string = data.choices?.[0]?.message?.content || "";
-  return parseMatchesFromText(text);
-}
-
-type SearchBatchResult = {
-  matches: MatchWithConfidence[];
-  provider: "gemini" | "dashscope" | "none";
-  debug?: string;
-};
-
-async function searchBatchGemini(
-  queryBase64: string,
-  queryMimeType: string,
-  batch: PhotoFetchResult[]
-): Promise<SearchBatchResult> {
-  const parts: Record<string, unknown>[] = [
-    { text: "【検索用写真（この人物を探しています）】" },
-    { inlineData: { mimeType: queryMimeType, data: queryBase64 } },
-    {
-      text: `【イベント写真 ${batch.length}枚（インデックス0〜${batch.length - 1}）】`,
-    },
-  ];
-
-  for (const pd of batch) {
-    parts.push({ text: `写真インデックス ${pd.index}:` });
-    parts.push({ inlineData: { mimeType: pd.mimeType, data: pd.base64 } });
-  }
-
-  parts.push({ text: FACE_SEARCH_PROMPT });
-
-  const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts }],
-      generationConfig: { maxOutputTokens: 300, temperature: 0.1 },
-    }),
-    signal: AbortSignal.timeout(55000),
+    signal: AbortSignal.timeout(DASHSCOPE_TIMEOUT_MS),
   });
 
   if (!res.ok) {
     const bodyText = await res.text().catch(() => "");
-    const debug = `Gemini error ${res.status}: ${bodyText.slice(0, 500)}`;
-    console.error(`[search-vision] ${debug}`);
-    return { matches: [], provider: "gemini", debug };
+    const error = `Dashscope ${res.status}: ${bodyText.slice(0, 200)}`;
+    log("error", "Dashscope batch error", { status: res.status, body: bodyText.slice(0, 200) });
+    return { matches: [], provider: "dashscope", error };
   }
 
   const data = await res.json();
-  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  return { matches: parseMatchesFromText(text), provider: "gemini" };
+  const text: string = data.choices?.[0]?.message?.content || "";
+  return { matches: parseMatchesFromText(text), provider: "dashscope" };
 }
 
 async function searchBatch(
@@ -201,18 +216,27 @@ async function searchBatch(
   queryMimeType: string,
   batch: PhotoFetchResult[]
 ): Promise<SearchBatchResult> {
-  // Primary: Gemini Vision (faster in Vercel environment)
+  // Primary: Gemini Vision
   if (GEMINI_API_KEY) {
     try {
       const result = await searchBatchGemini(queryBase64, queryMimeType, batch);
       if (result.matches.length > 0 || !DASHSCOPE_API_KEY) return result;
-      console.warn("[search-vision] Gemini returned no matches/debug, falling back to Dashscope:", result.debug || "no-debug");
+      log("warn", "Gemini returned no matches, trying Dashscope fallback", { error: result.error });
     } catch (err) {
-      console.warn("[search-vision] Gemini failed, falling back to Dashscope:", err);
+      log("warn", "Gemini exception, trying Dashscope fallback", { error: String(err) });
     }
   }
 
-  return { matches: [], provider: "none", debug: "Gemini failed and Dashscope fallback disabled for debugging" };
+  // Fallback: Dashscope Qwen Vision
+  if (DASHSCOPE_API_KEY) {
+    try {
+      return await searchBatchDashscope(queryBase64, queryMimeType, batch);
+    } catch (err) {
+      log("error", "Dashscope fallback failed", { error: String(err) });
+    }
+  }
+
+  return { matches: [], provider: "none", error: "No vision API available" };
 }
 
 function resolvePhotoUrl(url: string, reqUrl: string): string {
@@ -226,6 +250,7 @@ function resolvePhotoUrl(url: string, reqUrl: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -271,7 +296,7 @@ export async function POST(req: NextRequest) {
   const matchedPhotoIds: string[] = [];
   const confidenceMap: Record<string, "high" | "medium"> = {};
 
-  // Fast path: client provided pre-fetched/resized photos — skip server-side photo fetching
+  // Fast path: client provided pre-fetched/resized photos
   if (photoEntries && photoEntries.length > 0) {
     const batchPhotos: PhotoFetchResult[] = photoEntries.map((entry, idx) => {
       const dataUrl = entry.base64;
@@ -287,13 +312,10 @@ export async function POST(req: NextRequest) {
       return { photoId: entry.id, base64, mimeType, index: idx };
     });
 
-    console.log(
-      `[search-vision] Fast path: ${batchPhotos.length} pre-fetched photos from client, ` +
-      `provider=${DASHSCOPE_API_KEY ? "dashscope" : "gemini"}`
-    );
+    log("info", "Fast path: client-provided photos", { count: batchPhotos.length });
 
     const batchResult = await searchBatch(queryBase64, queryMimeType, batchPhotos).catch(
-      (err) => ({ matches: [], provider: "none", debug: String(err) } as SearchBatchResult)
+      (err) => ({ matches: [], provider: "none", error: String(err) } as SearchBatchResult)
     );
 
     for (const m of batchResult.matches) {
@@ -311,13 +333,15 @@ export async function POST(req: NextRequest) {
       total: batchPhotos.length,
       provider: batchResult.provider,
       photosProcessed: batchPhotos.length,
-      debug: batchResult.debug,
+      error: batchResult.error,
+      timing: { totalMs: Date.now() - startTime },
     });
   }
 
   // Fallback: server-side photo fetching via D1 event data
   const eventsJson = await d1Get("vls_admin_events").catch(() => null);
   if (!eventsJson) {
+    log("warn", "Could not fetch event data");
     return NextResponse.json({ matchedPhotoIds: [], confidenceMap: {}, total: 0 });
   }
 
@@ -325,11 +349,13 @@ export async function POST(req: NextRequest) {
   try {
     events = JSON.parse(eventsJson) as EventData[];
   } catch {
+    log("error", "Failed to parse event data");
     return NextResponse.json({ matchedPhotoIds: [], confidenceMap: {}, total: 0 });
   }
 
   const event = events.find((e) => e.id === eventId);
   if (!event || !Array.isArray(event.photos) || event.photos.length === 0) {
+    log("info", "Event has no photos", { eventId });
     return NextResponse.json({ matchedPhotoIds: [], confidenceMap: {}, total: 0 });
   }
 
@@ -339,10 +365,13 @@ export async function POST(req: NextRequest) {
   // Apply pagination
   const pagePhotos = allPhotos.slice(offset, offset + limit);
 
-  console.log(
-    `[search-vision] Fallback path: ${pagePhotos.length} photos (offset=${offset}, limit=${limit}), ` +
-    `provider=${DASHSCOPE_API_KEY ? "dashscope" : "gemini"}`
-  );
+  log("info", "Server-side photo search", {
+    eventId,
+    total,
+    offset,
+    limit,
+    pageSize: pagePhotos.length,
+  });
 
   // Build all batches
   const batches: PhotoData[][] = [];
@@ -350,15 +379,14 @@ export async function POST(req: NextRequest) {
     batches.push(pagePhotos.slice(i, i + BATCH_SIZE));
   }
 
+  let usedProvider: string = "none";
+
   // Process batches in parallel rounds (PARALLEL_BATCHES at a time)
   for (let roundStart = 0; roundStart < batches.length; roundStart += PARALLEL_BATCHES) {
     const roundBatches = batches.slice(roundStart, roundStart + PARALLEL_BATCHES);
 
     const roundResults = await Promise.allSettled(
-      roundBatches.map(async (batchPhotos, batchIdx) => {
-        const globalBatchIdx = roundStart + batchIdx;
-        const globalOffset = globalBatchIdx * BATCH_SIZE;
-
+      roundBatches.map(async (batchPhotos) => {
         const fetchResults = await Promise.allSettled(
           batchPhotos.map(async (photo, localIdx) => {
             const rawUrl = photo.originalUrl || photo.thumbnailUrl;
@@ -382,13 +410,14 @@ export async function POST(req: NextRequest) {
         if (validBatch.length === 0) return [];
 
         const batchResult = await searchBatch(queryBase64, queryMimeType, validBatch).catch(
-          (err) => ({ matches: [], provider: "none", debug: String(err) } as SearchBatchResult)
+          (err) => ({ matches: [], provider: "none", error: String(err) } as SearchBatchResult)
         );
+
+        if (batchResult.provider !== "none") usedProvider = batchResult.provider;
 
         return batchResult.matches.map((m) => ({
           match: m,
           photo: validBatch.find((p) => p.index === m.index) ?? null,
-          _offset: globalOffset,
         }));
       })
     );
@@ -405,11 +434,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  log("info", "Search complete", {
+    matches: matchedPhotoIds.length,
+    photosProcessed: pagePhotos.length,
+    provider: usedProvider,
+    totalMs: Date.now() - startTime,
+  });
+
   return NextResponse.json({
     matchedPhotoIds,
     confidenceMap,
     total,
-    provider: DASHSCOPE_API_KEY ? "dashscope" : "gemini",
+    provider: usedProvider,
     photosProcessed: pagePhotos.length,
+    timing: { totalMs: Date.now() - startTime },
   });
 }

@@ -29,7 +29,6 @@ type SearchMode = "recommended" | "strict" | "broad";
 
 const MAX_RESULTS = 12;
 const DEFAULT_THRESHOLD = 0.6;
-// rollback marker: preserve non-broken browser queryEmbedding path until isolated PoC is ready
 
 let faceApiLoaded = false;
 
@@ -308,6 +307,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
     // Primary path: send imageBase64 → /api/face/search (CLIP + Gemini Vision)
     try {
+      setStatusText("AI顔認証で検索中...");
       const res = await fetch("/api/face/search", {
         method: "POST",
         headers: {
@@ -325,7 +325,10 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         setIsVisionMode(true);
         setAllSearchResults(results);
         setStep("results");
-        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
+        const method = data.searchMethod === "gemini-vision" ? "（AI Vision）" : "（CLIP）";
+        setStatusText(results.length > 0
+          ? `${results.length}枚見つかりました ${method}`
+          : "一致写真は見つかりませんでした");
         return;
       }
 
@@ -333,16 +336,27 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       const errData = await res.json().catch(() => ({}));
       if ((errData as { fallbackRequired?: boolean }).fallbackRequired) {
         console.warn("[FaceSearch] CF AI unavailable, falling back to face-api.js");
+        setStatusText("サーバーAIが利用不可。ブラウザ側で処理中...");
         await processImageWithFaceApi(imageDataUrl);
         return;
       }
 
       setStep("error");
-      setStatusText(`検索 API エラー: ${res.status}`);
+      setStatusText(
+        res.status === 502
+          ? "AI画像処理サービスに接続できませんでした。しばらく待ってからお試しください。"
+          : res.status === 503
+          ? "検索サービスが一時的に利用できません。しばらく待ってからお試しください。"
+          : `検索 API エラー: ${res.status}`
+      );
     } catch (err) {
       console.error("[FaceSearch] /api/face/search failed:", err);
       setStep("error");
-      setStatusText("検索 API への接続に失敗しました。ネットワーク環境をご確認ください。");
+      setStatusText(
+        err instanceof TypeError && err.message.includes("fetch")
+          ? "ネットワーク接続に問題があります。接続を確認してお試しください。"
+          : "検索 API への接続に失敗しました。しばらく待ってからお試しください。"
+      );
     }
   };
 

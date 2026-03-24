@@ -536,13 +536,14 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
       // Search D1 for each detected face
       const searchResults = await Promise.all(
         faces.map(async (face) => {
-          const res = await fetch("/api/face/test-search", {
+          const res = await fetch("/api/face/search", {
             method: "POST",
             headers: csrfHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({
               eventId: selectedEventId,
-              embedding: face.embedding,
+              queryEmbedding: face.embedding,
               threshold: testThreshold,
+              limit: 100,
             }),
           });
           if (!res.ok) {
@@ -555,12 +556,21 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
             };
           }
           const data = await res.json();
+          // Compute score distribution from search results
+          const results = (data.results || []) as Array<{ similarity: number }>;
+          const scoreDistribution = { excellent: 0, good: 0, fair: 0, poor: 0 };
+          for (const r of results) {
+            if (r.similarity >= 0.7) scoreDistribution.excellent++;
+            else if (r.similarity >= 0.5) scoreDistribution.good++;
+            else if (r.similarity >= 0.3) scoreDistribution.fair++;
+            else scoreDistribution.poor++;
+          }
           return {
             faceIndex: face.index,
             matchCount: data.matchCount ?? 0,
             uniquePhotos: data.uniquePhotos ?? 0,
-            totalEmbeddings: data.totalEmbeddings ?? 0,
-            scoreDistribution: data.scoreDistribution ?? { excellent: 0, good: 0, fair: 0, poor: 0 },
+            totalEmbeddings: results.length,
+            scoreDistribution,
           };
         })
       );
