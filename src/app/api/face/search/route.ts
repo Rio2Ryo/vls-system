@@ -74,7 +74,18 @@ async function runGeminiVisionBatch(
 ): Promise<string[]> {
   const parts: Record<string, unknown>[] = [
     {
-      text: "以下の【検索用写真】に写っている人物と同一人物が写っている写真を【候補写真】から探してください。",
+      text:
+        "あなたは高精度な顔認識AIです。【検索用写真】の人物と【候補写真】を厳密に照合してください。\n\n" +
+        "【判定基準（すべて満たす場合のみ一致とする）】\n" +
+        "1. 性別が一致している\n" +
+        "2. 年齢層が近い（±3歳以内）\n" +
+        "3. 顔の輪郭・骨格が一致している\n" +
+        "4. 目の形・間隔・眉の形が一致している\n" +
+        "5. 鼻・口の形が一致している\n\n" +
+        "【重要】\n" +
+        "・少しでも疑わしい場合は一致にしないでください\n" +
+        "・似ているだけでは不十分です。明確に同一人物と確信できる場合のみ一致とする\n" +
+        "・子どもの場合、同年代の別人と混同しないよう特に慎重に判断してください",
     },
     { text: "【検索用写真（この人物を探しています）】" },
     { inlineData: { mimeType: queryMimeType, data: queryBase64 } },
@@ -90,9 +101,9 @@ async function runGeminiVisionBatch(
 
   parts.push({
     text:
-      "上記候補写真のうち、検索用写真と同一人物が写っているものの インデックス番号をJSONで返してください。" +
-      "顔の特徴（目・鼻・口・輪郭など）で判断し、子供の場合は笑顔・走っている・俯いているなど異なる表情・姿勢でも同一人物を特定してください。" +
-      "確信が低い場合も含めてください。必ずこの形式のJSONのみを返してください: {\"matches\": [0, 2, 5]}" +
+      "上記の判定基準に従って、検索用写真の人物と明確に同一人物であると確信できる候補写真のインデックス番号のみをJSONで返してください。" +
+      "確信が持てない写真は含めないでください。" +
+      "必ずこの形式のJSONのみを返してください: {\"matches\": [0, 2, 5]}" +
       "一致なしの場合: {\"matches\": []}",
   });
 
@@ -269,7 +280,7 @@ export async function POST(req: NextRequest) {
                 .map((c) => ({
                   photoId: c.photoId,
                   faceId: c.row.id as string,
-                  similarity: Math.round(c.similarity * 10000) / 10000,
+                  similarity: 1.0, // Gemini Vision confirmed match
                   bbox: c.row.bbox
                     ? (JSON.parse(c.row.bbox as string) as FaceBox)
                     : undefined,
