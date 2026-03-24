@@ -584,7 +584,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  capture="user"
                   onChange={handleFileSelect}
                   className="hidden"
                 />

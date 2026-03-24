@@ -125,7 +125,7 @@ export default function PhotoGrid({ photos, selectedIds, onToggleSelect, onPrevi
 
   return (
     <div
-      className="grid grid-cols-3 md:grid-cols-4 gap-3 no-save"
+      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 no-save"
       data-testid="photo-grid"
       onContextMenu={(e) => e.preventDefault()}
     >
