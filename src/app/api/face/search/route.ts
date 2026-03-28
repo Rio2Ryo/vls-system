@@ -175,26 +175,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "D1 not configured" }, { status: 503 });
   }
 
-  // Resolve embedding: prefer CF AI from imageBase64, fall back to direct queryEmbedding
-  let queryEmbedding: number[];
+  // Resolve embedding: CF AI for CLIP ordering only — failure does NOT block Claude Vision
+  let queryEmbedding: number[] = rawEmbedding ?? [];
   if (imageBase64) {
-    if (!isCfAiConfigured()) {
-      return NextResponse.json(
-        { error: "CF Workers AI not configured", fallbackRequired: true },
-        { status: 503 },
-      );
+    if (isCfAiConfigured()) {
+      try {
+        queryEmbedding = await generateImageEmbedding(imageBase64);
+      } catch (err) {
+        console.warn("[face/search] CF AI embedding failed (CLIP disabled, Claude Vision will still run):", err);
+        queryEmbedding = [];
+      }
+    } else {
+      console.warn("[face/search] CF AI not configured — skipping CLIP, using Claude Vision only");
+      queryEmbedding = [];
     }
-    try {
-      queryEmbedding = await generateImageEmbedding(imageBase64);
-    } catch (err) {
-      console.error("[face/search] CF AI embedding failed:", err);
-      return NextResponse.json(
-        { error: `CF Workers AI failed: ${String(err)}`, fallbackRequired: true },
-        { status: 502 },
-      );
-    }
-  } else {
-    queryEmbedding = rawEmbedding!;
   }
 
   // Fetch all event embeddings from D1
@@ -216,11 +210,13 @@ export async function POST(req: NextRequest) {
     if (seenPhotoIds.has(photoId)) continue;
     seenPhotoIds.add(photoId);
     const stored = JSON.parse(row.embedding as string) as number[];
-    const similarity = cosineSimilarity(queryEmbedding, stored);
+    const similarity = queryEmbedding.length > 0 ? cosineSimilarity(queryEmbedding, stored) : 0;
     scoredPhotos.push({ photoId, similarity, row });
   }
-  // Sort by CLIP score descending (best guesses first, but we check ALL)
-  scoredPhotos.sort((a, b) => b.similarity - a.similarity);
+  // Sort by CLIP score descending when available; otherwise order is preserved (insertion order)
+  if (queryEmbedding.length > 0) {
+    scoredPhotos.sort((a, b) => b.similarity - a.similarity);
+  }
 
   // Claude Vision path: batch all photos
   if (imageBase64 && ANTHROPIC_API_KEY) {
@@ -333,7 +329,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // CLIP-only fallback (no Gemini key or Gemini path failed)
+  // CLIP-only fallback (no Claude key, or Claude path failed, and CLIP embedding is available)
+  if (queryEmbedding.length === 0) {
+    // No CLIP embedding and Claude Vision unavailable — nothing to search with
+    return NextResponse.json({ error: "No usable AI backend available for search" }, { status: 503 });
+  }
+
   const clipResults: FaceSearchResult[] = scoredPhotos
     .filter((c) => c.similarity >= threshold)
     .map((c) => ({
