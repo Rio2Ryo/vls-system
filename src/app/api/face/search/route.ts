@@ -226,11 +226,16 @@ export async function POST(req: NextRequest) {
         const events = JSON.parse(eventsJson) as EventRecord[];
         const event = events.find((e) => e.id === eventId);
         if (event?.photos) {
-          // Build photoId → URL map
+          // Build photoId → URL map (convert relative paths to absolute)
+          const siteBase = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : "https://vls-system.vercel.app";
           const photoUrlMap = new Map<string, string>();
           for (const p of event.photos) {
-            const url = p.originalUrl || p.thumbnailUrl;
-            if (url) photoUrlMap.set(p.id, url);
+            const raw = p.originalUrl || p.thumbnailUrl;
+            if (!raw) continue;
+            const url = raw.startsWith("/") ? `${siteBase}${raw}` : raw;
+            photoUrlMap.set(p.id, url);
           }
 
           // Fetch all candidate photos in parallel
