@@ -15,6 +15,7 @@
     "face:report": "python3 scripts/face-min-report.py --root data/test/face-search-min --out data/test/face-search-min/report.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@next/bundle-analyzer": "^16.1.6",
     "@sentry/nextjs": "^10.40.0",
     "@tensorflow/tfjs-backend-cpu": "^4.22.0",

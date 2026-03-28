@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import {
   isD1Configured,
   getFaceEmbeddingsByEvent,
@@ -36,11 +37,10 @@ import { generateImageEmbedding, isCfAiConfigured } from "@/lib/cf-ai";
 
 export const maxDuration = 120;
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
-const GEMINI_BATCH_SIZE = 20;   // photos per Gemini call
-const GEMINI_CONCURRENCY = 5;   // parallel Gemini calls
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const CLAUDE_MODEL = "claude-sonnet-4-6";
+const CLAUDE_BATCH_SIZE = 10;   // photos per Claude call (images are large, keep batches smaller)
+const CLAUDE_CONCURRENCY = 3;   // parallel Claude calls
 
 interface PhotoRecord {
   id: string;
@@ -67,64 +67,71 @@ async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType
   }
 }
 
-async function runGeminiVisionBatch(
+async function runClaudeVisionBatch(
   queryBase64: string,
   queryMimeType: string,
   candidates: { photoId: string; base64: string; mimeType: string; index: number }[]
 ): Promise<string[]> {
-  const parts: Record<string, unknown>[] = [
+  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+
+  const validMimeType = (m: string): "image/jpeg" | "image/png" | "image/gif" | "image/webp" =>
+    ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(m)
+      ? (m as "image/jpeg" | "image/png" | "image/gif" | "image/webp")
+      : "image/jpeg";
+
+  const content: Anthropic.MessageParam["content"] = [
     {
+      type: "text",
       text:
         "あなたは高精度な顔認識AIです。【検索用写真】の人物と【候補写真】を厳密に照合してください。\n\n" +
         "【判定基準（すべて満たす場合のみ一致とする）】\n" +
         "1. 性別が一致している\n" +
         "2. 年齢層が近い（±3歳以内）\n" +
-        "3. 顔の輪郭・骨格が一致している\n" +
-        "4. 目の形・間隔・眉の形が一致している\n" +
-        "5. 鼻・口の形が一致している\n\n" +
+        "3. 顔の輪郭・骨格・顔の形が一致している\n" +
+        "4. 目の形・間隔・眉の形・まぶたの特徴が一致している\n" +
+        "5. 鼻の形・大きさ・口の形・唇の厚さが一致している\n\n" +
         "【重要】\n" +
         "・少しでも疑わしい場合は一致にしないでください\n" +
-        "・似ているだけでは不十分です。明確に同一人物と確信できる場合のみ一致とする\n" +
-        "・子どもの場合、同年代の別人と混同しないよう特に慎重に判断してください",
+        "・似ているだけでは不十分です。同一人物と高い確信がある場合のみ一致とする\n" +
+        "・子どもの場合、同年代の別人と混同しないよう特に慎重に判断してください\n" +
+        "・角度・照明・表情が違っても顔の構造的特徴で判断してください\n\n" +
+        "【検索用写真（この人物を探しています）】",
     },
-    { text: "【検索用写真（この人物を探しています）】" },
-    { inlineData: { mimeType: queryMimeType, data: queryBase64 } },
     {
+      type: "image",
+      source: { type: "base64", media_type: validMimeType(queryMimeType), data: queryBase64 },
+    },
+    {
+      type: "text",
       text: `【候補写真 ${candidates.length}枚（インデックス0〜${candidates.length - 1}）】`,
     },
   ];
 
   for (const c of candidates) {
-    parts.push({ text: `写真インデックス ${c.index}:` });
-    parts.push({ inlineData: { mimeType: c.mimeType, data: c.base64 } });
+    content.push({ type: "text", text: `写真インデックス ${c.index}:` });
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: validMimeType(c.mimeType), data: c.base64 },
+    });
   }
 
-  parts.push({
+  content.push({
+    type: "text",
     text:
       "上記の判定基準に従って、検索用写真の人物と明確に同一人物であると確信できる候補写真のインデックス番号のみをJSONで返してください。" +
       "確信が持てない写真は含めないでください。" +
-      "必ずこの形式のJSONのみを返してください: {\"matches\": [0, 2, 5]}" +
-      "一致なしの場合: {\"matches\": []}",
+      '必ずこの形式のJSONのみを返してください: {"matches": [0, 2, 5]}' +
+      '一致なしの場合: {"matches": []}',
   });
 
   try {
-    const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: { maxOutputTokens: 200, temperature: 0.1 },
-      }),
-      signal: AbortSignal.timeout(30000),
+    const response = await client.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 200,
+      messages: [{ role: "user", content }],
     });
 
-    if (!res.ok) {
-      console.error(`[face/search] Gemini batch error: ${res.status}`);
-      return [];
-    }
-
-    const data = await res.json();
-    const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const text = response.content[0]?.type === "text" ? response.content[0].text : "";
     const jsonMatch = text.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) return [];
 
@@ -133,7 +140,8 @@ async function runGeminiVisionBatch(
     return indices
       .map((i) => candidates.find((c) => c.index === i)?.photoId)
       .filter((id): id is string => !!id);
-  } catch {
+  } catch (err) {
+    console.error("[face/search] Claude Vision batch error:", err);
     return [];
   }
 }
@@ -214,8 +222,8 @@ export async function POST(req: NextRequest) {
   // Sort by CLIP score descending (best guesses first, but we check ALL)
   scoredPhotos.sort((a, b) => b.similarity - a.similarity);
 
-  // Gemini Vision path: batch all photos
-  if (imageBase64 && GEMINI_API_KEY) {
+  // Claude Vision path: batch all photos
+  if (imageBase64 && ANTHROPIC_API_KEY) {
     try {
       const eventsJson = await d1Get("vls_admin_events").catch(() => null);
       if (eventsJson) {
@@ -258,17 +266,17 @@ export async function POST(req: NextRequest) {
 
             // Split into batches
             const batches: { photoId: string; base64: string; mimeType: string; index: number }[][] = [];
-            for (let i = 0; i < validPhotos.length; i += GEMINI_BATCH_SIZE) {
-              const slice = validPhotos.slice(i, i + GEMINI_BATCH_SIZE);
+            for (let i = 0; i < validPhotos.length; i += CLAUDE_BATCH_SIZE) {
+              const slice = validPhotos.slice(i, i + CLAUDE_BATCH_SIZE);
               batches.push(slice.map((p, j) => ({ ...p, index: j })));
             }
 
             // Run batches with concurrency limit
             const allMatchedIds: string[] = [];
-            for (let i = 0; i < batches.length; i += GEMINI_CONCURRENCY) {
-              const chunk = batches.slice(i, i + GEMINI_CONCURRENCY);
+            for (let i = 0; i < batches.length; i += CLAUDE_CONCURRENCY) {
+              const chunk = batches.slice(i, i + CLAUDE_CONCURRENCY);
               const chunkResults = await Promise.all(
-                chunk.map((batch) => runGeminiVisionBatch(queryBase64, queryMimeType, batch))
+                chunk.map((batch) => runClaudeVisionBatch(queryBase64, queryMimeType, batch))
               );
               for (const ids of chunkResults) allMatchedIds.push(...ids);
             }
@@ -321,7 +329,7 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch (err) {
-      console.error("[face/search] Gemini Vision batched search failed, falling back to CLIP:", err);
+      console.error("[face/search] Claude Vision batched search failed, falling back to CLIP:", err);
     }
   }
 
