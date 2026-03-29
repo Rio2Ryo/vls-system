@@ -304,8 +304,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setSearchProgress(null);
     stopSearchRef.current = false;
 
-    const csrfToken = getCsrfToken();
-
     // Primary path: face-api.js embedding → euclidean distance search (fast & accurate)
     await processImageWithFaceApi(imageDataUrl);
   };
