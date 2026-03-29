@@ -6,6 +6,7 @@ import {
   isD1Configured,
   insertFaceSearchSession,
   d1Get,
+  getFaceEmbeddingsByEvent,
 } from "@/lib/d1";
 import { r2Get, isR2Configured } from "@/lib/r2";
 import { type FaceSearchResult } from "@/lib/face";
@@ -28,6 +29,17 @@ import { type FaceSearchResult } from "@/lib/face";
  */
 
 export const maxDuration = 120;
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
+}
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const CLAUDE_MODEL = "claude-sonnet-4-6";
@@ -244,6 +256,7 @@ async function handlePost(req: NextRequest) {
   }
 
   const imageBase64 = body.imageBase64 as string | undefined;
+  const queryEmbeddingRaw = body.queryEmbedding as number[] | undefined;
   const eventId = body.eventId as string | undefined;
   const limit = Math.min(200, Math.max(1, Number(body.limit) || 50));
   const userId = (body.userId as string) || undefined;
@@ -251,26 +264,94 @@ async function handlePost(req: NextRequest) {
   if (!eventId || typeof eventId !== "string") {
     return NextResponse.json({ error: "eventId (string) required" }, { status: 400 });
   }
-  if (!imageBase64) {
-    return NextResponse.json({ error: "imageBase64 required" }, { status: 400 });
+  if (!imageBase64 && !queryEmbeddingRaw) {
+    return NextResponse.json({ error: "imageBase64 or queryEmbedding required" }, { status: 400 });
   }
   if (!isD1Configured()) {
     return NextResponse.json({ error: "D1 not configured" }, { status: 503 });
   }
-  if (!ANTHROPIC_API_KEY) {
+  if (!imageBase64 && !ANTHROPIC_API_KEY) {
+    // embedding-only path doesn't need Anthropic
+  } else if (imageBase64 && !ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 });
   }
 
-  // Parse query image
-  let queryBase64: string;
-  let queryMimeType: string;
-  if (imageBase64.startsWith("data:")) {
-    const sep = imageBase64.indexOf(";base64,");
-    queryBase64 = sep >= 0 ? imageBase64.slice(sep + 8) : imageBase64;
-    queryMimeType = sep >= 0 ? imageBase64.slice(5, sep) : "image/jpeg";
-  } else {
-    queryBase64 = imageBase64;
-    queryMimeType = "image/jpeg";
+  // Parse query image (may be undefined when embedding-only path is used)
+  let queryBase64: string = "";
+  let queryMimeType: string = "image/jpeg";
+  if (imageBase64) {
+    if (imageBase64.startsWith("data:")) {
+      const sep = imageBase64.indexOf(";base64,");
+      queryBase64 = sep >= 0 ? imageBase64.slice(sep + 8) : imageBase64;
+      queryMimeType = sep >= 0 ? imageBase64.slice(5, sep) : "image/jpeg";
+    } else {
+      queryBase64 = imageBase64;
+      queryMimeType = "image/jpeg";
+    }
+  }
+
+  // ── Embedding path (fast, feature-based) ──────────────────────────────
+  // If queryEmbedding is provided, compare against D1 stored embeddings first.
+  // This is much faster and more accurate than Claude Vision.
+  if (queryEmbeddingRaw && Array.isArray(queryEmbeddingRaw) && queryEmbeddingRaw.length > 0) {
+    console.log(`[face/search] Embedding path: query dim=${queryEmbeddingRaw.length}`);
+    const storedEmbeddings = await getFaceEmbeddingsByEvent(eventId).catch(() => []);
+    console.log(`[face/search] Stored embeddings: ${storedEmbeddings.length}`);
+
+    if (storedEmbeddings.length > 0) {
+      // Compute cosine similarity for each stored face
+      const EMBED_THRESHOLD = 0.45;
+      const photoScores = new Map<string, number>();
+      for (const row of storedEmbeddings) {
+        const emb = row.embedding as number[];
+        const rowPhotoId = row.photo_id as string;
+        if (!emb || emb.length === 0) continue;
+        const sim = cosineSimilarity(queryEmbeddingRaw, emb);
+        const existing = photoScores.get(rowPhotoId) ?? 0;
+        if (sim > existing) photoScores.set(rowPhotoId, sim);
+      }
+
+      const embResults: FaceSearchResult[] = Array.from(photoScores.entries())
+        .filter(([, sim]) => sim >= EMBED_THRESHOLD)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([photoId, sim]) => ({ photoId, faceId: photoId, similarity: sim }));
+
+      console.log(`[face/search] Embedding results: ${embResults.length} above threshold ${EMBED_THRESHOLD}`);
+
+      const sessionId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      try {
+        await insertFaceSearchSession({
+          id: sessionId,
+          userId,
+          eventId,
+          queryEmbedding: queryEmbeddingRaw,
+          results: embResults,
+          threshold: EMBED_THRESHOLD,
+        });
+      } catch {
+        // non-fatal
+      }
+
+      return NextResponse.json({
+        sessionId,
+        matchCount: embResults.length,
+        uniquePhotos: new Set(embResults.map((r) => r.photoId)).size,
+        results: embResults,
+        _debug: { mode: "embedding", storedEmbeddings: storedEmbeddings.length },
+      });
+    }
+
+    console.log(`[face/search] No stored embeddings, falling back to Claude Vision`);
+    // Fall through to Claude Vision if no embeddings in D1
+  }
+
+  // ── Claude Vision path (fallback when no D1 embeddings) ───────────────
+  if (!imageBase64) {
+    return NextResponse.json({ error: "imageBase64 required for Claude Vision search" }, { status: 400 });
+  }
+  if (!ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 });
   }
 
   // Load all event photos from D1
