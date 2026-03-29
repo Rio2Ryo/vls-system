@@ -303,7 +303,7 @@ async function handlePost(req: NextRequest) {
       const EMBED_THRESHOLD = 0.45;
       const photoScores = new Map<string, number>();
       for (const row of storedEmbeddings) {
-        const emb = row.embedding as number[];
+        const emb = typeof row.embedding === "string" ? JSON.parse(row.embedding) as number[] : row.embedding as number[];
         const rowPhotoId = row.photo_id as string;
         if (!emb || emb.length === 0) continue;
         const sim = cosineSimilarity(queryEmbeddingRaw, emb);
