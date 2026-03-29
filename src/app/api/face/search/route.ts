@@ -277,39 +277,48 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  // Fetch all event photos with limited concurrency (prefer thumbnail, fall back to original)
-  console.log(`[face/search] Fetching ${event.photos.length} photos from R2`);
+  // Cap photos to avoid timeout (120s limit): max 80 photos processed per search
+  const MAX_PHOTOS = 80;
+  const photosToProcess = event.photos.slice(0, MAX_PHOTOS);
+  console.log(`[face/search] Processing ${photosToProcess.length}/${event.photos.length} photos`);
+
+  // Run Phase 1 (face analysis) and R2 photo fetching in parallel to save time
   const FETCH_CONCURRENCY = 20;
-  const fetchResults: ({ photoId: string; base64: string; mimeType: string } | null)[] = [];
-  for (let i = 0; i < event.photos.length; i += FETCH_CONCURRENCY) {
-    const slice = event.photos.slice(i, i + FETCH_CONCURRENCY);
-    const batch = await Promise.all(
-      slice.map(async (p) => {
-        // Try thumbnail first, then fall back to original
-        for (const url of [p.thumbnailUrl, p.originalUrl]) {
-          if (!url) continue;
-          const img = await fetchPhotoBase64(url);
-          if (img) return { photoId: p.id, base64: img.base64, mimeType: img.mimeType };
-        }
-        return null;
-      })
-    );
-    fetchResults.push(...batch);
-  }
+  const [faceDescription, fetchResults] = await Promise.all([
+    // Phase 1: Analyze query face
+    analyzeQueryFace(queryBase64, queryMimeType).then((desc) => {
+      console.log(`[face/search] Face description ready (${desc.length} chars)`);
+      return desc;
+    }),
+    // Fetch photos from R2 with limited concurrency
+    (async () => {
+      const results: ({ photoId: string; base64: string; mimeType: string } | null)[] = [];
+      for (let i = 0; i < photosToProcess.length; i += FETCH_CONCURRENCY) {
+        const slice = photosToProcess.slice(i, i + FETCH_CONCURRENCY);
+        const batch = await Promise.all(
+          slice.map(async (p) => {
+            for (const url of [p.thumbnailUrl, p.originalUrl]) {
+              if (!url) continue;
+              const img = await fetchPhotoBase64(url);
+              if (img) return { photoId: p.id, base64: img.base64, mimeType: img.mimeType };
+            }
+            return null;
+          })
+        );
+        results.push(...batch);
+      }
+      return results;
+    })(),
+  ]);
 
   const validPhotos = fetchResults.filter(
     (r): r is { photoId: string; base64: string; mimeType: string } => r !== null
   );
-  console.log(`[face/search] Fetched ${validPhotos.length}/${event.photos.length} photos successfully`);
+  console.log(`[face/search] Fetched ${validPhotos.length}/${photosToProcess.length} photos successfully`);
 
   if (validPhotos.length === 0) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
-
-  // Phase 1: Analyze query face to get detailed feature description
-  console.log(`[face/search] Phase 1: Analyzing query face`);
-  const faceDescription = await analyzeQueryFace(queryBase64, queryMimeType);
-  console.log(`[face/search] Face description: ${faceDescription.slice(0, 100)}...`);
 
   // Split into batches and run Claude Vision (Phase 2)
   const batches: { photoId: string; base64: string; mimeType: string; index: number }[][] = [];
