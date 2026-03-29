@@ -7,6 +7,7 @@ import {
   insertFaceSearchSession,
   d1Get,
 } from "@/lib/d1";
+import { r2Get, isR2Configured } from "@/lib/r2";
 import { type FaceSearchResult } from "@/lib/face";
 
 /**
@@ -43,8 +44,18 @@ interface EventRecord {
   photos?: PhotoRecord[];
 }
 
+/** Fetch a photo: use R2 directly for /api/media/* paths, HTTP for external URLs. */
 async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType: string } | null> {
   try {
+    // /api/media/<key> → fetch directly from R2 to avoid auth issues
+    const mediaPrefix = "/api/media/";
+    if (url.startsWith(mediaPrefix) && isR2Configured()) {
+      const key = url.slice(mediaPrefix.length);
+      const obj = await r2Get(key).catch(() => null);
+      if (!obj) return null;
+      return { base64: Buffer.from(obj.body).toString("base64"), mimeType: obj.contentType };
+    }
+    // Absolute or other URLs: fetch via HTTP
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) return null;
     const buf = await res.arrayBuffer();
@@ -186,18 +197,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  // Resolve relative URLs
-  const siteBase = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "https://vls-system.vercel.app";
-
-  // Fetch all event photos in parallel (prefer thumbnail for speed)
+  // Fetch all event photos in parallel (prefer thumbnail for speed, use R2 directly)
   const fetchResults = await Promise.all(
     event.photos.map(async (p) => {
       const raw = p.thumbnailUrl || p.originalUrl;
       if (!raw) return null;
-      const url = raw.startsWith("/") ? `${siteBase}${raw}` : raw;
-      const img = await fetchPhotoBase64(url);
+      const img = await fetchPhotoBase64(raw);
       if (!img) return null;
       return { photoId: p.id, base64: img.base64, mimeType: img.mimeType };
     })
