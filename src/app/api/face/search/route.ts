@@ -13,8 +13,9 @@ import { type FaceSearchResult } from "@/lib/face";
 /**
  * POST /api/face/search
  *
- * Claude Vision-only face search: all event photos are sent to Claude in batches.
- * No CLIP / CF Workers AI dependency.
+ * Claude Vision face search — 2 phases only (no Phase 3 to avoid timeout):
+ *   Phase 1: Analyze query face → detailed text description
+ *   Phase 2: Batch compare query photo + candidates via Claude Vision
  *
  * Body:
  *   imageBase64: string   — base64 encoded image (with or without data URL prefix)
@@ -30,9 +31,8 @@ export const maxDuration = 120;
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const CLAUDE_MODEL = "claude-sonnet-4-6";
-const CLAUDE_BATCH_SIZE = 4;
-const CLAUDE_CONCURRENCY = 4;
-const VERIFY_CONCURRENCY = 4;
+const CLAUDE_BATCH_SIZE = 5;
+const CLAUDE_CONCURRENCY = 5;
 
 interface PhotoRecord {
   id: string;
@@ -48,13 +48,9 @@ interface EventRecord {
 /** Detect actual image MIME type from binary magic bytes (ignores Content-Type header). */
 function detectImageMimeType(buf: ArrayBuffer): "image/jpeg" | "image/png" | "image/gif" | "image/webp" {
   const bytes = new Uint8Array(buf, 0, 12);
-  // PNG: 89 50 4E 47
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
-  // JPEG: FF D8 FF
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
-  // GIF: 47 49 46
   if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
-  // WebP: 52 49 46 46 ... 57 45 42 50
   if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
       bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
   return "image/jpeg";
@@ -63,14 +59,12 @@ function detectImageMimeType(buf: ArrayBuffer): "image/jpeg" | "image/png" | "im
 /** Fetch a photo: handles R2 paths, data: URLs, and absolute HTTP URLs. */
 async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType: string } | null> {
   try {
-    // data: URL — already base64, extract directly
     if (url.startsWith("data:")) {
       const sep = url.indexOf(";base64,");
       if (sep < 0) return null;
       const mime = url.slice(5, sep) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
       return { base64: url.slice(sep + 8), mimeType: mime };
     }
-    // /api/media/<key> → fetch directly from R2 to avoid auth issues
     const mediaPrefix = "/api/media/";
     if (url.startsWith(mediaPrefix) && isR2Configured()) {
       const key = url.slice(mediaPrefix.length);
@@ -78,7 +72,6 @@ async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType
       if (!obj) return null;
       return { base64: Buffer.from(obj.body).toString("base64"), mimeType: detectImageMimeType(obj.body) };
     }
-    // Absolute HTTP URL
     if (url.startsWith("http")) {
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) return null;
@@ -98,32 +91,31 @@ const validMimeType = (m: string): "image/jpeg" | "image/png" | "image/gif" | "i
 
 /**
  * Phase 1: Analyze the query image and extract a detailed face description.
- * This description is passed to each batch call to improve matching accuracy.
  */
 async function analyzeQueryFace(base64: string, mimeType: string): Promise<string> {
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
   try {
     const response = await client.messages.create({
       model: CLAUDE_MODEL,
-      max_tokens: 300,
+      max_tokens: 400,
       messages: [{
         role: "user",
         content: [
           {
             type: "text",
             text:
-              "この写真の人物の顔の特徴を、他の写真でその人を探すために使える情報として詳しく説明してください。\n" +
-              "以下を必ず含めてください：\n" +
-              "・顔の形（丸顔/面長/四角顔など）\n" +
-              "・目の特徴（大きさ・形・一重/二重・目尻の向き）\n" +
-              "・鼻の特徴（高さ・大きさ・形）\n" +
-              "・口・唇の特徴\n" +
-              "・肌の色合い・質感\n" +
+              "この写真に写っている人物の外見的特徴を、別の写真で同じ人物を見つけるために詳しく記述してください。\n" +
+              "以下を含めてください：\n" +
+              "・性別、推定年齢\n" +
+              "・顔の形\n" +
+              "・目の特徴（大きさ、一重/二重）\n" +
+              "・鼻・口の特徴\n" +
               "・眉毛の形\n" +
-              "・髪型・髪の色\n" +
-              "・推定年齢層・性別\n" +
-              "・その他の特徴（ほくろ・メガネ・特徴的な点）\n" +
-              "日本語で具体的に答えてください。",
+              "・髪型・髪色\n" +
+              "・メガネの有無\n" +
+              "・肌の色合い\n" +
+              "・服装の色や特徴\n" +
+              "日本語で簡潔に答えてください。",
           },
           {
             type: "image",
@@ -143,6 +135,10 @@ interface BatchMatch {
   confidence: number;
 }
 
+/**
+ * Phase 2: Compare query photo against a batch of candidate photos.
+ * Returns matches with confidence scores.
+ */
 async function runClaudeVisionBatch(
   queryBase64: string,
   queryMimeType: string,
@@ -152,24 +148,22 @@ async function runClaudeVisionBatch(
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
   const descriptionBlock = faceDescription
-    ? `\n【検索対象の顔の特徴（AI分析済み）】\n${faceDescription}\n`
+    ? `\n【この人物の特徴】\n${faceDescription}\n`
     : "";
 
   const content: Anthropic.MessageParam["content"] = [
     {
       type: "text",
       text:
-        "あなたは顔認識の専門AIです。【検索用写真】の人物を、提供された特徴情報と照合して【候補写真】の中から探してください。\n" +
+        "写真の中から特定の人物を探す作業を手伝ってください。\n" +
+        "【写真A】に写っている人物と同じ人物が、候補写真の中にいるか確認してください。\n" +
         descriptionBlock +
-        "\n【厳格な判定基準 — 必ず全て守ること】\n" +
-        "・目・鼻・口・顔の輪郭・眉の形など、複数の顔パーツの構造が一致することを確認\n" +
-        "・「なんとなく似ている」「雰囲気が似ている」だけでは絶対に不一致とする\n" +
-        "・服装・髪型・体型・ポーズが似ているだけでは不一致（顔の骨格的特徴のみで判断）\n" +
-        "・同性・同年代というだけでは不一致（個人を特定できる顔の特徴が必要）\n" +
-        "・顔が小さすぎる・ぼやけていて判別不可能な場合は不一致\n" +
-        "・角度・照明・表情の違いは許容するが、顔の構造的特徴で判断\n" +
-        "・確信度60%以上の候補を返す（最終判定は別ステップで行う）。迷う場合は不一致とする\n\n" +
-        "【検索用写真（この人物を探してください）】",
+        "\n【判定のポイント】\n" +
+        "・顔の特徴（目・鼻・口・輪郭・眉）が一致するか見てください\n" +
+        "・同じ人物が写っていれば、角度や表情が違っても一致です\n" +
+        "・集合写真の中に対象の人物がいる場合も一致です\n" +
+        "・別人の場合は不一致としてください\n\n" +
+        "【写真A（この人物を探してください）】",
     },
     {
       type: "image",
@@ -177,7 +171,7 @@ async function runClaudeVisionBatch(
     },
     {
       type: "text",
-      text: `【候補写真 ${candidates.length}枚（インデックス0〜${candidates.length - 1}）】`,
+      text: `\n以下の${candidates.length}枚の候補写真を確認してください：`,
     },
   ];
 
@@ -192,9 +186,9 @@ async function runClaudeVisionBatch(
   content.push({
     type: "text",
     text:
-      "各候補写真を一つずつ確認し、検索用写真の人物と顔の構造が確実に一致するものだけを返してください。\n" +
-      "確信度（0〜100）も必ず出力してください。迷う場合は不一致としてください。\n" +
-      '形式: {"matches": [{"index": 0, "confidence": 92}]}\n' +
+      "写真Aの人物と同じ人物が写っている候補写真があれば、そのインデックスと確信度を教えてください。\n" +
+      "確信度は0〜100で、高いほど確実です。\n" +
+      '回答はJSONのみで: {"matches": [{"index": 0, "confidence": 85}]}\n' +
       '一致なし: {"matches": []}',
   });
 
@@ -206,6 +200,7 @@ async function runClaudeVisionBatch(
     });
 
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
+    console.log(`[face/search] Batch response: ${text.slice(0, 200)}`);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return [];
 
@@ -215,8 +210,8 @@ async function runClaudeVisionBatch(
     const mapped: (BatchMatch | null)[] = matches.map(
       (m: number | { index: number; confidence?: number }) => {
         const idx = typeof m === "number" ? m : m.index;
-        const conf = typeof m === "number" ? 100 : (m.confidence ?? 100);
-        if (conf < 60) return null; // Phase 2: broad screening, low threshold to catch candidates
+        const conf = typeof m === "number" ? 80 : (m.confidence ?? 80);
+        if (conf < 50) return null; // very low threshold — let results through
         const photoId = candidates.find((c) => c.index === idx)?.photoId;
         return photoId ? { photoId, confidence: conf } : null;
       }
@@ -225,82 +220,6 @@ async function runClaudeVisionBatch(
   } catch (err) {
     console.error("[face/search] Claude Vision batch error:", err);
     return [];
-  }
-}
-
-/**
- * Phase 3: Re-verify each candidate match 1-on-1 against the query photo.
- * This eliminates false positives from the batch phase.
- */
-async function verifyMatch(
-  queryBase64: string,
-  queryMimeType: string,
-  candidateBase64: string,
-  candidateMimeType: string,
-  faceDescription: string
-): Promise<{ match: boolean; confidence: number }> {
-  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-
-  const descriptionBlock = faceDescription
-    ? `\n【検索対象の顔の特徴（AI分析済み）】\n${faceDescription}\n`
-    : "";
-
-  try {
-    const response = await client.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: 200,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text:
-              "あなたは顔認識の専門AIです。以下の2枚の写真に同一人物が写っているか厳密に判定してください。\n" +
-              descriptionBlock +
-              "\n【判定時の注意 — 必ず全て守ること】\n" +
-              "・目・鼻・口・顔の輪郭・眉毛の形状など、顔のパーツの構造的特徴で判断\n" +
-              "・服装・髪型・体型・雰囲気が似ているだけでは不一致\n" +
-              "・同性・同年代というだけでは不一致\n" +
-              "・写真2に写っている人物が複数いる場合、検索対象と一致する人物が1人でもいればOK\n" +
-              "・顔が不鮮明で判別できない場合は不一致\n" +
-              "・迷う場合は不一致とする\n\n" +
-              "【写真1: 検索対象の人物】",
-          },
-          {
-            type: "image",
-            source: { type: "base64", media_type: validMimeType(queryMimeType), data: queryBase64 },
-          },
-          {
-            type: "text",
-            text: "【写真2: 候補写真】",
-          },
-          {
-            type: "image",
-            source: { type: "base64", media_type: validMimeType(candidateMimeType), data: candidateBase64 },
-          },
-          {
-            type: "text",
-            text:
-              '同一人物が写っていますか？JSONのみで回答してください。\n' +
-              '形式: {"match": true, "confidence": 92, "reason": "目の形と鼻筋の特徴が一致"}\n' +
-              '不一致: {"match": false, "confidence": 30, "reason": "顔の輪郭が異なる"}',
-          },
-        ],
-      }],
-    });
-
-    const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return { match: false, confidence: 0 };
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    const confidence = typeof parsed.confidence === "number" ? parsed.confidence : 0;
-    const match = parsed.match === true && confidence >= 80;
-    console.log(`[face/search] Verify: match=${match}, confidence=${confidence}, reason=${parsed.reason || "N/A"}`);
-    return { match, confidence };
-  } catch (err) {
-    console.error("[face/search] Verify error:", err);
-    return { match: false, confidence: 0 };
   }
 }
 
@@ -369,21 +288,19 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  // Cap photos to avoid timeout (120s limit): shuffle and take max 120
-  const MAX_PHOTOS = 120;
+  // Cap photos to avoid timeout
+  const MAX_PHOTOS = 100;
   const shuffled = [...event.photos].sort(() => Math.random() - 0.5);
   const photosToProcess = shuffled.slice(0, MAX_PHOTOS);
   console.log(`[face/search] Processing ${photosToProcess.length}/${event.photos.length} photos`);
 
-  // Run Phase 1 (face analysis) and R2 photo fetching in parallel to save time
+  // Run Phase 1 (face analysis) and photo fetching in parallel
   const FETCH_CONCURRENCY = 20;
   const [faceDescription, fetchResults] = await Promise.all([
-    // Phase 1: Analyze query face
     analyzeQueryFace(queryBase64, queryMimeType).then((desc) => {
-      console.log(`[face/search] Face description ready (${desc.length} chars)`);
+      console.log(`[face/search] Phase 1 face description (${desc.length} chars): ${desc.slice(0, 100)}...`);
       return desc;
     }),
-    // Fetch photos from R2 with limited concurrency
     (async () => {
       const results: ({ photoId: string; base64: string; mimeType: string } | null)[] = [];
       for (let i = 0; i < photosToProcess.length; i += FETCH_CONCURRENCY) {
@@ -407,21 +324,20 @@ async function handlePost(req: NextRequest) {
   const validPhotos = fetchResults.filter(
     (r): r is { photoId: string; base64: string; mimeType: string } => r !== null
   );
-  console.log(`[face/search] Fetched ${validPhotos.length}/${photosToProcess.length} photos successfully`);
+  console.log(`[face/search] Fetched ${validPhotos.length}/${photosToProcess.length} photos`);
 
   if (validPhotos.length === 0) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  // Split into batches and run Claude Vision (Phase 2)
+  // Phase 2: Batch matching (no Phase 3 — directly use results)
   const batches: { photoId: string; base64: string; mimeType: string; index: number }[][] = [];
   for (let i = 0; i < validPhotos.length; i += CLAUDE_BATCH_SIZE) {
     const slice = validPhotos.slice(i, i + CLAUDE_BATCH_SIZE);
     batches.push(slice.map((p, j) => ({ ...p, index: j })));
   }
-  console.log(`[face/search] Phase 2: Running ${batches.length} Claude Vision batches (concurrency=${CLAUDE_CONCURRENCY})`);
+  console.log(`[face/search] Phase 2: ${batches.length} batches (batch_size=${CLAUDE_BATCH_SIZE}, concurrency=${CLAUDE_CONCURRENCY})`);
 
-  // Phase 2: Batch matching
   const allBatchMatches: BatchMatch[] = [];
   for (let i = 0; i < batches.length; i += CLAUDE_CONCURRENCY) {
     const chunk = batches.slice(i, i + CLAUDE_CONCURRENCY);
@@ -429,7 +345,8 @@ async function handlePost(req: NextRequest) {
     const chunkResults = await Promise.all(
       chunk.map((batch) => runClaudeVisionBatch(queryBase64, queryMimeType, batch, faceDescription))
     );
-    console.log(`[face/search] Batch group ${Math.floor(i/CLAUDE_CONCURRENCY)+1}/${Math.ceil(batches.length/CLAUDE_CONCURRENCY)} done in ${Date.now()-t0}ms`);
+    const matchesInChunk = chunkResults.reduce((sum, r) => sum + r.length, 0);
+    console.log(`[face/search] Batch group ${Math.floor(i/CLAUDE_CONCURRENCY)+1}/${Math.ceil(batches.length/CLAUDE_CONCURRENCY)} done in ${Date.now()-t0}ms, matches: ${matchesInChunk}`);
     for (const matches of chunkResults) allBatchMatches.push(...matches);
   }
 
@@ -441,44 +358,16 @@ async function handlePost(req: NextRequest) {
       matchMap.set(m.photoId, m);
     }
   }
-  const phase2Matches = Array.from(matchMap.values());
-  console.log(`[face/search] Phase 2 complete: ${phase2Matches.length} candidates found`);
+  const finalMatches = Array.from(matchMap.values())
+    .sort((a, b) => b.confidence - a.confidence);
+  console.log(`[face/search] Final: ${finalMatches.length} unique matches from ${allBatchMatches.length} total`);
 
-  // Phase 3: Verify each match 1-on-1 to eliminate false positives
-  const verifiedResults: { photoId: string; confidence: number }[] = [];
-  if (phase2Matches.length > 0) {
-    console.log(`[face/search] Phase 3: Verifying ${phase2Matches.length} candidates`);
-    for (let i = 0; i < phase2Matches.length; i += VERIFY_CONCURRENCY) {
-      const chunk = phase2Matches.slice(i, i + VERIFY_CONCURRENCY);
-      const verifications = await Promise.all(
-        chunk.map(async (m) => {
-          const photo = validPhotos.find((p) => p.photoId === m.photoId);
-          if (!photo) return null;
-          const result = await verifyMatch(
-            queryBase64, queryMimeType,
-            photo.base64, photo.mimeType,
-            faceDescription
-          );
-          if (result.match) {
-            return { photoId: m.photoId, confidence: result.confidence };
-          }
-          return null;
-        })
-      );
-      for (const v of verifications) {
-        if (v) verifiedResults.push(v);
-      }
-    }
-    console.log(`[face/search] Phase 3 complete: ${verifiedResults.length}/${phase2Matches.length} verified`);
-  }
-
-  // Build final results with real confidence as similarity
-  const results: FaceSearchResult[] = verifiedResults
-    .sort((a, b) => b.confidence - a.confidence)
-    .map((v) => ({
-      photoId: v.photoId,
-      faceId: v.photoId,
-      similarity: Math.round(v.confidence) / 100,
+  // Build results with confidence as similarity
+  const results: FaceSearchResult[] = finalMatches
+    .map((m) => ({
+      photoId: m.photoId,
+      faceId: m.photoId,
+      similarity: Math.round(m.confidence) / 100,
     }))
     .slice(0, limit);
 
@@ -491,7 +380,7 @@ async function handlePost(req: NextRequest) {
       eventId,
       queryEmbedding: [],
       results,
-      threshold: 0.85,
+      threshold: 0.5,
     });
   } catch {
     console.error("[face/search] Failed to save search session");
@@ -505,8 +394,8 @@ async function handlePost(req: NextRequest) {
     _debug: {
       totalPhotos: event.photos.length,
       fetchedPhotos: validPhotos.length,
-      phase2Candidates: phase2Matches.length,
-      phase3Verified: verifiedResults.length,
+      batchMatches: allBatchMatches.length,
+      uniqueMatches: finalMatches.length,
     },
   });
 }
