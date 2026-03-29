@@ -197,14 +197,15 @@ async function runClaudeVisionBatch(
     const parsed = JSON.parse(jsonMatch[0]);
     const matches = Array.isArray(parsed.matches) ? parsed.matches : [];
 
-    return matches
-      .map((m: number | { index: number; confidence?: number }) => {
+    const mapped: (string | null)[] = matches.map(
+      (m: number | { index: number; confidence?: number }) => {
         const idx = typeof m === "number" ? m : m.index;
         const conf = typeof m === "number" ? 100 : (m.confidence ?? 100);
         if (conf < 80) return null; // require 80% confidence
         return candidates.find((c) => c.index === idx)?.photoId ?? null;
-      })
-      .filter((id): id is string => id !== null);
+      }
+    );
+    return mapped.filter((id): id is string => typeof id === "string");
   } catch (err) {
     console.error("[face/search] Claude Vision batch error:", err);
     return [];
