@@ -23,7 +23,9 @@ async function loadServerFaceApi() {
   if (faceApiLoaded) return;
 
   // Load canvas (Node.js native canvas implementation)
-  // webpackIgnore: canvas is optional and loaded at runtime only
+  // canvas is an optional dependency; ignore missing type declarations
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   canvasLib = await import(/* webpackIgnore: true */ "canvas");
   const { Canvas, Image, ImageData } = canvasLib;
 
