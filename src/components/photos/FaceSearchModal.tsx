@@ -306,44 +306,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
     const csrfToken = getCsrfToken();
 
-    // Primary path: send imageBase64 → /api/face/search (CLIP + Gemini Vision)
-    try {
-      const res = await fetch("/api/face/search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ eventId, imageBase64: imageDataUrl, threshold: 0.4, limit: 100 }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const results = ((data.results || []) as FaceSearchResult[])
-          .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
-          .sort((a, b) => b.similarity - a.similarity);
-        setIsVisionMode(true);
-        setAllSearchResults(results);
-        setStep("results");
-        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
-        return;
-      }
-
-      // CF AI not configured → fall back to face-api.js client embedding
-      const errData = await res.json().catch(() => ({}));
-      if ((errData as { fallbackRequired?: boolean }).fallbackRequired) {
-        console.warn("[FaceSearch] CF AI unavailable, falling back to face-api.js");
-        await processImageWithFaceApi(imageDataUrl);
-        return;
-      }
-
-      setStep("error");
-      setStatusText(`検索 API エラー: ${res.status}`);
-    } catch (err) {
-      console.error("[FaceSearch] /api/face/search failed:", err);
-      setStep("error");
-      setStatusText("検索 API への接続に失敗しました。ネットワーク環境をご確認ください。");
-    }
+    // Primary path: face-api.js embedding → euclidean distance search (fast & accurate)
+    await processImageWithFaceApi(imageDataUrl);
   };
 
   // Fallback: face-api.js client-side processing (used when CF AI is unavailable)
