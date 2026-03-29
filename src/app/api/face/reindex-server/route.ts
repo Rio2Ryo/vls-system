@@ -23,11 +23,13 @@ async function loadServerFaceApi() {
   if (faceApiLoaded) return;
 
   // Load canvas (Node.js native canvas implementation)
-  canvasLib = await import("canvas");
+  // webpackIgnore: canvas is optional and loaded at runtime only
+  canvasLib = await import(/* webpackIgnore: true */ "canvas");
   const { Canvas, Image, ImageData } = canvasLib;
 
   // Import @vladmandic/face-api
-  faceapi = await import("@vladmandic/face-api");
+  // webpackIgnore: loaded at runtime only, not bundled
+  faceapi = await import(/* webpackIgnore: true */ "@vladmandic/face-api");
 
   // Monkey-patch the environment for Node.js
   faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
