@@ -44,6 +44,21 @@ interface EventRecord {
   photos?: PhotoRecord[];
 }
 
+/** Detect actual image MIME type from binary magic bytes (ignores Content-Type header). */
+function detectImageMimeType(buf: ArrayBuffer): "image/jpeg" | "image/png" | "image/gif" | "image/webp" {
+  const bytes = new Uint8Array(buf, 0, 12);
+  // PNG: 89 50 4E 47
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  // GIF: 47 49 46
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
+  // WebP: 52 49 46 46 ... 57 45 42 50
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
+  return "image/jpeg";
+}
+
 /** Fetch a photo: use R2 directly for /api/media/* paths, HTTP for external URLs. */
 async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType: string } | null> {
   try {
@@ -53,7 +68,7 @@ async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType
       const key = url.slice(mediaPrefix.length);
       const obj = await r2Get(key).catch(() => null);
       if (!obj) return null;
-      return { base64: Buffer.from(obj.body).toString("base64"), mimeType: obj.contentType };
+      return { base64: Buffer.from(obj.body).toString("base64"), mimeType: detectImageMimeType(obj.body) };
     }
     // Absolute or other URLs: fetch via HTTP
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
@@ -61,7 +76,7 @@ async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType
     const buf = await res.arrayBuffer();
     return {
       base64: Buffer.from(buf).toString("base64"),
-      mimeType: res.headers.get("content-type") || "image/jpeg",
+      mimeType: detectImageMimeType(buf),
     };
   } catch {
     return null;
