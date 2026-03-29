@@ -11,7 +11,7 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
-    serverComponentsExternalPackages: ["@anthropic-ai/sdk"],
+    serverComponentsExternalPackages: ["@anthropic-ai/sdk", "canvas", "@vladmandic/face-api"],
   },
   images: {
     formats: ["image/avif", "image/webp"],
