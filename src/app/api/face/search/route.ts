@@ -2,45 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import {
   isD1Configured,
-  getFaceEmbeddingsByEvent,
   insertFaceSearchSession,
   d1Get,
 } from "@/lib/d1";
-import { cosineSimilarity, type FaceBox, type FaceSearchResult } from "@/lib/face";
-import { generateImageEmbedding, isCfAiConfigured } from "@/lib/cf-ai";
+import { type FaceSearchResult } from "@/lib/face";
 
 /**
  * POST /api/face/search
  *
- * Gemini-first face search: all event photos are sent to Gemini Vision in batches.
- * CLIP is used only for ordering (not filtering) so no true matches are dropped.
+ * Claude Vision-only face search: all event photos are sent to Claude in batches.
+ * No CLIP / CF Workers AI dependency.
  *
- * Body (two modes):
- *   Mode A — CF Workers AI (preferred):
- *     imageBase64: string     — base64 encoded image (with or without data URL prefix)
- *     eventId:     string
- *     threshold?:  number     — unused for Gemini path; kept for CLIP-only fallback
- *     limit?:      number     — max results (default 50, max 200)
- *     userId?:     string
- *
- *   Mode B — direct embedding (legacy / fallback):
- *     queryEmbedding: number[]
- *     eventId:        string
- *     threshold?:     number
- *     limit?:         number
- *     userId?:        string
+ * Body:
+ *   imageBase64: string   — base64 encoded image (with or without data URL prefix)
+ *   eventId:     string
+ *   limit?:      number   — max results (default 50, max 200)
+ *   userId?:     string
  *
  * Returns:
  *   { sessionId, matchCount, uniquePhotos, results: FaceSearchResult[] }
- *   or on CF AI failure: { error, fallbackRequired: true }
  */
 
 export const maxDuration = 120;
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const CLAUDE_MODEL = "claude-sonnet-4-6";
-const CLAUDE_BATCH_SIZE = 10;   // photos per Claude call (images are large, keep batches smaller)
-const CLAUDE_CONCURRENCY = 3;   // parallel Claude calls
+const CLAUDE_BATCH_SIZE = 10;
+const CLAUDE_CONCURRENCY = 3;
 
 interface PhotoRecord {
   id: string;
@@ -155,220 +143,108 @@ export async function POST(req: NextRequest) {
   }
 
   const imageBase64 = body.imageBase64 as string | undefined;
-  const rawEmbedding = body.queryEmbedding as number[] | undefined;
   const eventId = body.eventId as string | undefined;
-  const rawThreshold = Number(body.threshold) || 0.4;
-  const threshold = Math.max(0.0, Math.min(1.0, rawThreshold));
   const limit = Math.min(200, Math.max(1, Number(body.limit) || 50));
   const userId = (body.userId as string) || undefined;
 
   if (!eventId || typeof eventId !== "string") {
     return NextResponse.json({ error: "eventId (string) required" }, { status: 400 });
   }
-  if (!imageBase64 && (!rawEmbedding || !Array.isArray(rawEmbedding) || rawEmbedding.length === 0)) {
-    return NextResponse.json(
-      { error: "imageBase64 or queryEmbedding required" },
-      { status: 400 },
-    );
+  if (!imageBase64) {
+    return NextResponse.json({ error: "imageBase64 required" }, { status: 400 });
   }
   if (!isD1Configured()) {
     return NextResponse.json({ error: "D1 not configured" }, { status: 503 });
   }
-
-  // Resolve embedding: CF AI for CLIP ordering only — failure does NOT block Claude Vision
-  let queryEmbedding: number[] = rawEmbedding ?? [];
-  if (imageBase64) {
-    if (isCfAiConfigured()) {
-      try {
-        queryEmbedding = await generateImageEmbedding(imageBase64);
-      } catch (err) {
-        console.warn("[face/search] CF AI embedding failed (CLIP disabled, Claude Vision will still run):", err);
-        queryEmbedding = [];
-      }
-    } else {
-      console.warn("[face/search] CF AI not configured — skipping CLIP, using Claude Vision only");
-      queryEmbedding = [];
-    }
+  if (!ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 });
   }
 
-  // Fetch all event embeddings from D1
-  const rows = await getFaceEmbeddingsByEvent(eventId);
-  if (rows.length === 0) {
-    return NextResponse.json({
-      sessionId: null,
-      matchCount: 0,
-      uniquePhotos: 0,
-      results: [],
-    });
+  // Parse query image
+  let queryBase64: string;
+  let queryMimeType: string;
+  if (imageBase64.startsWith("data:")) {
+    const sep = imageBase64.indexOf(";base64,");
+    queryBase64 = sep >= 0 ? imageBase64.slice(sep + 8) : imageBase64;
+    queryMimeType = sep >= 0 ? imageBase64.slice(5, sep) : "image/jpeg";
+  } else {
+    queryBase64 = imageBase64;
+    queryMimeType = "image/jpeg";
   }
 
-  // CLIP scoring — used for ordering only (not filtering), deduplicate by photoId
-  const seenPhotoIds = new Set<string>();
-  const scoredPhotos: Array<{ photoId: string; similarity: number; row: (typeof rows)[0] }> = [];
-  for (const row of rows) {
-    const photoId = row.photo_id as string;
-    if (seenPhotoIds.has(photoId)) continue;
-    seenPhotoIds.add(photoId);
-    const stored = JSON.parse(row.embedding as string) as number[];
-    const similarity = queryEmbedding.length > 0 ? cosineSimilarity(queryEmbedding, stored) : 0;
-    scoredPhotos.push({ photoId, similarity, row });
-  }
-  // Sort by CLIP score descending when available; otherwise order is preserved (insertion order)
-  if (queryEmbedding.length > 0) {
-    scoredPhotos.sort((a, b) => b.similarity - a.similarity);
+  // Load all event photos from D1
+  const eventsJson = await d1Get("vls_admin_events").catch(() => null);
+  if (!eventsJson) {
+    return NextResponse.json({ error: "Event data not found" }, { status: 404 });
   }
 
-  // Claude Vision path: batch all photos
-  if (imageBase64 && ANTHROPIC_API_KEY) {
-    try {
-      const eventsJson = await d1Get("vls_admin_events").catch(() => null);
-      if (eventsJson) {
-        const events = JSON.parse(eventsJson) as EventRecord[];
-        const event = events.find((e) => e.id === eventId);
-        if (event?.photos) {
-          // Build photoId → URL map (convert relative paths to absolute)
-          const siteBase = process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : "https://vls-system.vercel.app";
-          const photoUrlMap = new Map<string, string>();
-          for (const p of event.photos) {
-            const raw = p.originalUrl || p.thumbnailUrl;
-            if (!raw) continue;
-            const url = raw.startsWith("/") ? `${siteBase}${raw}` : raw;
-            photoUrlMap.set(p.id, url);
-          }
-
-          // Fetch all candidate photos in parallel
-          const fetchResults = await Promise.all(
-            scoredPhotos.map(async ({ photoId }) => {
-              const url = photoUrlMap.get(photoId);
-              if (!url) return null;
-              const img = await fetchPhotoBase64(url);
-              if (!img) return null;
-              return { photoId, base64: img.base64, mimeType: img.mimeType };
-            })
-          );
-          const validPhotos = fetchResults.filter(
-            (r): r is { photoId: string; base64: string; mimeType: string } => r !== null
-          );
-
-          if (validPhotos.length > 0) {
-            // Parse query image
-            let queryBase64: string;
-            let queryMimeType: string;
-            if (imageBase64.startsWith("data:")) {
-              const sep = imageBase64.indexOf(";base64,");
-              queryBase64 = sep >= 0 ? imageBase64.slice(sep + 8) : imageBase64;
-              queryMimeType = sep >= 0 ? imageBase64.slice(5, sep) : "image/jpeg";
-            } else {
-              queryBase64 = imageBase64;
-              queryMimeType = "image/jpeg";
-            }
-
-            // Split into batches
-            const batches: { photoId: string; base64: string; mimeType: string; index: number }[][] = [];
-            for (let i = 0; i < validPhotos.length; i += CLAUDE_BATCH_SIZE) {
-              const slice = validPhotos.slice(i, i + CLAUDE_BATCH_SIZE);
-              batches.push(slice.map((p, j) => ({ ...p, index: j })));
-            }
-
-            // Run batches with concurrency limit
-            const allMatchedIds: string[] = [];
-            for (let i = 0; i < batches.length; i += CLAUDE_CONCURRENCY) {
-              const chunk = batches.slice(i, i + CLAUDE_CONCURRENCY);
-              const chunkResults = await Promise.all(
-                chunk.map((batch) => runClaudeVisionBatch(queryBase64, queryMimeType, batch))
-              );
-              for (const ids of chunkResults) allMatchedIds.push(...ids);
-            }
-
-            if (allMatchedIds.length > 0) {
-              const matchedSet = new Set(allMatchedIds);
-              const geminiResults: FaceSearchResult[] = scoredPhotos
-                .filter((c) => matchedSet.has(c.photoId))
-                .map((c) => ({
-                  photoId: c.photoId,
-                  faceId: c.row.id as string,
-                  similarity: 1.0, // Gemini Vision confirmed match
-                  bbox: c.row.bbox
-                    ? (JSON.parse(c.row.bbox as string) as FaceBox)
-                    : undefined,
-                }))
-                .slice(0, limit);
-
-              const uniquePhotos = new Set(geminiResults.map((r) => r.photoId)).size;
-              const sessionId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-              try {
-                await insertFaceSearchSession({
-                  id: sessionId,
-                  userId,
-                  eventId,
-                  queryEmbedding,
-                  results: geminiResults,
-                  threshold,
-                });
-              } catch {
-                console.error("[face/search] Failed to save search session");
-              }
-
-              return NextResponse.json({
-                sessionId,
-                matchCount: geminiResults.length,
-                uniquePhotos,
-                results: geminiResults,
-              });
-            }
-
-            // Gemini found no matches in any batch — return empty
-            return NextResponse.json({
-              sessionId: null,
-              matchCount: 0,
-              uniquePhotos: 0,
-              results: [],
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.error("[face/search] Claude Vision batched search failed, falling back to CLIP:", err);
-    }
+  const events = JSON.parse(eventsJson) as EventRecord[];
+  const event = events.find((e) => e.id === eventId);
+  if (!event?.photos || event.photos.length === 0) {
+    return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  // CLIP-only fallback (no Claude key, or Claude path failed, and CLIP embedding is available)
-  if (queryEmbedding.length === 0) {
-    // No CLIP embedding and Claude Vision unavailable — nothing to search with
-    return NextResponse.json({ error: "No usable AI backend available for search" }, { status: 503 });
+  // Resolve relative URLs
+  const siteBase = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "https://vls-system.vercel.app";
+
+  // Fetch all event photos in parallel
+  const fetchResults = await Promise.all(
+    event.photos.map(async (p) => {
+      const raw = p.originalUrl || p.thumbnailUrl;
+      if (!raw) return null;
+      const url = raw.startsWith("/") ? `${siteBase}${raw}` : raw;
+      const img = await fetchPhotoBase64(url);
+      if (!img) return null;
+      return { photoId: p.id, base64: img.base64, mimeType: img.mimeType };
+    })
+  );
+
+  const validPhotos = fetchResults.filter(
+    (r): r is { photoId: string; base64: string; mimeType: string } => r !== null
+  );
+
+  if (validPhotos.length === 0) {
+    return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  const clipResults: FaceSearchResult[] = scoredPhotos
-    .filter((c) => c.similarity >= threshold)
-    .map((c) => ({
-      photoId: c.photoId,
-      faceId: c.row.id as string,
-      similarity: Math.round(c.similarity * 10000) / 10000,
-      bbox: c.row.bbox ? (JSON.parse(c.row.bbox as string) as FaceBox) : undefined,
-    }))
+  // Split into batches and run Claude Vision
+  const batches: { photoId: string; base64: string; mimeType: string; index: number }[][] = [];
+  for (let i = 0; i < validPhotos.length; i += CLAUDE_BATCH_SIZE) {
+    const slice = validPhotos.slice(i, i + CLAUDE_BATCH_SIZE);
+    batches.push(slice.map((p, j) => ({ ...p, index: j })));
+  }
+
+  const allMatchedIds: string[] = [];
+  for (let i = 0; i < batches.length; i += CLAUDE_CONCURRENCY) {
+    const chunk = batches.slice(i, i + CLAUDE_CONCURRENCY);
+    const chunkResults = await Promise.all(
+      chunk.map((batch) => runClaudeVisionBatch(queryBase64, queryMimeType, batch))
+    );
+    for (const ids of chunkResults) allMatchedIds.push(...ids);
+  }
+
+  const matchedSet = new Set(allMatchedIds);
+  const results: FaceSearchResult[] = validPhotos
+    .filter((p) => matchedSet.has(p.photoId))
+    .map((p) => ({ photoId: p.photoId, faceId: p.photoId, similarity: 1.0 }))
     .slice(0, limit);
 
-  const uniquePhotos = new Set(clipResults.map((r) => r.photoId)).size;
+  const uniquePhotos = new Set(results.map((r) => r.photoId)).size;
   const sessionId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   try {
     await insertFaceSearchSession({
       id: sessionId,
       userId,
       eventId,
-      queryEmbedding,
-      results: clipResults,
-      threshold,
+      queryEmbedding: [],
+      results,
+      threshold: 1.0,
     });
   } catch {
     console.error("[face/search] Failed to save search session");
   }
 
-  return NextResponse.json({
-    sessionId,
-    matchCount: clipResults.length,
-    uniquePhotos,
-    results: clipResults,
-  });
+  return NextResponse.json({ sessionId, matchCount: results.length, uniquePhotos, results });
 }
