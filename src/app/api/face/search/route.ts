@@ -299,25 +299,30 @@ async function handlePost(req: NextRequest) {
     console.log(`[face/search] Stored embeddings: ${storedEmbeddings.length}`);
 
     if (storedEmbeddings.length > 0) {
-      // Compute cosine similarity for each stored face
-      const EMBED_THRESHOLD = 0.45;
-      const photoScores = new Map<string, number>();
+      // Compute euclidean distance for each stored face (consistent with test-search)
+      const EMBED_DISTANCE_THRESHOLD = 0.5; // euclidean distance: lower = more similar
+      const photoDistances = new Map<string, number>(); // photoId → best (lowest) distance
       for (const row of storedEmbeddings) {
         const emb = typeof row.embedding === "string" ? JSON.parse(row.embedding) as number[] : row.embedding as number[];
         const rowPhotoId = row.photo_id as string;
         if (!emb || emb.length === 0) continue;
-        const sim = cosineSimilarity(queryEmbeddingRaw, emb);
-        const existing = photoScores.get(rowPhotoId) ?? 0;
-        if (sim > existing) photoScores.set(rowPhotoId, sim);
+        let sumSq = 0;
+        for (let i = 0; i < queryEmbeddingRaw.length; i++) {
+          const diff = (queryEmbeddingRaw[i] ?? 0) - (emb[i] ?? 0);
+          sumSq += diff * diff;
+        }
+        const dist = Math.sqrt(sumSq);
+        const existing = photoDistances.get(rowPhotoId);
+        if (existing === undefined || dist < existing) photoDistances.set(rowPhotoId, dist);
       }
 
-      const embResults: FaceSearchResult[] = Array.from(photoScores.entries())
-        .filter(([, sim]) => sim >= EMBED_THRESHOLD)
-        .sort((a, b) => b[1] - a[1])
+      const embResults: FaceSearchResult[] = Array.from(photoDistances.entries())
+        .filter(([, dist]) => dist <= EMBED_DISTANCE_THRESHOLD)
+        .sort((a, b) => a[1] - b[1]) // ascending: closest first
         .slice(0, limit)
-        .map(([photoId, sim]) => ({ photoId, faceId: photoId, similarity: sim }));
+        .map(([photoId, dist]) => ({ photoId, faceId: photoId, similarity: 1 - dist })); // convert to 0-1 similarity for UI
 
-      console.log(`[face/search] Embedding results: ${embResults.length} above threshold ${EMBED_THRESHOLD}`);
+      console.log(`[face/search] Embedding results: ${embResults.length} within distance ${EMBED_DISTANCE_THRESHOLD}`);
 
       const sessionId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       try {
@@ -327,7 +332,7 @@ async function handlePost(req: NextRequest) {
           eventId,
           queryEmbedding: queryEmbeddingRaw,
           results: embResults,
-          threshold: EMBED_THRESHOLD,
+          threshold: EMBED_DISTANCE_THRESHOLD,
         });
       } catch {
         // non-fatal
