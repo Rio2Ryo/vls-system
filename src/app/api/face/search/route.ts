@@ -59,9 +59,16 @@ function detectImageMimeType(buf: ArrayBuffer): "image/jpeg" | "image/png" | "im
   return "image/jpeg";
 }
 
-/** Fetch a photo: use R2 directly for /api/media/* paths, HTTP for external URLs. */
+/** Fetch a photo: handles R2 paths, data: URLs, and absolute HTTP URLs. */
 async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType: string } | null> {
   try {
+    // data: URL — already base64, extract directly
+    if (url.startsWith("data:")) {
+      const sep = url.indexOf(";base64,");
+      if (sep < 0) return null;
+      const mime = url.slice(5, sep) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+      return { base64: url.slice(sep + 8), mimeType: mime };
+    }
     // /api/media/<key> → fetch directly from R2 to avoid auth issues
     const mediaPrefix = "/api/media/";
     if (url.startsWith(mediaPrefix) && isR2Configured()) {
@@ -70,14 +77,14 @@ async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType
       if (!obj) return null;
       return { base64: Buffer.from(obj.body).toString("base64"), mimeType: detectImageMimeType(obj.body) };
     }
-    // Absolute or other URLs: fetch via HTTP
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) return null;
-    const buf = await res.arrayBuffer();
-    return {
-      base64: Buffer.from(buf).toString("base64"),
-      mimeType: detectImageMimeType(buf),
-    };
+    // Absolute HTTP URL
+    if (url.startsWith("http")) {
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) return null;
+      const buf = await res.arrayBuffer();
+      return { base64: Buffer.from(buf).toString("base64"), mimeType: detectImageMimeType(buf) };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -201,7 +208,7 @@ async function runClaudeVisionBatch(
       (m: number | { index: number; confidence?: number }) => {
         const idx = typeof m === "number" ? m : m.index;
         const conf = typeof m === "number" ? 100 : (m.confidence ?? 100);
-        if (conf < 80) return null; // require 80% confidence
+        if (conf < 65) return null; // require 65% confidence
         return candidates.find((c) => c.index === idx)?.photoId ?? null;
       }
     );
@@ -277,9 +284,10 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  // Cap photos to avoid timeout (120s limit): max 80 photos processed per search
+  // Cap photos to avoid timeout (120s limit): shuffle and take max 80
   const MAX_PHOTOS = 80;
-  const photosToProcess = event.photos.slice(0, MAX_PHOTOS);
+  const shuffled = [...event.photos].sort(() => Math.random() - 0.5);
+  const photosToProcess = shuffled.slice(0, MAX_PHOTOS);
   console.log(`[face/search] Processing ${photosToProcess.length}/${event.photos.length} photos`);
 
   // Run Phase 1 (face analysis) and R2 photo fetching in parallel to save time
