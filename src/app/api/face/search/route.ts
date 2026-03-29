@@ -168,7 +168,7 @@ async function runClaudeVisionBatch(
         "・同性・同年代というだけでは不一致（個人を特定できる顔の特徴が必要）\n" +
         "・顔が小さすぎる・ぼやけていて判別不可能な場合は不一致\n" +
         "・角度・照明・表情の違いは許容するが、顔の構造的特徴で判断\n" +
-        "・確信度80%以上のみ一致と判定する。迷う場合は不一致とする\n\n" +
+        "・確信度60%以上の候補を返す（最終判定は別ステップで行う）。迷う場合は不一致とする\n\n" +
         "【検索用写真（この人物を探してください）】",
     },
     {
@@ -216,7 +216,7 @@ async function runClaudeVisionBatch(
       (m: number | { index: number; confidence?: number }) => {
         const idx = typeof m === "number" ? m : m.index;
         const conf = typeof m === "number" ? 100 : (m.confidence ?? 100);
-        if (conf < 80) return null; // require 80% confidence (matches prompt instruction)
+        if (conf < 60) return null; // Phase 2: broad screening, low threshold to catch candidates
         const photoId = candidates.find((c) => c.index === idx)?.photoId;
         return photoId ? { photoId, confidence: conf } : null;
       }
@@ -295,7 +295,7 @@ async function verifyMatch(
 
     const parsed = JSON.parse(jsonMatch[0]);
     const confidence = typeof parsed.confidence === "number" ? parsed.confidence : 0;
-    const match = parsed.match === true && confidence >= 85;
+    const match = parsed.match === true && confidence >= 80;
     console.log(`[face/search] Verify: match=${match}, confidence=${confidence}, reason=${parsed.reason || "N/A"}`);
     return { match, confidence };
   } catch (err) {
