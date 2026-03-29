@@ -211,7 +211,7 @@ async function runClaudeVisionBatch(
       (m: number | { index: number; confidence?: number }) => {
         const idx = typeof m === "number" ? m : m.index;
         const conf = typeof m === "number" ? 80 : (m.confidence ?? 80);
-        if (conf < 50) return null; // very low threshold — let results through
+        // No server-side filtering — return all matches, let frontend filter by search mode
         const photoId = candidates.find((c) => c.index === idx)?.photoId;
         return photoId ? { photoId, confidence: conf } : null;
       }
