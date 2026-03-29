@@ -99,18 +99,16 @@ async function runClaudeVisionBatch(
     {
       type: "text",
       text:
-        "あなたは人物検索AIです。【検索用写真】に写っている人物が、【候補写真】のどれかに写っているかを判定してください。\n\n" +
-        "【判定方法】\n" +
-        "候補写真の中に検索用写真の人物が写っていれば一致とします。\n" +
-        "・人物が小さく写っていても構いません\n" +
-        "・背景に写っていても構いません\n" +
-        "・複数人が写っている集合写真でも判定してください\n" +
-        "・角度・照明・表情の違いは無視してください\n" +
-        "・服装・髪型が違っても顔の特徴で判断してください\n\n" +
-        "【判定基準】\n" +
-        "・同じ人物の可能性が50%以上あれば一致としてください\n" +
-        "・明らかに別人（性別・年齢層が大きく異なる）の場合のみ除外してください\n" +
-        "・判断が難しい場合は一致に含めてください（見逃しより誤検知を優先）\n\n" +
+        "あなたは人物検索AIです。【検索用写真】の人物が【候補写真】に写っているかを、顔の特徴で厳密に判定してください。\n\n" +
+        "【判定基準（厳格）】\n" +
+        "・顔の輪郭・目・鼻・口の形が明確に一致する場合のみ一致とします\n" +
+        "・小さすぎて顔が判別できない場合は不一致とします\n" +
+        "・似ているが確信が持てない場合は不一致とします\n" +
+        "・角度・照明・表情の違いは考慮してください\n" +
+        "・服装・髪型は参考程度にしてください（同じイベントなら同じ服の可能性あり）\n\n" +
+        "【対象写真の条件】\n" +
+        "・集合写真・スポーツ写真でも、顔が判別できれば判定してください\n" +
+        "・背景に写り込んでいる場合も含めます\n\n" +
         "【検索用写真（この人物を探しています）】",
     },
     {
@@ -134,9 +132,10 @@ async function runClaudeVisionBatch(
   content.push({
     type: "text",
     text:
-      "上記の判定基準に従って、検索用写真の人物と明確に同一人物であると確信できる候補写真のインデックス番号のみをJSONで返してください。" +
-      "確信が持てない写真は含めないでください。" +
-      '必ずこの形式のJSONのみを返してください: {"matches": [0, 2, 5]}' +
+      "上記の判定基準に従って判定してください。\n" +
+      "顔の特徴が明確に一致すると確信できる写真のみ選んでください。似ているだけでは不十分です。\n" +
+      "各候補写真の一致確信度（0〜100）も出力してください。\n" +
+      '必ずこの形式のJSONのみを返してください: {"matches": [{"index": 0, "confidence": 95}, {"index": 2, "confidence": 80}]}\n' +
       '一致なしの場合: {"matches": []}',
   });
 
@@ -148,14 +147,21 @@ async function runClaudeVisionBatch(
     });
 
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-    const jsonMatch = text.match(/\{[\s\S]*?\}/);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return [];
 
     const parsed = JSON.parse(jsonMatch[0]);
-    const indices: number[] = Array.isArray(parsed.matches) ? parsed.matches : [];
-    return indices
-      .map((i) => candidates.find((c) => c.index === i)?.photoId)
-      .filter((id): id is string => !!id);
+    const matches = Array.isArray(parsed.matches) ? parsed.matches : [];
+
+    // Support both old format [0,2] and new format [{index:0,confidence:95}]
+    return matches
+      .map((m: number | { index: number; confidence?: number }) => {
+        const idx = typeof m === "number" ? m : m.index;
+        const conf = typeof m === "number" ? 100 : (m.confidence ?? 100);
+        if (conf < 70) return null; // filter low-confidence matches
+        return candidates.find((c) => c.index === idx)?.photoId ?? null;
+      })
+      .filter((id): id is string => id !== null);
   } catch (err) {
     console.error("[face/search] Claude Vision batch error:", err);
     return [];
