@@ -148,6 +148,18 @@ async function runClaudeVisionBatch(
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handlePost(req);
+  } catch (err) {
+    console.error("[face/search] Unhandled error:", err);
+    return NextResponse.json(
+      { error: "Internal server error", detail: String(err) },
+      { status: 500 }
+    );
+  }
+}
+
+async function handlePost(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -186,18 +198,22 @@ export async function POST(req: NextRequest) {
   }
 
   // Load all event photos from D1
+  console.log(`[face/search] Loading event ${eventId} from D1`);
   const eventsJson = await d1Get("vls_admin_events").catch(() => null);
   if (!eventsJson) {
+    console.error("[face/search] Event data not found in D1");
     return NextResponse.json({ error: "Event data not found" }, { status: 404 });
   }
 
   const events = JSON.parse(eventsJson) as EventRecord[];
   const event = events.find((e) => e.id === eventId);
+  console.log(`[face/search] Event found: ${!!event}, photos: ${event?.photos?.length ?? 0}`);
   if (!event?.photos || event.photos.length === 0) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
   // Fetch all event photos in parallel (prefer thumbnail for speed, use R2 directly)
+  console.log(`[face/search] Fetching ${event.photos.length} photos from R2`);
   const fetchResults = await Promise.all(
     event.photos.map(async (p) => {
       const raw = p.thumbnailUrl || p.originalUrl;
@@ -211,6 +227,7 @@ export async function POST(req: NextRequest) {
   const validPhotos = fetchResults.filter(
     (r): r is { photoId: string; base64: string; mimeType: string } => r !== null
   );
+  console.log(`[face/search] Fetched ${validPhotos.length}/${event.photos.length} photos successfully`);
 
   if (validPhotos.length === 0) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
@@ -222,13 +239,16 @@ export async function POST(req: NextRequest) {
     const slice = validPhotos.slice(i, i + CLAUDE_BATCH_SIZE);
     batches.push(slice.map((p, j) => ({ ...p, index: j })));
   }
+  console.log(`[face/search] Running ${batches.length} Claude Vision batches (concurrency=${CLAUDE_CONCURRENCY})`);
 
   const allMatchedIds: string[] = [];
   for (let i = 0; i < batches.length; i += CLAUDE_CONCURRENCY) {
     const chunk = batches.slice(i, i + CLAUDE_CONCURRENCY);
+    const t0 = Date.now();
     const chunkResults = await Promise.all(
       chunk.map((batch) => runClaudeVisionBatch(queryBase64, queryMimeType, batch))
     );
+    console.log(`[face/search] Batch group ${Math.floor(i/CLAUDE_CONCURRENCY)+1}/${Math.ceil(batches.length/CLAUDE_CONCURRENCY)} done in ${Date.now()-t0}ms`);
     for (const ids of chunkResults) allMatchedIds.push(...ids);
   }
 
