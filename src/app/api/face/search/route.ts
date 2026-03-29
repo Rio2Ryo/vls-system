@@ -29,7 +29,7 @@ export const maxDuration = 120;
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const CLAUDE_MODEL = "claude-sonnet-4-6";
-const CLAUDE_BATCH_SIZE = 10;
+const CLAUDE_BATCH_SIZE = 8;
 const CLAUDE_CONCURRENCY = 3;
 
 interface PhotoRecord {
@@ -73,18 +73,18 @@ async function runClaudeVisionBatch(
     {
       type: "text",
       text:
-        "あなたは高精度な顔認識AIです。【検索用写真】の人物と【候補写真】を厳密に照合してください。\n\n" +
-        "【判定基準（すべて満たす場合のみ一致とする）】\n" +
-        "1. 性別が一致している\n" +
-        "2. 年齢層が近い（±3歳以内）\n" +
-        "3. 顔の輪郭・骨格・顔の形が一致している\n" +
-        "4. 目の形・間隔・眉の形・まぶたの特徴が一致している\n" +
-        "5. 鼻の形・大きさ・口の形・唇の厚さが一致している\n\n" +
-        "【重要】\n" +
-        "・少しでも疑わしい場合は一致にしないでください\n" +
-        "・似ているだけでは不十分です。同一人物と高い確信がある場合のみ一致とする\n" +
-        "・子どもの場合、同年代の別人と混同しないよう特に慎重に判断してください\n" +
-        "・角度・照明・表情が違っても顔の構造的特徴で判断してください\n\n" +
+        "あなたは人物検索AIです。【検索用写真】に写っている人物が、【候補写真】のどれかに写っているかを判定してください。\n\n" +
+        "【判定方法】\n" +
+        "候補写真の中に検索用写真の人物が写っていれば一致とします。\n" +
+        "・人物が小さく写っていても構いません\n" +
+        "・背景に写っていても構いません\n" +
+        "・複数人が写っている集合写真でも判定してください\n" +
+        "・角度・照明・表情の違いは無視してください\n" +
+        "・服装・髪型が違っても顔の特徴で判断してください\n\n" +
+        "【判定基準】\n" +
+        "・同じ人物の可能性が50%以上あれば一致としてください\n" +
+        "・明らかに別人（性別・年齢層が大きく異なる）の場合のみ除外してください\n" +
+        "・判断が難しい場合は一致に含めてください（見逃しより誤検知を優先）\n\n" +
         "【検索用写真（この人物を探しています）】",
     },
     {
@@ -191,10 +191,10 @@ export async function POST(req: NextRequest) {
     ? `https://${process.env.VERCEL_URL}`
     : "https://vls-system.vercel.app";
 
-  // Fetch all event photos in parallel
+  // Fetch all event photos in parallel (prefer thumbnail for speed)
   const fetchResults = await Promise.all(
     event.photos.map(async (p) => {
-      const raw = p.originalUrl || p.thumbnailUrl;
+      const raw = p.thumbnailUrl || p.originalUrl;
       if (!raw) return null;
       const url = raw.startsWith("/") ? `${siteBase}${raw}` : raw;
       const img = await fetchPhotoBase64(url);
@@ -248,5 +248,11 @@ export async function POST(req: NextRequest) {
     console.error("[face/search] Failed to save search session");
   }
 
-  return NextResponse.json({ sessionId, matchCount: results.length, uniquePhotos, results });
+  return NextResponse.json({
+    sessionId,
+    matchCount: results.length,
+    uniquePhotos,
+    results,
+    _debug: { totalPhotos: event.photos.length, fetchedPhotos: validPhotos.length },
+  });
 }
