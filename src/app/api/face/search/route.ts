@@ -83,33 +83,78 @@ async function fetchPhotoBase64(url: string): Promise<{ base64: string; mimeType
   }
 }
 
+const validMimeType = (m: string): "image/jpeg" | "image/png" | "image/gif" | "image/webp" =>
+  ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(m)
+    ? (m as "image/jpeg" | "image/png" | "image/gif" | "image/webp")
+    : "image/jpeg";
+
+/**
+ * Phase 1: Analyze the query image and extract a detailed face description.
+ * This description is passed to each batch call to improve matching accuracy.
+ */
+async function analyzeQueryFace(base64: string, mimeType: string): Promise<string> {
+  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+  try {
+    const response = await client.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 300,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text:
+              "この写真の人物の顔の特徴を、他の写真でその人を探すために使える情報として詳しく説明してください。\n" +
+              "以下を必ず含めてください：\n" +
+              "・顔の形（丸顔/面長/四角顔など）\n" +
+              "・目の特徴（大きさ・形・一重/二重・目尻の向き）\n" +
+              "・鼻の特徴（高さ・大きさ・形）\n" +
+              "・口・唇の特徴\n" +
+              "・肌の色合い・質感\n" +
+              "・眉毛の形\n" +
+              "・髪型・髪の色\n" +
+              "・推定年齢層・性別\n" +
+              "・その他の特徴（ほくろ・メガネ・特徴的な点）\n" +
+              "日本語で具体的に答えてください。",
+          },
+          {
+            type: "image",
+            source: { type: "base64", media_type: validMimeType(mimeType), data: base64 },
+          },
+        ],
+      }],
+    });
+    return response.content[0]?.type === "text" ? response.content[0].text : "";
+  } catch {
+    return "";
+  }
+}
+
 async function runClaudeVisionBatch(
   queryBase64: string,
   queryMimeType: string,
-  candidates: { photoId: string; base64: string; mimeType: string; index: number }[]
+  candidates: { photoId: string; base64: string; mimeType: string; index: number }[],
+  faceDescription: string
 ): Promise<string[]> {
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
-  const validMimeType = (m: string): "image/jpeg" | "image/png" | "image/gif" | "image/webp" =>
-    ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(m)
-      ? (m as "image/jpeg" | "image/png" | "image/gif" | "image/webp")
-      : "image/jpeg";
+  const descriptionBlock = faceDescription
+    ? `\n【検索対象の顔の特徴（AI分析済み）】\n${faceDescription}\n`
+    : "";
 
   const content: Anthropic.MessageParam["content"] = [
     {
       type: "text",
       text:
-        "あなたは人物検索AIです。【検索用写真】の人物が【候補写真】に写っているかを、顔の特徴で厳密に判定してください。\n\n" +
-        "【判定基準（厳格）】\n" +
-        "・顔の輪郭・目・鼻・口の形が明確に一致する場合のみ一致とします\n" +
-        "・小さすぎて顔が判別できない場合は不一致とします\n" +
-        "・似ているが確信が持てない場合は不一致とします\n" +
-        "・角度・照明・表情の違いは考慮してください\n" +
-        "・服装・髪型は参考程度にしてください（同じイベントなら同じ服の可能性あり）\n\n" +
-        "【対象写真の条件】\n" +
-        "・集合写真・スポーツ写真でも、顔が判別できれば判定してください\n" +
-        "・背景に写り込んでいる場合も含めます\n\n" +
-        "【検索用写真（この人物を探しています）】",
+        "あなたは顔認識の専門AIです。【検索用写真】の人物を、提供された特徴情報と照合して【候補写真】の中から探してください。\n" +
+        descriptionBlock +
+        "\n【厳格な判定基準】\n" +
+        "・目・鼻・口・顔の輪郭など複数の顔パーツが一致することを確認\n" +
+        "・「なんとなく似ている」だけでは不一致とする\n" +
+        "・顔が小さすぎて判別不可能な場合は不一致\n" +
+        "・角度・照明・表情の違いは許容するが、顔の構造的特徴で判断\n" +
+        "・確信度80%以上のみ一致とする\n\n" +
+        "【検索用写真（この人物を探してください）】",
     },
     {
       type: "image",
@@ -122,7 +167,7 @@ async function runClaudeVisionBatch(
   ];
 
   for (const c of candidates) {
-    content.push({ type: "text", text: `写真インデックス ${c.index}:` });
+    content.push({ type: "text", text: `候補${c.index}:` });
     content.push({
       type: "image",
       source: { type: "base64", media_type: validMimeType(c.mimeType), data: c.base64 },
@@ -132,17 +177,16 @@ async function runClaudeVisionBatch(
   content.push({
     type: "text",
     text:
-      "上記の判定基準に従って判定してください。\n" +
-      "顔の特徴が明確に一致すると確信できる写真のみ選んでください。似ているだけでは不十分です。\n" +
-      "各候補写真の一致確信度（0〜100）も出力してください。\n" +
-      '必ずこの形式のJSONのみを返してください: {"matches": [{"index": 0, "confidence": 95}, {"index": 2, "confidence": 80}]}\n' +
-      '一致なしの場合: {"matches": []}',
+      "各候補写真を一つずつ確認し、検索用写真の人物と顔の構造が確実に一致するものだけを返してください。\n" +
+      "確信度（0〜100）も必ず出力してください。\n" +
+      '形式: {"matches": [{"index": 0, "confidence": 92}]}\n' +
+      '一致なし: {"matches": []}',
   });
 
   try {
     const response = await client.messages.create({
       model: CLAUDE_MODEL,
-      max_tokens: 200,
+      max_tokens: 300,
       messages: [{ role: "user", content }],
     });
 
@@ -153,12 +197,11 @@ async function runClaudeVisionBatch(
     const parsed = JSON.parse(jsonMatch[0]);
     const matches = Array.isArray(parsed.matches) ? parsed.matches : [];
 
-    // Support both old format [0,2] and new format [{index:0,confidence:95}]
     return matches
       .map((m: number | { index: number; confidence?: number }) => {
         const idx = typeof m === "number" ? m : m.index;
         const conf = typeof m === "number" ? 100 : (m.confidence ?? 100);
-        if (conf < 70) return null; // filter low-confidence matches
+        if (conf < 80) return null; // require 80% confidence
         return candidates.find((c) => c.index === idx)?.photoId ?? null;
       })
       .filter((id): id is string => id !== null);
@@ -262,20 +305,25 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  // Split into batches and run Claude Vision
+  // Phase 1: Analyze query face to get detailed feature description
+  console.log(`[face/search] Phase 1: Analyzing query face`);
+  const faceDescription = await analyzeQueryFace(queryBase64, queryMimeType);
+  console.log(`[face/search] Face description: ${faceDescription.slice(0, 100)}...`);
+
+  // Split into batches and run Claude Vision (Phase 2)
   const batches: { photoId: string; base64: string; mimeType: string; index: number }[][] = [];
   for (let i = 0; i < validPhotos.length; i += CLAUDE_BATCH_SIZE) {
     const slice = validPhotos.slice(i, i + CLAUDE_BATCH_SIZE);
     batches.push(slice.map((p, j) => ({ ...p, index: j })));
   }
-  console.log(`[face/search] Running ${batches.length} Claude Vision batches (concurrency=${CLAUDE_CONCURRENCY})`);
+  console.log(`[face/search] Phase 2: Running ${batches.length} Claude Vision batches (concurrency=${CLAUDE_CONCURRENCY})`);
 
   const allMatchedIds: string[] = [];
   for (let i = 0; i < batches.length; i += CLAUDE_CONCURRENCY) {
     const chunk = batches.slice(i, i + CLAUDE_CONCURRENCY);
     const t0 = Date.now();
     const chunkResults = await Promise.all(
-      chunk.map((batch) => runClaudeVisionBatch(queryBase64, queryMimeType, batch))
+      chunk.map((batch) => runClaudeVisionBatch(queryBase64, queryMimeType, batch, faceDescription))
     );
     console.log(`[face/search] Batch group ${Math.floor(i/CLAUDE_CONCURRENCY)+1}/${Math.ceil(batches.length/CLAUDE_CONCURRENCY)} done in ${Date.now()-t0}ms`);
     for (const ids of chunkResults) allMatchedIds.push(...ids);
