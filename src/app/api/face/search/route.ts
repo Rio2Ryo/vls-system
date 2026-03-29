@@ -227,17 +227,25 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  // Fetch all event photos in parallel (prefer thumbnail for speed, use R2 directly)
+  // Fetch all event photos with limited concurrency (prefer thumbnail, fall back to original)
   console.log(`[face/search] Fetching ${event.photos.length} photos from R2`);
-  const fetchResults = await Promise.all(
-    event.photos.map(async (p) => {
-      const raw = p.thumbnailUrl || p.originalUrl;
-      if (!raw) return null;
-      const img = await fetchPhotoBase64(raw);
-      if (!img) return null;
-      return { photoId: p.id, base64: img.base64, mimeType: img.mimeType };
-    })
-  );
+  const FETCH_CONCURRENCY = 20;
+  const fetchResults: ({ photoId: string; base64: string; mimeType: string } | null)[] = [];
+  for (let i = 0; i < event.photos.length; i += FETCH_CONCURRENCY) {
+    const slice = event.photos.slice(i, i + FETCH_CONCURRENCY);
+    const batch = await Promise.all(
+      slice.map(async (p) => {
+        // Try thumbnail first, then fall back to original
+        for (const url of [p.thumbnailUrl, p.originalUrl]) {
+          if (!url) continue;
+          const img = await fetchPhotoBase64(url);
+          if (img) return { photoId: p.id, base64: img.base64, mimeType: img.mimeType };
+        }
+        return null;
+      })
+    );
+    fetchResults.push(...batch);
+  }
 
   const validPhotos = fetchResults.filter(
     (r): r is { photoId: string; base64: string; mimeType: string } => r !== null
