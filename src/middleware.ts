@@ -137,9 +137,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/demo", request.url));
   }
 
-  // 0.5 Rate limiting (API routes)
+  // 0.5 Rate limiting (API routes) — skip for media serving (static files)
   let rlResult: RLResult | null = null;
-  if (pathname.startsWith("/api/")) {
+  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/media/")) {
     const ip = getClientIp(request);
     if (pathname.startsWith("/api/auth/callback")) {
       rlResult = checkRateLimit(

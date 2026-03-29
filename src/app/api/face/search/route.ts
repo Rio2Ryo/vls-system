@@ -31,7 +31,7 @@ export const maxDuration = 120;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const CLAUDE_MODEL = "claude-sonnet-4-6";
 const CLAUDE_BATCH_SIZE = 8;
-const CLAUDE_CONCURRENCY = 3;
+const CLAUDE_CONCURRENCY = 4;
 
 interface PhotoRecord {
   id: string;
@@ -208,7 +208,7 @@ async function runClaudeVisionBatch(
       (m: number | { index: number; confidence?: number }) => {
         const idx = typeof m === "number" ? m : m.index;
         const conf = typeof m === "number" ? 100 : (m.confidence ?? 100);
-        if (conf < 65) return null; // require 65% confidence
+        if (conf < 55) return null; // require 55% confidence
         return candidates.find((c) => c.index === idx)?.photoId ?? null;
       }
     );
@@ -284,8 +284,8 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ sessionId: null, matchCount: 0, uniquePhotos: 0, results: [] });
   }
 
-  // Cap photos to avoid timeout (120s limit): shuffle and take max 80
-  const MAX_PHOTOS = 80;
+  // Cap photos to avoid timeout (120s limit): shuffle and take max 120
+  const MAX_PHOTOS = 120;
   const shuffled = [...event.photos].sort(() => Math.random() - 0.5);
   const photosToProcess = shuffled.slice(0, MAX_PHOTOS);
   console.log(`[face/search] Processing ${photosToProcess.length}/${event.photos.length} photos`);
