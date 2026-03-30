@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
               Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-              from: "VLS System <noreply@resend.dev>",
+              from: "VLS System <noreply@kataomoi.org>",
               to: [email],
               subject: "パスワードリセットのご案内 | VLS System",
               html: `
