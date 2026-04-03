@@ -18,19 +18,7 @@ async function fetchImageBuffer(imageUrl: string): Promise<ArrayBuffer> {
     const r2Key = mediaMatch[1];
     const r2Result = await r2Get(r2Key);
     if (!r2Result) throw new Error(`R2: Not found: ${r2Key}`);
-    // Convert ReadableStream to ArrayBuffer
-    const reader = r2Result.body.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) chunks.push(value);
-    }
-    const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-    const buf = new Uint8Array(totalLen);
-    let offset = 0;
-    for (const chunk of chunks) { buf.set(chunk, offset); offset += chunk.length; }
-    return buf.buffer;
+    return r2Result.body;
   }
   // Fallback: HTTP fetch
   const res = await fetch(imageUrl, { signal: AbortSignal.timeout(20000) });
