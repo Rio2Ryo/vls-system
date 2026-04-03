@@ -55,6 +55,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "eventId required" }, { status: 400 });
   }
 
+  // Determine base URL for resolving relative photo URLs
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
+
   // If photos not provided, load from D1 kv_store
   if (!Array.isArray(photos) || photos.length === 0) {
     const eventsJson = await d1Get("vls_admin_events").catch(() => null);
@@ -66,10 +70,14 @@ export async function POST(req: NextRequest) {
     if (!event) {
       return NextResponse.json({ error: `Event "${eventId}" not found in D1` }, { status: 404 });
     }
-    photos = (event.photos || []).map((p) => ({
-      photoId: p.id,
-      url: p.originalUrl || p.thumbnailUrl || p.url || "",
-    })).filter((p) => p.url);
+    photos = (event.photos || []).map((p) => {
+      let url = p.originalUrl || p.thumbnailUrl || p.url || "";
+      // Convert relative URLs to absolute
+      if (url && url.startsWith("/") && baseUrl) {
+        url = `${baseUrl}${url}`;
+      }
+      return { photoId: p.id, url };
+    }).filter((p) => p.url);
     if (photos.length === 0) {
       return NextResponse.json({ error: "No photos with URLs found in this event" }, { status: 400 });
     }
