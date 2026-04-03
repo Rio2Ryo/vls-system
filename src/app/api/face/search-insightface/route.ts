@@ -33,7 +33,7 @@ function base64ToBuffer(b64: string): Buffer {
  */
 async function getInsightFaceEmbeddings(imageBuffer: Buffer): Promise<number[][]> {
   const formData = new FormData();
-  formData.append("file", new Blob([imageBuffer], { type: "image/jpeg" }), "query.jpg");
+  formData.append("file", new Blob([new Uint8Array(imageBuffer)], { type: "image/jpeg" }), "query.jpg");
 
   const res = await fetch(`${INSIGHTFACE_API_URL}/embed`, {
     method: "POST",
