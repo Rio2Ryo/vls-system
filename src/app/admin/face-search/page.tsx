@@ -46,28 +46,51 @@ export default function FaceSearchAdminPage() {
 
   // ---- Reindex ----
   const handleReindex = async () => {
-    setReindexStatus("running");
-    setReindexProgress("D1からイベントデータを取得してインデックス中...");
+    setReindexStatus("loading");
+    setReindexProgress("写真リストをD1から取得中...");
     setReindexStats(null);
 
     try {
-      // photos省略でreindex-insightfaceがD1から自動取得
-      const csrfToken = getCsrfToken();
-      const res = await fetch("/api/face/reindex-insightface", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ eventId, deleteFirst: true }),
-      });
+      // Step 1: Get photo list from D1
+      const listRes = await fetch(`/api/face/event-photos?eventId=${encodeURIComponent(eventId)}`);
+      const listData = await listRes.json();
+      if (!listRes.ok) throw new Error(listData.error || `HTTP ${listRes.status}`);
+      const photos: Array<{ photoId: string; url: string }> = listData.photos || [];
+      if (photos.length === 0) throw new Error("写真が見つかりません");
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      // Step 2: Send in small batches (5 photos each to stay within Vercel timeout)
+      const BATCH = 5;
+      let totalIndexed = 0;
+      let totalFaces = 0;
+      setReindexStatus("running");
+
+      for (let i = 0; i < photos.length; i += BATCH) {
+        const batch = photos.slice(i, i + BATCH);
+        setReindexProgress(`処理中... ${Math.min(i + BATCH, photos.length)} / ${photos.length} 枚`);
+
+        const csrfToken = getCsrfToken();
+        const res = await fetch("/api/face/reindex-insightface", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            eventId,
+            photos: batch,
+            deleteFirst: i === 0,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        totalIndexed += data.indexedPhotos || 0;
+        totalFaces += data.indexedFaces || 0;
+      }
 
       setReindexStatus("done");
-      setReindexStats({ indexed: data.indexedPhotos || 0, total: data.indexedPhotos || 0 });
-      setReindexProgress(`完了: ${data.indexedPhotos || 0} 枚をインデックス済み (${data.indexedFaces || 0} 顔)`);
+      setReindexStats({ indexed: totalIndexed, total: photos.length });
+      setReindexProgress(`完了: ${totalIndexed} 枚をインデックス済み (${totalFaces} 顔)`);
     } catch (e) {
       setReindexStatus("error");
       setReindexProgress(`エラー: ${e instanceof Error ? e.message : String(e)}`);
