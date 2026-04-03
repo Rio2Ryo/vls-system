@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { d1Query, d1Get } from "@/lib/d1";
+import { r2Get, isR2Configured } from "@/lib/r2";
 
 // Alias for mutation queries (d1Query works for both reads and writes)
 const d1Execute = d1Query;
@@ -9,11 +10,36 @@ export const maxDuration = 300; // 5 minutes
 
 const INSIGHTFACE_API_URL = process.env.INSIGHTFACE_API_URL || "http://localhost:7860";
 
+/** Fetch image bytes: try R2 directly for /api/media/... paths, else HTTP fetch */
+async function fetchImageBuffer(imageUrl: string): Promise<ArrayBuffer> {
+  // /api/media/photos/evt-summer/filename.jpg → R2 key: photos/evt-summer/filename.jpg
+  const mediaMatch = imageUrl.match(/\/api\/media\/(.+)$/);
+  if (mediaMatch && isR2Configured()) {
+    const r2Key = mediaMatch[1];
+    const r2Result = await r2Get(r2Key);
+    if (!r2Result) throw new Error(`R2: Not found: ${r2Key}`);
+    // Convert ReadableStream to ArrayBuffer
+    const reader = r2Result.body.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+    const buf = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const chunk of chunks) { buf.set(chunk, offset); offset += chunk.length; }
+    return buf.buffer;
+  }
+  // Fallback: HTTP fetch
+  const res = await fetch(imageUrl, { signal: AbortSignal.timeout(20000) });
+  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+  return res.arrayBuffer();
+}
+
 async function getEmbeddingFromUrl(imageUrl: string): Promise<{ embedding: number[]; bbox: number[] } | null> {
-  // Fetch image
-  const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(20000) });
-  if (!imgRes.ok) throw new Error(`Failed to fetch image: ${imgRes.status}`);
-  const imgBuffer = await imgRes.arrayBuffer();
+  const imgBuffer = await fetchImageBuffer(imageUrl);
 
   // Send to InsightFace API
   const formData = new FormData();
