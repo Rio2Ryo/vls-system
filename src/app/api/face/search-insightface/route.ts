@@ -60,6 +60,8 @@ export async function POST(req: NextRequest) {
   const eventId = body.eventId as string | undefined;
   let queryEmbedding = body.queryEmbedding as number[] | undefined;
   const imageBase64 = body.imageBase64 as string | undefined;
+  // Support multiple images for higher accuracy (up to 3)
+  const imagesBase64 = body.imagesBase64 as string[] | undefined;
   const threshold = Number(body.threshold ?? 0.3);
   const limit = Number(body.limit ?? 50);
 
@@ -67,20 +69,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "eventId required" }, { status: 400 });
   }
 
-  // If imageBase64 is provided, call InsightFace API to get embedding
-  if (imageBase64 && !queryEmbedding) {
+  // Build list of images to process
+  const imagesToProcess: string[] = [];
+  if (imagesBase64 && imagesBase64.length > 0) {
+    imagesToProcess.push(...imagesBase64.slice(0, 3));
+  } else if (imageBase64) {
+    imagesToProcess.push(imageBase64);
+  }
+
+  // If images provided, call InsightFace API to get embeddings and average them
+  if (imagesToProcess.length > 0 && !queryEmbedding) {
     try {
-      const buf = base64ToBuffer(imageBase64);
-      const embeddings = await getInsightFaceEmbeddings(buf);
-      if (embeddings.length === 0) {
+      const allEmbeddings: number[][] = [];
+      for (const img of imagesToProcess) {
+        const buf = base64ToBuffer(img);
+        const embeddings = await getInsightFaceEmbeddings(buf);
+        if (embeddings.length > 0) {
+          allEmbeddings.push(embeddings[0]); // Use first detected face per image
+        }
+      }
+      if (allEmbeddings.length === 0) {
         return NextResponse.json({
-          error: "No face detected in uploaded image",
+          error: "No face detected in uploaded image(s)",
           matchCount: 0,
           results: [],
         }, { status: 200 });
       }
-      // Use the first face's embedding
-      queryEmbedding = embeddings[0];
+      // Average embeddings across all images for higher accuracy
+      if (allEmbeddings.length === 1) {
+        queryEmbedding = allEmbeddings[0];
+      } else {
+        const dim = allEmbeddings[0].length;
+        const avg = new Array(dim).fill(0) as number[];
+        for (const emb of allEmbeddings) {
+          for (let i = 0; i < dim; i++) avg[i] += emb[i];
+        }
+        const norm = Math.sqrt(avg.reduce((s, v) => s + v * v, 0)) || 1;
+        queryEmbedding = avg.map((v) => v / norm);
+      }
     } catch (e) {
       console.error("[search-insightface] InsightFace API error:", e);
       return NextResponse.json({

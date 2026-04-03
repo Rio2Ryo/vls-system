@@ -185,6 +185,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const [step, setStep] = useState<Step>("select");
   const [statusText, setStatusText] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]); // multi-image support (up to 3)
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
   const [detectedFaceUrl, setDetectedFaceUrl] = useState<string | null>(null);
@@ -286,15 +287,78 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setPreviewUrl(dataUrl);
-      processImage(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileArray = Array.from(files).slice(0, 3); // max 3 images
+
+    const readFile = (file: File): Promise<string> =>
+      new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+    Promise.all(fileArray.map(readFile)).then((dataUrls) => {
+      setPreviewUrl(dataUrls[0]); // first image as main preview
+      setPreviewUrls(dataUrls);
+      if (dataUrls.length === 1) {
+        processImage(dataUrls[0]);
+      } else {
+        processImages(dataUrls);
+      }
+    });
+  };
+
+  const processImages = async (imageDataUrls: string[]) => {
+    setStep("loading");
+    setStatusText("AI顔認証で検索中... (" + imageDataUrls.length + "枚)");
+    setSearchingMore(false);
+    setSearchProgress(null);
+    stopSearchRef.current = false;
+
+    const csrfToken = getCsrfToken();
+    try {
+      setStatusText(`InsightFace AIで${imageDataUrls.length}枚を解析中...`);
+      const res = await fetch("/api/face/search-insightface", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({
+          eventId,
+          imagesBase64: imageDataUrls,
+          threshold: 0.3,
+          limit: 100,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.error && data.matchCount === 0 && data.error.includes("No face detected")) {
+          setStep("error");
+          setStatusText("顔が検出されませんでした。別の写真をお試しください。");
+          return;
+        }
+        if (data.error && data.matchCount === 0 && data.error.includes("InsightFace API unavailable")) {
+          await processImageWithFaceApi(imageDataUrls[0]);
+          return;
+        }
+        const results = ((data.results || []) as FaceSearchResult[])
+          .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
+          .sort((a, b) => b.similarity - a.similarity);
+        setIsVisionMode(true);
+        setAllSearchResults(results);
+        setStep("results");
+        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
+        return;
+      }
+      await processImageWithFaceApi(imageDataUrls[0]);
+    } catch (e) {
+      console.error("[FaceSearch] multi-image search error:", e);
+      await processImageWithFaceApi(imageDataUrls[0]);
+    }
   };
 
   const processImage = async (imageDataUrl: string) => {
@@ -547,6 +611,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                   >
                     <span className="text-3xl">🖼️</span>
                     <span className="text-sm font-medium text-gray-700">ファイル選択</span>
+                    <span className="text-xs text-gray-400">最大3枚・精度UP</span>
                   </button>
                 </div>
 
@@ -593,6 +658,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={handleFileSelect}
                   className="hidden"
                 />
@@ -632,7 +698,16 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
             {/* Loading */}
             {step === "loading" && (
               <div className="text-center py-8 space-y-4">
-                {previewUrl && (
+                {previewUrls.length > 1 ? (
+                  <div className="flex justify-center gap-2">
+                    {previewUrls.map((url, i) => (
+                      <div key={i} className="w-16 h-16 rounded-full overflow-hidden border-4 border-[#6EC6FF]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`検索顔${i + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                ) : previewUrl && (
                   <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-[#6EC6FF]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={previewUrl} alt="検索顔" className="w-full h-full object-cover" />
