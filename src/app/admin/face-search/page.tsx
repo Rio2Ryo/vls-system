@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { getCsrfToken } from "@/lib/csrf";
 
 interface EmbeddingRow {
   id: string;
@@ -51,9 +52,13 @@ export default function FaceSearchAdminPage() {
 
     try {
       // photos省略でreindex-insightfaceがD1から自動取得
+      const csrfToken = getCsrfToken();
       const res = await fetch("/api/face/reindex-insightface", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
         body: JSON.stringify({ eventId, deleteFirst: true }),
       });
 
@@ -111,9 +116,13 @@ export default function FaceSearchAdminPage() {
         reader.readAsDataURL(searchFile);
       });
 
+      const csrfToken2 = getCsrfToken();
       const res = await fetch("/api/face/search-insightface", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken2 ? { "x-csrf-token": csrfToken2 } : {}),
+        },
         body: JSON.stringify({
           eventId,
           imageBase64,
