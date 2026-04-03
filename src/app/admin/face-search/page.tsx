@@ -45,50 +45,24 @@ export default function FaceSearchAdminPage() {
 
   // ---- Reindex ----
   const handleReindex = async () => {
-    setReindexStatus("loading");
-    setReindexProgress("イベントの写真一覧を取得中...");
+    setReindexStatus("running");
+    setReindexProgress("D1からイベントデータを取得してインデックス中...");
     setReindexStats(null);
 
     try {
-      // Fetch event photos from admin API
-      const eventsRes = await fetch("/api/admin/events");
-      if (!eventsRes.ok) throw new Error("イベント取得失敗");
-      const eventsData = await eventsRes.json();
-      const events = eventsData.events || [];
-      const event = events.find((e: { id: string }) => e.id === eventId);
-      if (!event) throw new Error(`イベント "${eventId}" が見つかりません`);
+      // photos省略でreindex-insightfaceがD1から自動取得
+      const res = await fetch("/api/face/reindex-insightface", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, deleteFirst: true }),
+      });
 
-      const photos = (event.photos || []).map((p: { id: string; originalUrl?: string; thumbnailUrl?: string; url?: string }) => ({
-        photoId: p.id,
-        url: p.originalUrl || p.thumbnailUrl || p.url || "",
-      })).filter((p: { url: string }) => p.url);
-
-      setReindexStatus("running");
-      const BATCH = 10;
-      let total = 0;
-
-      for (let i = 0; i < photos.length; i += BATCH) {
-        const batch = photos.slice(i, i + BATCH);
-        setReindexProgress(`処理中... ${Math.min(i + BATCH, photos.length)} / ${photos.length} 枚`);
-
-        const res = await fetch("/api/face/reindex-insightface", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventId,
-            photos: batch,
-            deleteFirst: i === 0,
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        total += data.indexedPhotos || 0;
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
       setReindexStatus("done");
-      setReindexStats({ indexed: total, total: photos.length });
-      setReindexProgress(`完了: ${total} / ${photos.length} 枚をインデックス済み`);
+      setReindexStats({ indexed: data.indexedPhotos || 0, total: data.indexedPhotos || 0 });
+      setReindexProgress(`完了: ${data.indexedPhotos || 0} 枚をインデックス済み (${data.indexedFaces || 0} 顔)`);
     } catch (e) {
       setReindexStatus("error");
       setReindexProgress(`エラー: ${e instanceof Error ? e.message : String(e)}`);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { d1Query } from "@/lib/d1";
+import { d1Query, d1Get } from "@/lib/d1";
 
 // Alias for mutation queries (d1Query works for both reads and writes)
 const d1Execute = d1Query;
@@ -48,11 +48,31 @@ export async function POST(req: NextRequest) {
   }
 
   const eventId = body.eventId as string | undefined;
-  const photos = body.photos as Array<{ photoId: string; url: string }> | undefined;
+  let photos = body.photos as Array<{ photoId: string; url: string }> | undefined;
   const deleteFirst = body.deleteFirst as boolean | undefined;
 
-  if (!eventId || !Array.isArray(photos) || photos.length === 0) {
-    return NextResponse.json({ error: "eventId and photos required" }, { status: 400 });
+  if (!eventId) {
+    return NextResponse.json({ error: "eventId required" }, { status: 400 });
+  }
+
+  // If photos not provided, load from D1 kv_store
+  if (!Array.isArray(photos) || photos.length === 0) {
+    const eventsJson = await d1Get("vls_admin_events").catch(() => null);
+    if (!eventsJson) {
+      return NextResponse.json({ error: "Could not load events from D1 (vls_admin_events not found)" }, { status: 404 });
+    }
+    const events = JSON.parse(eventsJson) as Array<{ id: string; photos?: Array<{ id: string; originalUrl?: string; thumbnailUrl?: string; url?: string }> }>;
+    const event = events.find((e) => e.id === eventId);
+    if (!event) {
+      return NextResponse.json({ error: `Event "${eventId}" not found in D1` }, { status: 404 });
+    }
+    photos = (event.photos || []).map((p) => ({
+      photoId: p.id,
+      url: p.originalUrl || p.thumbnailUrl || p.url || "",
+    })).filter((p) => p.url);
+    if (photos.length === 0) {
+      return NextResponse.json({ error: "No photos with URLs found in this event" }, { status: 400 });
+    }
   }
 
   // Check InsightFace API health
