@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(5000),
     });
     if (!health.ok) throw new Error("InsightFace API not healthy");
-  } catch (e) {
+  } catch {
     return NextResponse.json({
       error: `InsightFace API unavailable at ${INSIGHTFACE_API_URL}. Please check the server.`,
     }, { status: 503 });
