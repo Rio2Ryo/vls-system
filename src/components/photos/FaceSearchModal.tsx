@@ -304,8 +304,55 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setSearchProgress(null);
     stopSearchRef.current = false;
 
-    // Primary path: face-api.js embedding → euclidean distance search (fast & accurate)
-    await processImageWithFaceApi(imageDataUrl);
+    // Primary path: send image to server → InsightFace API (512-dim, high accuracy)
+    const csrfToken = getCsrfToken();
+    try {
+      setStatusText("InsightFace AIで顔を解析中...");
+      const res = await fetch("/api/face/search-insightface", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({
+          eventId,
+          imageBase64: imageDataUrl,
+          threshold: 0.3,
+          limit: 100,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.error && data.matchCount === 0 && data.error.includes("No face detected")) {
+          setStep("error");
+          setStatusText("顔が検出されませんでした。別の写真をお試しください。");
+          return;
+        }
+        if (data.error && data.matchCount === 0 && data.error.includes("InsightFace API unavailable")) {
+          // Fallback to face-api.js if InsightFace is down
+          console.warn("[FaceSearch] InsightFace unavailable, falling back to face-api.js");
+          await processImageWithFaceApi(imageDataUrl);
+          return;
+        }
+        const results = ((data.results || []) as FaceSearchResult[])
+          .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
+          .sort((a, b) => b.similarity - a.similarity);
+        setIsVisionMode(true);
+        setAllSearchResults(results);
+        setStep("results");
+        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
+        return;
+      }
+
+      // HTTP error → fallback to face-api.js
+      console.warn("[FaceSearch] InsightFace search failed, falling back to face-api.js");
+      await processImageWithFaceApi(imageDataUrl);
+    } catch (err) {
+      console.error("[FaceSearch] InsightFace search error:", err);
+      // Fallback to face-api.js
+      await processImageWithFaceApi(imageDataUrl);
+    }
   };
 
   // Fallback: face-api.js client-side processing (used when CF AI is unavailable)
