@@ -319,7 +319,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
     const csrfToken = getCsrfToken();
     try {
-      setStatusText(`InsightFace AIで${imageDataUrls.length}枚を解析中...`);
+      setStatusText(`FaceNet AIで${imageDataUrls.length}枚を解析中...`);
       const res = await fetch("/api/face/search-insightface", {
         method: "POST",
         headers: {
@@ -341,7 +341,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
           setStatusText("顔が検出されませんでした。別の写真をお試しください。");
           return;
         }
-        if (data.error && data.matchCount === 0 && data.error.includes("InsightFace API unavailable")) {
+        if (data.error && data.matchCount === 0 && data.error.includes("API unavailable")) {
           await processImageWithFaceApi(imageDataUrls[0]);
           return;
         }
@@ -368,10 +368,10 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setSearchProgress(null);
     stopSearchRef.current = false;
 
-    // Primary path: send image to server → InsightFace API (512-dim, high accuracy)
+    // Primary path: send image to server → API (512-dim, high accuracy)
     const csrfToken = getCsrfToken();
     try {
-      setStatusText("InsightFace AIで顔を解析中...");
+      setStatusText("FaceNet AIで顔を解析中...");
       const res = await fetch("/api/face/search-insightface", {
         method: "POST",
         headers: {
@@ -393,9 +393,9 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
           setStatusText("顔が検出されませんでした。別の写真をお試しください。");
           return;
         }
-        if (data.error && data.matchCount === 0 && data.error.includes("InsightFace API unavailable")) {
-          // Fallback to face-api.js if InsightFace is down
-          console.warn("[FaceSearch] InsightFace unavailable, falling back to face-api.js");
+        if (data.error && data.matchCount === 0 && data.error.includes("API unavailable")) {
+          // Fallback to face-api.js if FaceNet is down
+          console.warn("[FaceSearch] FaceNet unavailable, falling back to face-api.js");
           await processImageWithFaceApi(imageDataUrl);
           return;
         }
@@ -410,10 +410,10 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       }
 
       // HTTP error → fallback to face-api.js
-      console.warn("[FaceSearch] InsightFace search failed, falling back to face-api.js");
+      console.warn("[FaceSearch] FaceNet search failed, falling back to face-api.js");
       await processImageWithFaceApi(imageDataUrl);
     } catch (err) {
-      console.error("[FaceSearch] InsightFace search error:", err);
+      console.error("[FaceSearch] FaceNet search error:", err);
       // Fallback to face-api.js
       await processImageWithFaceApi(imageDataUrl);
     }
