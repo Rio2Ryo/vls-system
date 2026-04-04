@@ -4,7 +4,7 @@ import { d1Query } from "@/lib/d1";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INSIGHTFACE_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "http://localhost:7861";
+const INSIGHTFACE_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "https://stripes-wines-fat-lowest.trycloudflare.com";
 
 function cosine(a: number[], b: number[]) {
   let dot = 0;
