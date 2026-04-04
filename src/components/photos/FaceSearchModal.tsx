@@ -316,6 +316,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setSearchingMore(false);
     setSearchProgress(null);
     stopSearchRef.current = false;
+    setAllSearchResults([]); // clear previous results
 
     const csrfToken = getCsrfToken();
     try {
@@ -367,6 +368,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setSearchingMore(false);
     setSearchProgress(null);
     stopSearchRef.current = false;
+    setAllSearchResults([]); // clear previous results
 
     // Primary path: send image to server → API (512-dim, high accuracy)
     const csrfToken = getCsrfToken();
