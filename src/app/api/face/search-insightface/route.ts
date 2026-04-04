@@ -31,7 +31,9 @@ function base64ToBuffer(b64: string): Buffer {
  * Call InsightFace API /embed endpoint with an image buffer.
  * Returns array of face embeddings (512-dim each).
  */
-async function getInsightFaceEmbeddings(imageBuffer: Buffer): Promise<number[][]> {
+type InsightFaceFace = { embedding: number[]; bbox: number[]; det_score: number };
+
+async function getInsightFaceEmbeddings(imageBuffer: Buffer): Promise<InsightFaceFace[]> {
   const formData = new FormData();
   formData.append("file", new Blob([new Uint8Array(imageBuffer)], { type: "image/jpeg" }), "query.jpg");
 
@@ -45,8 +47,8 @@ async function getInsightFaceEmbeddings(imageBuffer: Buffer): Promise<number[][]
     throw new Error(`InsightFace API error: ${res.status}`);
   }
 
-  const data = await res.json() as { faces: Array<{ embedding: number[] }>; count: number };
-  return data.faces.map((f) => f.embedding);
+  const data = await res.json() as { faces: Array<{ embedding: number[]; bbox: number[]; det_score: number }>; count: number };
+  return data.faces;
 }
 
 export async function POST(req: NextRequest) {
@@ -83,9 +85,15 @@ export async function POST(req: NextRequest) {
       const allEmbeddings: number[][] = [];
       for (const img of imagesToProcess) {
         const buf = base64ToBuffer(img);
-        const embeddings = await getInsightFaceEmbeddings(buf);
-        if (embeddings.length > 0) {
-          allEmbeddings.push(embeddings[0]); // Use first detected face per image
+        const faces = await getInsightFaceEmbeddings(buf);
+        if (faces.length > 0) {
+          // Use the largest face (by bounding box area) as the query subject
+          const largest = faces.reduce((best, f) => {
+            const area = (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]);
+            const bestArea = (best.bbox[2] - best.bbox[0]) * (best.bbox[3] - best.bbox[1]);
+            return area > bestArea ? f : best;
+          });
+          allEmbeddings.push(largest.embedding);
         }
       }
       if (allEmbeddings.length === 0) {
