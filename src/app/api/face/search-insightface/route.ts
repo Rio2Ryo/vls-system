@@ -4,7 +4,7 @@ import { d1Query } from "@/lib/d1";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INSIGHTFACE_API_URL = process.env.INSIGHTFACE_API_URL || "http://localhost:7860";
+const INSIGHTFACE_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "http://localhost:7861";
 
 function cosine(a: number[], b: number[]) {
   let dot = 0;
@@ -48,7 +48,8 @@ async function getInsightFaceEmbeddings(imageBuffer: Buffer): Promise<InsightFac
   }
 
   const data = await res.json() as { faces: Array<{ embedding: number[]; bbox: number[]; det_score: number }>; count: number };
-  return data.faces;
+  // Filter low-confidence faces
+  return data.faces.filter(f => f.det_score >= 0.5);
 }
 
 export async function POST(req: NextRequest) {
@@ -132,15 +133,15 @@ export async function POST(req: NextRequest) {
   // Query D1 for InsightFace embeddings
   const rows = await d1Query(
     "SELECT id, photo_id, embedding, bbox FROM face_embeddings WHERE event_id = ? AND label = ? ORDER BY photo_id, face_index",
-    [eventId, "insightface-poc"]
+    [eventId, "facenet"]
   );
 
   if (rows.length === 0) {
     return NextResponse.json({
-      error: "No InsightFace embeddings in database. Please run reindex first.",
+      error: "No FaceNet embeddings in database. Please run reindex first.",
       matchCount: 0,
       results: [],
-      _debug: { storedEmbeddings: 0, label: "insightface-poc" },
+      _debug: { storedEmbeddings: 0, label: "facenet" },
     });
   }
 
@@ -166,7 +167,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    provider: "insightface",
+    provider: "facenet",
     threshold,
     matchCount: dedup.length,
     results: dedup,
