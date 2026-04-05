@@ -28,7 +28,7 @@ type Step = "select" | "loading" | "results" | "error";
 type SearchMode = "recommended" | "strict" | "broad";
 
 const MAX_RESULTS = 12;
-const DEFAULT_THRESHOLD = 0.6;
+const DEFAULT_THRESHOLD = 0.55;
 // rollback marker: preserve non-broken browser queryEmbedding path until isolated PoC is ready
 
 let faceApiLoaded = false;
@@ -213,7 +213,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const filteredResults = useMemo(() => {
     const seen = new Set<string>();
     const minSimilarity = isVisionMode
-      ? searchMode === "strict" ? 0.7 : searchMode === "broad" ? 0 : 0.6
+      ? searchMode === "strict" ? 0.7 : searchMode === "broad" ? 0.4 : 0.55
       : threshold;
     return allSearchResults
       .filter((r) => r.similarity >= minSimilarity)
@@ -330,7 +330,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imagesBase64: imageDataUrls,
-          threshold: 0.3,
+          threshold: 0.55,
           limit: 100,
         }),
       });
@@ -383,7 +383,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imageBase64: imageDataUrl,
-          threshold: 0.3,
+          threshold: 0.55,
           limit: 100,
         }),
       });
@@ -492,7 +492,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           queryEmbedding,
-          threshold: 0.4,
+          threshold: 0.55,
           limit: 100,
         }),
       });
