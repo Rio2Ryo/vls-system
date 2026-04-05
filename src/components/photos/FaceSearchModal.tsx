@@ -27,7 +27,7 @@ interface Props {
 type Step = "select" | "loading" | "results" | "error";
 type SearchMode = "recommended" | "strict" | "broad";
 
-const MAX_RESULTS = 12;
+const DEFAULT_MAX_RESULTS = 20;
 const DEFAULT_THRESHOLD = 0.55;
 // rollback marker: preserve non-broken browser queryEmbedding path until isolated PoC is ready
 
@@ -175,6 +175,55 @@ function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string;
   return <canvas ref={canvasRef} className={className} />;
 }
 
+/** Thumbnail with blue face bbox overlay for result grid */
+function ResultThumbnail({ src, bbox }: { src: string; bbox?: { x: number; y: number; width: number; height: number } }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      // Draw square crop (aspect-ratio 1:1)
+      const size = Math.min(img.width, img.height);
+      const sx = (img.width - size) / 2;
+      const sy = (img.height - size) / 2;
+      const displaySize = 300;
+      canvas.width = displaySize;
+      canvas.height = displaySize;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, displaySize, displaySize);
+
+      // Draw face bbox if available
+      if (bbox) {
+        const scale = displaySize / size;
+        const bx = (Number(bbox.x) - sx) * scale;
+        const by = (Number(bbox.y) - sy) * scale;
+        const bw = Number(bbox.width) * scale;
+        const bh = Number(bbox.height) * scale;
+        if (bw > 0 && bh > 0) {
+          // Main box
+          ctx.strokeStyle = "#22d3ee"; // cyan-400
+          ctx.lineWidth = 2;
+          ctx.strokeRect(bx, by, bw, bh);
+
+          // Corner accents
+          const cs = Math.max(6, Math.min(bw, bh) / 4);
+          ctx.strokeStyle = "#22d3ee";
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(bx, by + cs); ctx.lineTo(bx, by); ctx.lineTo(bx + cs, by); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(bx + bw - cs, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + cs); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(bx, by + bh - cs); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + cs, by + bh); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(bx + bw - cs, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - cs); ctx.stroke();
+        }
+      }
+    };
+    img.src = src;
+  }, [src, bbox]);
+  return <canvas ref={canvasRef} className="w-full h-full object-cover" />;
+}
+
 function getMatchLevel(similarity: number): { label: string; color: string; bg: string } {
   if (similarity >= 0.7) return { label: "高一致", color: "text-green-700", bg: "bg-green-100" };
   if (similarity >= 0.6) return { label: "中一致", color: "text-yellow-700", bg: "bg-yellow-100" };
@@ -192,6 +241,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const [currentFaceBbox, setCurrentFaceBbox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [allSearchResults, setAllSearchResults] = useState<FaceSearchResult[]>([]);
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
+  const [maxResults, setMaxResults] = useState(DEFAULT_MAX_RESULTS);
   const [searchMode, setSearchMode] = useState<SearchMode>("recommended");
   const [isVisionMode, setIsVisionMode] = useState(true);
   const [searchingMore, setSearchingMore] = useState(false);
@@ -209,22 +259,19 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   }, []);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Filter and sort results, deduplicate by photoId, limit to MAX_RESULTS
+  // Filter and sort results, deduplicate by photoId, limit to maxResults
   const filteredResults = useMemo(() => {
     const seen = new Set<string>();
-    const minSimilarity = isVisionMode
-      ? searchMode === "strict" ? 0.7 : searchMode === "broad" ? 0.4 : 0.55
-      : threshold;
     return allSearchResults
-      .filter((r) => r.similarity >= minSimilarity)
+      .filter((r) => r.similarity >= threshold)
       .sort((a, b) => b.similarity - a.similarity)
       .filter((r) => {
         if (seen.has(r.photoId)) return false;
         seen.add(r.photoId);
         return true;
       })
-      .slice(0, MAX_RESULTS);
-  }, [allSearchResults, threshold, searchMode, isVisionMode]);
+      .slice(0, maxResults);
+  }, [allSearchResults, threshold, maxResults]);
 
   const matchPhotos = useMemo(() => filteredResults.map((r) => r.photoId), [filteredResults]);
 
@@ -763,74 +810,63 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                   </div>
                 )}
 
-                {/* Search mode / threshold filter */}
-                {isVisionMode ? (
-                  <div className="bg-gray-50 rounded-xl p-3 space-y-2">
-                    <span className="text-xs font-medium text-gray-600">検索モード</span>
+                {/* Threshold slider + Top N */}
+                <div className="bg-gray-50 rounded-xl p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-600">類似度しきい値</span>
+                    <span className="text-xs font-bold text-gray-800">{Math.round(threshold * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.3}
+                    max={0.9}
+                    step={0.05}
+                    value={threshold}
+                    onChange={(e) => setThreshold(Number(e.target.value))}
+                    className="w-full accent-[#6EC6FF]"
+                    aria-label="類似度しきい値"
+                  />
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2 text-xs">
+                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">70%↑ 高一致</span>
+                      <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">60〜70% 中</span>
+                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">〜60% 低</span>
+                    </div>
                     <select
-                      value={searchMode}
-                      onChange={(e) => setSearchMode(e.target.value as SearchMode)}
-                      className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#6EC6FF]"
-                      aria-label="検索モード"
+                      value={maxResults}
+                      onChange={(e) => setMaxResults(Number(e.target.value))}
+                      className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[#6EC6FF]"
+                      aria-label="表示件数"
                     >
-                      <option value="recommended">🎯 おすすめ（高一致＋中一致）</option>
-                      <option value="strict">🔍 厳密（高一致のみ）</option>
-                      <option value="broad">📸 幅広く（低確信も含む）</option>
+                      <option value={10}>Top 10</option>
+                      <option value={20}>Top 20</option>
+                      <option value={50}>Top 50</option>
+                      <option value={100}>Top 100</option>
                     </select>
-                    <div className="flex gap-2 text-xs">
-                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">高一致</span>
-                      <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">中一致</span>
-                    </div>
                   </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-xl p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-600">一致度の閾値（リアルタイム）</span>
-                      <span className="text-xs font-bold text-gray-800">{Math.round(threshold * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0.4}
-                      max={0.9}
-                      step={0.05}
-                      value={threshold}
-                      onChange={(e) => setThreshold(Number(e.target.value))}
-                      className="w-full accent-[#6EC6FF]"
-                      aria-label="一致度の閾値"
-                    />
-                    <div className="flex gap-2 text-xs">
-                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">70%以上: 高一致</span>
-                      <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">60〜70%: 中一致</span>
-                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">〜60%: 低一致</span>
-                    </div>
-                  </div>
-                )}
+                </div>
 
-                {/* Photo grid with score badges */}
+                {/* Photo grid with face bbox + score */}
                 {filteredResults.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+                  <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
                     {filteredResults.map((r) => {
                       const photo = allPhotos.find((p) => p.id === r.photoId);
                       const photoUrl = photo?.thumbnailUrl || photo?.url || photo?.originalUrl;
                       const level = getMatchLevel(r.similarity);
                       return (
-                        <div key={r.faceId} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                          {photoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={photoUrl}
-                              alt="マッチ写真"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">
-                              No image
-                            </div>
-                          )}
+                        <div key={r.faceId} className="relative rounded-lg overflow-hidden bg-gray-100 cursor-pointer group" onClick={() => { const idx = matchPhotos.indexOf(r.photoId); if (idx >= 0) { setCurrentPhotoIndex(idx); setCurrentFaceBbox(r.bbox || null); setShowPhotoPreview(true); onResults(matchPhotos); } }}>
+                          <div className="aspect-square relative">
+                            {photoUrl ? (
+                              <ResultThumbnail src={photoUrl} bbox={r.bbox} />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">
+                                No image
+                              </div>
+                            )}
+                          </div>
                           {/* Score badge top-left */}
                           <div className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs font-bold ${level.bg} ${level.color} shadow`}>
-                            {r.matchPercent}%<br />
-                            <span className="text-xs leading-none">{level.label}</span>
+                            {r.matchPercent}%
                           </div>
                         </div>
                       );
@@ -897,18 +933,33 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
               ×
             </button>
 
-            <div className="absolute top-4 left-4 bg-white/20 text-white text-sm px-4 py-2 rounded-full font-bold">
+            {/* Top bar: filename + counter */}
+            <div className="absolute top-4 left-4 bg-black/60 text-white text-sm px-4 py-2 rounded-lg font-medium z-10">
+              {(() => {
+                const photo = allPhotos.find((p) => p.id === currentPhotoId);
+                const url = photo?.originalUrl || photo?.url || photo?.thumbnailUrl || "";
+                const filename = url.split("/").pop() || `photo_${currentPhotoId}`;
+                return filename;
+              })()}
+            </div>
+
+            <div className="absolute top-4 right-14 bg-white/20 text-white text-sm px-3 py-2 rounded-full font-bold z-10">
               {currentPhotoIndex + 1} / {matchPhotos.length}
             </div>
 
-            {/* Score badge for current photo */}
+            {/* Bottom detail bar: similarity, face index, filename */}
             {(() => {
               const r = filteredResults.find(r => r.photoId === currentPhotoId);
               if (!r) return null;
-              const level = getMatchLevel(r.similarity);
+              const photo = allPhotos.find((p) => p.id === r.photoId);
+              const url = photo?.originalUrl || photo?.url || photo?.thumbnailUrl || "";
+              const filename = url.split("/").pop() || `photo_${r.photoId}`;
+              const faceIndex = r.faceId?.split("_").pop() || "0";
               return (
-                <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm font-bold ${level.bg} ${level.color} shadow-lg z-10`}>
-                  {r.matchPercent}% {level.label}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm text-white text-sm px-6 py-3 rounded-xl z-10 flex items-center gap-6">
+                  <span>類似度: <strong>{r.matchPercent}%</strong></span>
+                  <span>顔番号: <strong>#{faceIndex}</strong></span>
+                  <span>ファイル: <strong>{filename}</strong></span>
                 </div>
               );
             })()}
@@ -917,7 +968,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-6xl h-[85vh]"
+              className="relative w-full max-w-6xl h-[80vh]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="absolute inset-0 flex" onClick={(e) => e.stopPropagation()}>
