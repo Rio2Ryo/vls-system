@@ -4,7 +4,7 @@ import { d1Query } from "@/lib/d1";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INSIGHTFACE_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "https://stripes-wines-fat-lowest.trycloudflare.com";
+const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "http://localhost:5000";
 
 function cosine(a: number[], b: number[]) {
   let dot = 0;
@@ -31,20 +31,20 @@ function base64ToBuffer(b64: string): Buffer {
  * Call InsightFace API /embed endpoint with an image buffer.
  * Returns array of face embeddings (512-dim each).
  */
-type InsightFaceFace = { embedding: number[]; bbox: number[]; det_score: number };
+type FaceNetFace = { embedding: number[]; bbox: number[]; det_score: number };
 
-async function getInsightFaceEmbeddings(imageBuffer: Buffer): Promise<InsightFaceFace[]> {
+async function getFaceNetEmbeddings(imageBuffer: Buffer): Promise<FaceNetFace[]> {
   const formData = new FormData();
   formData.append("file", new Blob([new Uint8Array(imageBuffer)], { type: "image/jpeg" }), "query.jpg");
 
-  const res = await fetch(`${INSIGHTFACE_API_URL}/embed`, {
+  const res = await fetch(`${FACENET_API_URL}/embed`, {
     method: "POST",
     body: formData,
     signal: AbortSignal.timeout(30000),
   });
 
   if (!res.ok) {
-    throw new Error(`InsightFace API error: ${res.status}`);
+    throw new Error(`FaceNet API error: ${res.status}`);
   }
 
   const data = await res.json() as { faces: Array<{ embedding: number[]; bbox: number[]; det_score: number }>; count: number };
@@ -80,13 +80,13 @@ export async function POST(req: NextRequest) {
     imagesToProcess.push(imageBase64);
   }
 
-  // If images provided, call InsightFace API to get embeddings and average them
+  // If images provided, call FaceNet API to get embeddings and average them
   if (imagesToProcess.length > 0 && !queryEmbedding) {
     try {
       const allEmbeddings: number[][] = [];
       for (const img of imagesToProcess) {
         const buf = base64ToBuffer(img);
-        const faces = await getInsightFaceEmbeddings(buf);
+        const faces = await getFaceNetEmbeddings(buf);
         if (faces.length > 0) {
           // Use the largest face (by bounding box area) as the query subject
           const largest = faces.reduce((best, f) => {
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("[search-insightface] InsightFace API error:", e);
       return NextResponse.json({
-        error: `InsightFace API unavailable: ${e instanceof Error ? e.message : String(e)}`,
+        error: `FaceNet API unavailable: ${e instanceof Error ? e.message : String(e)}`,
         matchCount: 0,
         results: [],
       }, { status: 200 });
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "eventId and (imageBase64 or queryEmbedding) required" }, { status: 400 });
   }
 
-  // Query D1 for InsightFace embeddings
+  // Query D1 for FaceNet embeddings
   const rows = await d1Query(
     "SELECT id, photo_id, embedding, bbox FROM face_embeddings WHERE event_id = ? AND label = ? ORDER BY photo_id, face_index",
     [eventId, "facenet"]

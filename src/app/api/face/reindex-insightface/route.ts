@@ -8,7 +8,7 @@ const d1Execute = d1Query;
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
 
-const INSIGHTFACE_API_URL = process.env.INSIGHTFACE_API_URL || "http://localhost:7860";
+const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "http://localhost:5000";
 
 /** Fetch image bytes: try R2 directly for /api/media/... paths, else HTTP fetch */
 async function fetchImageBuffer(imageUrl: string): Promise<ArrayBuffer> {
@@ -29,17 +29,17 @@ async function fetchImageBuffer(imageUrl: string): Promise<ArrayBuffer> {
 async function getEmbeddingFromUrl(imageUrl: string): Promise<{ embedding: number[]; bbox: number[] } | null> {
   const imgBuffer = await fetchImageBuffer(imageUrl);
 
-  // Send to InsightFace API
+  // Send to FaceNet API
   const formData = new FormData();
   formData.append("file", new Blob([imgBuffer], { type: "image/jpeg" }), "photo.jpg");
 
-  const embedRes = await fetch(`${INSIGHTFACE_API_URL}/embed`, {
+  const embedRes = await fetch(`${FACENET_API_URL}/embed`, {
     method: "POST",
     body: formData,
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!embedRes.ok) throw new Error(`InsightFace API error: ${embedRes.status}`);
+  if (!embedRes.ok) throw new Error(`FaceNet API error: ${embedRes.status}`);
 
   const data = await embedRes.json() as {
     faces: Array<{ embedding: number[]; bbox: number[]; det_score: number }>;
@@ -97,23 +97,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Check InsightFace API health
+  // Check FaceNet API health
   try {
-    const health = await fetch(`${INSIGHTFACE_API_URL}/health`, {
+    const health = await fetch(`${FACENET_API_URL}/health`, {
       signal: AbortSignal.timeout(5000),
     });
-    if (!health.ok) throw new Error("InsightFace API not healthy");
+    if (!health.ok) throw new Error("FaceNet API not healthy");
   } catch {
     return NextResponse.json({
-      error: `InsightFace API unavailable at ${INSIGHTFACE_API_URL}. Please check the server.`,
+      error: `FaceNet API unavailable at ${FACENET_API_URL}. Please check the server.`,
     }, { status: 503 });
   }
 
-  // Delete existing InsightFace embeddings for this event if requested
+  // Delete existing FaceNet embeddings for this event if requested
   if (deleteFirst) {
     await d1Execute(
       "DELETE FROM face_embeddings WHERE event_id = ? AND label = ?",
-      [eventId, "insightface-poc"]
+      [eventId, "facenet"]
     );
   }
 
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
             width: Math.round(bbox[2] - bbox[0]),
             height: Math.round(bbox[3] - bbox[1]),
           }),
-          "insightface-poc",
+          "facenet",
           Date.now(),
         ]
       );
