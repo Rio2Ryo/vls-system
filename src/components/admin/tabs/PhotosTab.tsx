@@ -1014,7 +1014,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
                       try {
                         const res = await fetch("/api/face/reindex-insightface", {
                           method: "POST",
-                          headers: { "Content-Type": "application/json" },
+                          headers: csrfHeaders({ "Content-Type": "application/json" }),
                           body: JSON.stringify({ eventId: selectedEvent.id, photos: batch, deleteFirst: i === 0 }),
                         });
                         const d = await res.json();
