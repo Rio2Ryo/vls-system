@@ -20,10 +20,10 @@ export function InsightFaceReindexButton({ eventId, photos }: Props) {
   const [result, setResult] = useState<{ indexed: number; total: number } | null>(null);
 
   const run = async () => {
-    if (!confirm(`InsightFace (512次元) で ${photos.length} 枚を再インデックスします。\n既存のinsightface-pocデータは削除されます。続けますか？`)) return;
+    if (!confirm(`FaceNet (512次元) で ${photos.length} 枚を再インデックスします。\n既存のfacenetデータは削除されます。続けますか？`)) return;
 
     setStatus("running");
-    setProgress("InsightFace API に接続中...");
+    setProgress("FaceNet API に接続中...");
     setResult(null);
 
     const BATCH_SIZE = 10;
@@ -65,7 +65,7 @@ export function InsightFaceReindexButton({ eventId, photos }: Props) {
 
     setStatus("done");
     setResult({ indexed: totalIndexed, total: photoList.length });
-    setProgress(`完了: ${totalIndexed} / ${photoList.length} 枚をInsightFaceでインデックス済み`);
+    setProgress(`完了: ${totalIndexed} / ${photoList.length} 枚をFaceNetでインデックス済み`);
   };
 
   return (
@@ -76,7 +76,7 @@ export function InsightFaceReindexButton({ eventId, photos }: Props) {
           disabled={status === "running"}
           className="rounded bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
         >
-          {status === "running" ? "インデックス中..." : "InsightFace再インデックス (512次元)"}
+          {status === "running" ? "インデックス中..." : "FaceNet再インデックス (512次元)"}
         </button>
         {status === "running" && (
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
@@ -89,7 +89,7 @@ export function InsightFaceReindexButton({ eventId, photos }: Props) {
       )}
       {result && (
         <p className="text-xs text-gray-400">
-          face-api.js (128次元) から InsightFace (512次元) にアップグレード完了。精度が大幅に向上します。
+          face-api.js (128次元) から FaceNet-PyTorch (512次元) にアップグレード完了。精度が大幅に向上します。
         </p>
       )}
     </div>

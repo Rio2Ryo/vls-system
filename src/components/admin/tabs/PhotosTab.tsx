@@ -974,16 +974,16 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
             )}
           </div>
 
-          {/* InsightFace reindex (512-dim, high accuracy) */}
+          {/* FaceNet reindex (512-dim, high accuracy) */}
           <div className="flex items-center justify-between mb-3 pt-3 border-t border-gray-100 dark:border-gray-700">
             <div>
-              <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">InsightFace再インデックス <span className="text-purple-500">(512次元)</span></h3>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">ArcFace高精度モデル。face-api.js(128次元)より大幅に精度向上</p>
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">FaceNet再インデックス <span className="text-purple-500">(512次元)</span></h3>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">FaceNet-PyTorch (VGGFace2) 高精度モデル。face-api.js(128次元)より大幅に精度向上</p>
             </div>
             <button
               onClick={async () => {
                 if (!selectedEvent || selectedEvent.photos.length === 0) return;
-                if (!confirm(`InsightFace (512次元) で ${selectedEvent.photos.length} 枚を再インデックスします。続けますか？`)) return;
+                if (!confirm(`FaceNet (512次元) で ${selectedEvent.photos.length} 枚を再インデックスします。続けますか？`)) return;
                 const photos = selectedEvent.photos.map((p: { id: string; originalUrl?: string; thumbnailUrl?: string; url?: string }) => ({
                   photoId: p.id,
                   url: p.originalUrl || p.thumbnailUrl || p.url || "",
@@ -999,17 +999,17 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
                       body: JSON.stringify({ eventId: selectedEvent.id, photos: batch, deleteFirst: i === 0 }),
                     });
                     const d = await res.json();
-                    if (!res.ok) { onSave(`InsightFace再インデックスエラー: ${d.error}`); return; }
+                    if (!res.ok) { onSave(`FaceNet再インデックスエラー: ${d.error}`); return; }
                     indexed += d.indexedPhotos || 0;
-                    onSave(`InsightFace処理中... ${Math.min(i + BATCH, photos.length)}/${photos.length}枚`);
-                  } catch (e) { onSave(`InsightFaceエラー: ${String(e)}`); return; }
+                    onSave(`FaceNet処理中... ${Math.min(i + BATCH, photos.length)}/${photos.length}枚`);
+                  } catch (e) { onSave(`FaceNetエラー: ${String(e)}`); return; }
                 }
-                onSave(`✅ InsightFace再インデックス完了: ${indexed}枚をインデックス済み`);
+                onSave(`✅ FaceNet再インデックス完了: ${indexed}枚をインデックス済み`);
               }}
               disabled={!selectedEvent || selectedEvent.photos.length === 0}
               className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
-              InsightFace再構築 ({selectedEvent ? selectedEvent.photos.length : 0}枚)
+              FaceNet再構築 ({selectedEvent ? selectedEvent.photos.length : 0}枚)
             </button>
           </div>
 
