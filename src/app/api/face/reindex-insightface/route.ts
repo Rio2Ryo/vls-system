@@ -70,8 +70,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Determine base URL for resolving relative photo URLs
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
+  const vercelUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const baseUrl = vercelUrl;
+  console.log("[reindex] baseUrl:", baseUrl, "eventId:", eventId, "R2 configured:", isR2Configured());
 
   // If photos not provided, load from D1 kv_store
   if (!Array.isArray(photos) || photos.length === 0) {
@@ -125,6 +126,7 @@ export async function POST(req: NextRequest) {
     try {
       const result = await getEmbeddingFromUrl(photo.url);
       if (!result) {
+        console.log(`[reindex] No face detected for ${photo.photoId} (url: ${photo.url.slice(0, 80)})`);
         results.push({ photoId: photo.photoId, faces: 0 });
         continue;
       }
@@ -157,6 +159,7 @@ export async function POST(req: NextRequest) {
       indexedFaces++;
       results.push({ photoId: photo.photoId, faces: 1 });
     } catch (e) {
+      console.error(`[reindex] Error processing ${photo.photoId}:`, e);
       results.push({ photoId: photo.photoId, faces: 0, error: String(e) });
     }
   }
