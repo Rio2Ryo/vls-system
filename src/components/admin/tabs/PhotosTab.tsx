@@ -54,6 +54,10 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const [reindexing, setReindexing] = useState(false);
   const [serverReindexing, setServerReindexing] = useState(false);
   const [serverReindexProgress, setServerReindexProgress] = useState({ current: 0, total: 0 });
+  // FaceNet reindex state
+  const [facenetReindexing, setFacenetReindexing] = useState(false);
+  const [facenetProgress, setFacenetProgress] = useState({ current: 0, total: 0, indexed: 0 });
+  const [facenetStatus, setFacenetStatus] = useState("");
   // Face search accuracy test state
   const [testSearchFile, setTestSearchFile] = useState<File | null>(null);
   const [testSearchDetecting, setTestSearchDetecting] = useState(false);
@@ -975,42 +979,89 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
           </div>
 
           {/* FaceNet reindex (512-dim, high accuracy) */}
-          <div className="flex items-center justify-between mb-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-            <div>
-              <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">FaceNet再インデックス <span className="text-purple-500">(512次元)</span></h3>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">FaceNet-PyTorch (VGGFace2) 高精度モデル。face-api.js(128次元)より大幅に精度向上</p>
+          <div className="flex flex-col gap-2 mb-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">FaceNet再インデックス <span className="text-purple-500">(512次元)</span></h3>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">FaceNet-PyTorch (VGGFace2) 高精度モデル。face-api.js(128次元)より大幅に精度向上</p>
+              </div>
+              {facenetReindexing ? (
+                <div className="flex items-center gap-2 text-xs text-purple-600">
+                  <span className="animate-spin h-3 w-3 border-2 border-purple-500 border-t-transparent rounded-full" aria-hidden="true" />
+                  処理中... ({facenetProgress.current}/{facenetProgress.total})
+                </div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    if (!selectedEvent || selectedEvent.photos.length === 0) return;
+                    if (!confirm(`FaceNet (512次元) で ${selectedEvent.photos.length} 枚を再インデックスします。\nFlask APIとCloudflareトンネルが起動していることを確認してください。\n続けますか？`)) return;
+                    const photos = selectedEvent.photos.map((p: { id: string; originalUrl?: string; thumbnailUrl?: string; url?: string }) => ({
+                      photoId: p.id,
+                      url: p.originalUrl || p.thumbnailUrl || p.url || "",
+                    })).filter((p: { url: string }) => p.url);
+                    
+                    setFacenetReindexing(true);
+                    setFacenetProgress({ current: 0, total: photos.length, indexed: 0 });
+                    setFacenetStatus("FaceNet APIに接続中...");
+                    
+                    const BATCH = 10;
+                    let indexed = 0;
+                    for (let i = 0; i < photos.length; i += BATCH) {
+                      const batch = photos.slice(i, i + BATCH);
+                      const progress = Math.min(i + BATCH, photos.length);
+                      setFacenetProgress({ current: progress, total: photos.length, indexed });
+                      setFacenetStatus(`FaceNet処理中... ${progress}/${photos.length}枚 (${indexed}件インデックス済み)`);
+                      try {
+                        const res = await fetch("/api/face/reindex-insightface", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ eventId: selectedEvent.id, photos: batch, deleteFirst: i === 0 }),
+                        });
+                        const d = await res.json();
+                        if (!res.ok) {
+                          setFacenetStatus(`❌ エラー: ${d.error}`);
+                          setFacenetReindexing(false);
+                          onSave(`FaceNet再インデックスエラー: ${d.error}`);
+                          return;
+                        }
+                        indexed += d.indexedPhotos || 0;
+                      } catch (e) {
+                        setFacenetStatus(`❌ 接続エラー: ${String(e)}`);
+                        setFacenetReindexing(false);
+                        onSave(`FaceNetエラー: ${String(e)}`);
+                        return;
+                      }
+                    }
+                    setFacenetProgress({ current: photos.length, total: photos.length, indexed });
+                    setFacenetStatus(`✅ 完了: ${indexed}枚をFaceNetでインデックス済み`);
+                    setFacenetReindexing(false);
+                    onSave(`✅ FaceNet再インデックス完了: ${indexed}枚をインデックス済み`);
+                  }}
+                  disabled={!selectedEvent || selectedEvent.photos.length === 0 || facenetReindexing}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  FaceNet再構築 ({selectedEvent ? selectedEvent.photos.length : 0}枚)
+                </button>
+              )}
             </div>
-            <button
-              onClick={async () => {
-                if (!selectedEvent || selectedEvent.photos.length === 0) return;
-                if (!confirm(`FaceNet (512次元) で ${selectedEvent.photos.length} 枚を再インデックスします。続けますか？`)) return;
-                const photos = selectedEvent.photos.map((p: { id: string; originalUrl?: string; thumbnailUrl?: string; url?: string }) => ({
-                  photoId: p.id,
-                  url: p.originalUrl || p.thumbnailUrl || p.url || "",
-                })).filter((p: { url: string }) => p.url);
-                const BATCH = 10;
-                let indexed = 0;
-                for (let i = 0; i < photos.length; i += BATCH) {
-                  const batch = photos.slice(i, i + BATCH);
-                  try {
-                    const res = await fetch("/api/face/reindex-insightface", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ eventId: selectedEvent.id, photos: batch, deleteFirst: i === 0 }),
-                    });
-                    const d = await res.json();
-                    if (!res.ok) { onSave(`FaceNet再インデックスエラー: ${d.error}`); return; }
-                    indexed += d.indexedPhotos || 0;
-                    onSave(`FaceNet処理中... ${Math.min(i + BATCH, photos.length)}/${photos.length}枚`);
-                  } catch (e) { onSave(`FaceNetエラー: ${String(e)}`); return; }
-                }
-                onSave(`✅ FaceNet再インデックス完了: ${indexed}枚をインデックス済み`);
-              }}
-              disabled={!selectedEvent || selectedEvent.photos.length === 0}
-              className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              FaceNet再構築 ({selectedEvent ? selectedEvent.photos.length : 0}枚)
-            </button>
+            {/* FaceNet progress bar */}
+            {(facenetReindexing || facenetStatus) && (
+              <div className="space-y-1">
+                {facenetReindexing && facenetProgress.total > 0 && (
+                  <div className="w-full bg-purple-100 dark:bg-purple-900/30 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-300"
+                      style={{ width: `${(facenetProgress.current / facenetProgress.total) * 100}%` }}
+                    />
+                  </div>
+                )}
+                {facenetStatus && (
+                  <p className={`text-xs ${facenetStatus.startsWith("❌") ? "text-red-500" : facenetStatus.startsWith("✅") ? "text-green-600 font-medium" : "text-purple-600 dark:text-purple-400"}`}>
+                    {facenetStatus}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Face search accuracy test */}
