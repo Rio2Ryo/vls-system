@@ -384,6 +384,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
       if (res.ok) {
         const data = await res.json();
+        console.log('[FaceSearch] API response:', JSON.stringify(data));
         if (data.error && data.matchCount === 0 && data.error.includes("No face detected")) {
           setStep("error");
           setStatusText("顔が検出されませんでした。別の写真をお試しください。");
@@ -391,6 +392,16 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         }
         if (data.error && data.matchCount === 0 && data.error.includes("API unavailable")) {
           await processImageWithFaceApi(imageDataUrls[0]);
+          return;
+        }
+        if (data.error && data.matchCount === 0 && data.error.includes("No FaceNet embeddings")) {
+          setStep("error");
+          setStatusText("DBにFaceNetインデックスがありません。管理画面から「FaceNet再構築」を実行してください。");
+          return;
+        }
+        if (data.error && data.matchCount === 0) {
+          setStep("error");
+          setStatusText(data.error);
           return;
         }
         const results = ((data.results || []) as FaceSearchResult[])
@@ -437,15 +448,25 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
       if (res.ok) {
         const data = await res.json();
+        console.log('[FaceSearch] API response:', JSON.stringify(data));
         if (data.error && data.matchCount === 0 && data.error.includes("No face detected")) {
           setStep("error");
-          setStatusText("顔が検出されませんでした。別の写真をお試しください。");
+          setStatusText("顔が検出されませんでした。顔がはっきり写った写真をお試しください。");
           return;
         }
         if (data.error && data.matchCount === 0 && data.error.includes("API unavailable")) {
-          // Fallback to face-api.js if FaceNet is down
           console.warn("[FaceSearch] FaceNet unavailable, falling back to face-api.js");
           await processImageWithFaceApi(imageDataUrl);
+          return;
+        }
+        if (data.error && data.matchCount === 0 && data.error.includes("No FaceNet embeddings")) {
+          setStep("error");
+          setStatusText("DBにFaceNetインデックスがありません。管理画面から「FaceNet再構築」を実行してください。");
+          return;
+        }
+        if (data.error && data.matchCount === 0) {
+          setStep("error");
+          setStatusText(data.error);
           return;
         }
         const results = ((data.results || []) as FaceSearchResult[])
