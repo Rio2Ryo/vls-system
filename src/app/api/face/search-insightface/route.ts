@@ -147,30 +147,61 @@ export async function POST(req: NextRequest) {
 
   const scored = rows.map((r) => {
     const embedding = JSON.parse(r.embedding as string) as number[];
+    const bbox = r.bbox ? JSON.parse(r.bbox as string) as { x: number; y: number; width: number; height: number } : undefined;
     return {
       photoId: r.photo_id as string,
       faceId: r.id as string,
       similarity: Number(cosine(queryEmbedding!, embedding).toFixed(4)),
-      bbox: r.bbox ? JSON.parse(r.bbox as string) : undefined,
+      bbox,
+      _embedding: embedding,
     };
-  }).filter((r) => r.similarity >= threshold)
+  })
+    // Filter out false positive detections (tiny bboxes = wall/texture)
+    .filter((r) => {
+      if (r.bbox && (r.bbox.width < 30 || r.bbox.height < 30)) return false;
+      return r.similarity >= threshold;
+    })
     .sort((a, b) => b.similarity - a.similarity);
 
   // Deduplicate by photoId (keep best score per photo)
-  const dedup = [] as typeof scored;
-  const seen = new Set<string>();
+  const dedupByPhoto = [] as typeof scored;
+  const seenPhotos = new Set<string>();
   for (const r of scored) {
-    if (seen.has(r.photoId)) continue;
-    seen.add(r.photoId);
-    dedup.push(r);
-    if (dedup.length >= limit) break;
+    if (seenPhotos.has(r.photoId)) continue;
+    seenPhotos.add(r.photoId);
+    dedupByPhoto.push(r);
   }
+
+  // Embedding-based deduplication (same as standalone app: dedup_threshold=0.90)
+  // Removes visually duplicate results where face embeddings are too similar
+  const DEDUP_THRESHOLD = 0.90;
+  const finalResults: typeof dedupByPhoto = [];
+  const keptEmbeddings: number[][] = [];
+
+  for (const r of dedupByPhoto) {
+    let isDup = false;
+    for (const keptEmb of keptEmbeddings) {
+      const sim = cosine(r._embedding, keptEmb);
+      if (sim > DEDUP_THRESHOLD) {
+        isDup = true;
+        break;
+      }
+    }
+    if (!isDup) {
+      finalResults.push(r);
+      keptEmbeddings.push(r._embedding);
+      if (finalResults.length >= limit) break;
+    }
+  }
+
+  // Strip internal _embedding field before sending response
+  const results = finalResults.map(({ _embedding, ...rest }) => rest);
 
   return NextResponse.json({
     provider: "facenet",
     threshold,
-    matchCount: dedup.length,
-    results: dedup,
-    _debug: { storedEmbeddings: rows.length, queryDim: queryEmbedding.length },
+    matchCount: results.length,
+    results,
+    _debug: { storedEmbeddings: rows.length, queryDim: queryEmbedding.length, beforeDedup: dedupByPhoto.length },
   });
 }
