@@ -6,7 +6,6 @@ import { getCsrfToken } from "@/lib/csrf";
 import { DEFAULT_WATERMARK_CONFIG, WatermarkConfig } from "@/lib/types";
 import { getWatermarkConfig } from "@/lib/store";
 
-
 interface FaceSearchResult {
   photoId: string;
   faceId: string;
@@ -29,61 +28,13 @@ type SearchMode = "recommended" | "strict" | "broad";
 
 const DEFAULT_MAX_RESULTS = 20;
 const DEFAULT_THRESHOLD = 0.55;
-// rollback marker: preserve non-broken browser queryEmbedding path until isolated PoC is ready
 
-let faceApiLoaded = false;
-
-async function loadFaceApi() {
-  const faceapi = await import("@vladmandic/face-api");
-  if (!faceApiLoaded) {
-    try {
-      await import("@tensorflow/tfjs-backend-cpu");
-      const tfAny = faceapi.tf as unknown as { setBackend?: (name: string) => Promise<unknown>; ready?: () => Promise<unknown> };
-      if (tfAny.setBackend) await tfAny.setBackend("cpu");
-      if (tfAny.ready) await tfAny.ready();
-    } catch (err) {
-      console.warn("[FaceSearch] Failed to force tfjs cpu backend:", err);
-    }
-    await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
-    await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
-    await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
-    faceApiLoaded = true;
-  }
-  return faceapi;
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-function extractFaceThumbnail(imageUrl: string, bbox: { x: number; y: number; width: number; height: number }): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const padding = 0.3;
-      const srcX = Math.max(0, Math.floor(bbox.x - bbox.width * padding));
-      const srcY = Math.max(0, Math.floor(bbox.y - bbox.height * padding));
-      const srcW = Math.floor(bbox.width * (1 + padding * 2));
-      const srcH = Math.floor(bbox.height * (1 + padding * 2));
-      canvas.width = srcW;
-      canvas.height = srcH;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { reject(new Error("No context")); return; }
-      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
-      resolve(canvas.toDataURL("image/jpeg", 0.9));
-    };
-    img.onerror = reject;
-    img.src = imageUrl;
-  });
-}
+// Search mode configurations
+const SEARCH_MODE_CONFIG: Record<SearchMode, { threshold: number; label: string }> = {
+  recommended: { threshold: 0.55, label: "おすすめ" },
+  strict: { threshold: 0.70, label: "厳密" },
+  broad: { threshold: 0.40, label: "幅広く" },
+};
 
 function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number, config: Omit<WatermarkConfig, "tenantId">) {
   if (!config.enabled || !config.text) return;
@@ -220,7 +171,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
   const [maxResults, setMaxResults] = useState(DEFAULT_MAX_RESULTS);
   const [searchMode, setSearchMode] = useState<SearchMode>("recommended");
-  const [isVisionMode, setIsVisionMode] = useState(true);
   const [searchingMore, setSearchingMore] = useState(false);
   const [searchProgress, setSearchProgress] = useState<{ done: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -273,7 +223,6 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       setCurrentPhotoIndex(0);
       setThreshold(DEFAULT_THRESHOLD);
       setSearchMode("recommended");
-      setIsVisionMode(true);
       setSearchingMore(false);
       setSearchProgress(null);
     }
@@ -334,200 +283,23 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     });
   };
 
+  /**
+   * Unified face search using FaceNet API (512-dim embeddings)
+   * Sends images to server for high-accuracy face recognition
+   */
   const processImages = async (imageDataUrls: string[]) => {
     setStep("loading");
-    setStatusText("AI顔認証で検索中... (" + imageDataUrls.length + "枚)");
+    setStatusText(`AI顔認証で検索中... (${imageDataUrls.length}枚)`);
     setSearchingMore(false);
     setSearchProgress(null);
     stopSearchRef.current = false;
-    setAllSearchResults([]); // clear previous results
+    setAllSearchResults([]);
 
     const csrfToken = getCsrfToken();
+    const searchThreshold = SEARCH_MODE_CONFIG[searchMode].threshold;
+
     try {
       setStatusText(`FaceNet AIで${imageDataUrls.length}枚を解析中...`);
-      const res = await fetch("/api/face/search-insightface", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({
-          eventId,
-          imagesBase64: imageDataUrls,
-          threshold: 0.55,
-          limit: 100,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        console.log('[FaceSearch] API response:', JSON.stringify(data));
-        if (data.error && data.matchCount === 0 && data.error.includes("No face detected")) {
-          setStep("error");
-          setStatusText("顔が検出されませんでした。別の写真をお試しください。");
-          return;
-        }
-        if (data.error && data.matchCount === 0 && data.error.includes("API unavailable")) {
-          await processImageWithFaceApi(imageDataUrls[0]);
-          return;
-        }
-        if (data.error && data.matchCount === 0 && data.error.includes("No FaceNet embeddings")) {
-          setStep("error");
-          setStatusText("DBにFaceNetインデックスがありません。管理画面から「FaceNet再構築」を実行してください。");
-          return;
-        }
-        if (data.error && data.matchCount === 0) {
-          setStep("error");
-          setStatusText(data.error);
-          return;
-        }
-        const results = ((data.results || []) as FaceSearchResult[])
-          .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
-          .sort((a, b) => b.similarity - a.similarity);
-        setIsVisionMode(true);
-        setAllSearchResults(results);
-        setStep("results");
-        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
-        return;
-      }
-      await processImageWithFaceApi(imageDataUrls[0]);
-    } catch (e) {
-      console.error("[FaceSearch] multi-image search error:", e);
-      await processImageWithFaceApi(imageDataUrls[0]);
-    }
-  };
-
-  const processImage = async (imageDataUrl: string) => {
-    setStep("loading");
-    setStatusText("AI顔認証で検索中...");
-    setSearchingMore(false);
-    setSearchProgress(null);
-    stopSearchRef.current = false;
-    setAllSearchResults([]); // clear previous results
-
-    // Primary path: send image to server → API (512-dim, high accuracy)
-    const csrfToken = getCsrfToken();
-    try {
-      setStatusText("FaceNet AIで顔を解析中...");
-      const res = await fetch("/api/face/search-insightface", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({
-          eventId,
-          imageBase64: imageDataUrl,
-          threshold: 0.55,
-          limit: 100,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        console.log('[FaceSearch] API response:', JSON.stringify(data));
-        if (data.error && data.matchCount === 0 && data.error.includes("No face detected")) {
-          setStep("error");
-          setStatusText("顔が検出されませんでした。顔がはっきり写った写真をお試しください。");
-          return;
-        }
-        if (data.error && data.matchCount === 0 && data.error.includes("API unavailable")) {
-          console.warn("[FaceSearch] FaceNet unavailable, falling back to face-api.js");
-          await processImageWithFaceApi(imageDataUrl);
-          return;
-        }
-        if (data.error && data.matchCount === 0 && data.error.includes("No FaceNet embeddings")) {
-          setStep("error");
-          setStatusText("DBにFaceNetインデックスがありません。管理画面から「FaceNet再構築」を実行してください。");
-          return;
-        }
-        if (data.error && data.matchCount === 0) {
-          setStep("error");
-          setStatusText(data.error);
-          return;
-        }
-        const results = ((data.results || []) as FaceSearchResult[])
-          .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
-          .sort((a, b) => b.similarity - a.similarity);
-        setIsVisionMode(true);
-        setAllSearchResults(results);
-        setStep("results");
-        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
-        return;
-      }
-
-      // HTTP error → fallback to face-api.js
-      console.warn("[FaceSearch] FaceNet search failed, falling back to face-api.js");
-      await processImageWithFaceApi(imageDataUrl);
-    } catch (err) {
-      console.error("[FaceSearch] FaceNet search error:", err);
-      // Fallback to face-api.js
-      await processImageWithFaceApi(imageDataUrl);
-    }
-  };
-
-  // Fallback: face-api.js client-side processing (used when CF AI is unavailable)
-  const processImageWithFaceApi = async (imageDataUrl: string) => {
-    setIsVisionMode(false);
-    setStatusText("AIモデルを読み込み中...");
-
-    const csrfToken = getCsrfToken();
-
-    let faceapi: Awaited<ReturnType<typeof loadFaceApi>> | null = null;
-    try {
-      faceapi = await loadFaceApi();
-    } catch (err) {
-      console.error("[FaceSearch] Model load failed:", err);
-      setStep("error");
-      setStatusText("AIモデルの読み込みに失敗しました。ネットワーク環境をご確認ください。");
-      return;
-    }
-
-    let img: HTMLImageElement;
-    try {
-      setStatusText("画像読込中...");
-      img = await loadImage(imageDataUrl);
-    } catch (err) {
-      console.error("[FaceSearch] Image load failed:", err);
-      setStep("error");
-      setStatusText("画像の読み込みに失敗しました。別の形式の画像をお試しください。");
-      return;
-    }
-
-    let detections: { descriptor: Float32Array }[] = [];
-    try {
-      setStatusText("顔検出中...");
-      detections = await faceapi
-        .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
-        .withFaceLandmarks()
-        .withFaceDescriptors();
-    } catch (err) {
-      console.error("[FaceSearch] Detection failed:", err);
-      setStep("error");
-      setStatusText("顔の検出に失敗しました。別の写真をお試しください。");
-      return;
-    }
-
-    if (detections.length === 0) {
-      setStep("error");
-      setStatusText("顔が検出されませんでした。別の写真をお試しください。");
-      return;
-    }
-
-    setStatusText(`${detections.length}件の顔を検出。検索中...`);
-
-    const queryBox = (detections[0] as unknown as { detection: { box: { x: number; y: number; width: number; height: number } } }).detection?.box;
-    if (queryBox) {
-      extractFaceThumbnail(imageDataUrl, {
-        x: queryBox.x,
-        y: queryBox.y,
-        width: queryBox.width,
-        height: queryBox.height,
-      }).then(setDetectedFaceUrl).catch(() => setDetectedFaceUrl(null));
-    }
-
-    const queryEmbedding = Array.from(detections[0].descriptor);
-    try {
       const res = await fetch("/api/face/search", {
         method: "POST",
         headers: {
@@ -536,31 +308,62 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         },
         body: JSON.stringify({
           eventId,
-          queryEmbedding,
-          threshold: 0.55,
-          limit: 100,
+          imagesBase64: imageDataUrls,
+          threshold: searchThreshold,
+          limit: 200,
         }),
       });
 
       if (!res.ok) {
-        setStep("error");
-        setStatusText(`検索 API エラー: ${res.status}`);
-        return;
+        throw new Error(`Search API error: ${res.status}`);
       }
 
       const data = await res.json();
-      const results = (data.results || []) as FaceSearchResult[];
-      const resultsWithPercent = results
+      console.log('[FaceSearch] API response:', JSON.stringify(data));
+
+      // Handle specific error cases
+      if (data.error) {
+        if (data.error.includes("No face detected")) {
+          setStep("error");
+          setStatusText("顔が検出されませんでした。顔がはっきり写った別の写真をお試しください。");
+          return;
+        }
+        if (data.error.includes("API unavailable") || data.error.includes("FaceNet API")) {
+          setStep("error");
+          setStatusText("顔認識サービスが一時的に利用できません。しばらく経ってからお試しください。");
+          return;
+        }
+        if (data.error.includes("No FaceNet embeddings") || data.error.includes("reindex")) {
+          setStep("error");
+          setStatusText("顔データのインデックスが見つかりません。管理画面で「FaceNet再構築」を実行してください。");
+          return;
+        }
+        if (data.matchCount === 0) {
+          setStep("error");
+          setStatusText(data.error);
+          return;
+        }
+      }
+
+      const results = ((data.results || []) as FaceSearchResult[])
         .map((r) => ({ ...r, matchPercent: Math.round(r.similarity * 100) }))
         .sort((a, b) => b.similarity - a.similarity);
 
-      setAllSearchResults(resultsWithPercent);
+      setAllSearchResults(results);
       setStep("results");
-    } catch (err) {
-      console.error("[FaceSearch] Search API failed:", err);
+      setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致する写真が見つかりませんでした");
+    } catch (e) {
+      console.error("[FaceSearch] Search error:", e);
       setStep("error");
-      setStatusText("検索 API への接続に失敗しました。ネットワーク環境をご確認ください。");
+      setStatusText("検索中にエラーが発生しました。ネットワーク環境を確認の上、再度お試しください。");
     }
+  };
+
+  /**
+   * Single image face search - delegates to processImages
+   */
+  const processImage = async (imageDataUrl: string) => {
+    await processImages([imageDataUrl]);
   };
 
   const handleApplyResults = () => {
@@ -662,44 +465,21 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
                   </button>
                 </div>
 
-                {/* Search mode selector (Vision API) / threshold slider (face-api fallback) */}
-                {isVisionMode ? (
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                    <span className="text-xs font-medium text-gray-600">検索モード</span>
-                    <select
-                      value={searchMode}
-                      onChange={(e) => setSearchMode(e.target.value as SearchMode)}
-                      className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#6EC6FF]"
-                      aria-label="検索モード"
-                    >
-                      <option value="recommended">🎯 おすすめ（デフォルト）</option>
-                      <option value="strict">🔍 厳密</option>
-                      <option value="broad">📸 幅広く</option>
-                    </select>
-                    <p className="text-xs text-gray-400">AIが顔の特徴を分析して自動判定します</p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-600">一致度の閾値</span>
-                      <span className="text-xs font-bold text-gray-800">{Math.round(threshold * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0.4}
-                      max={0.9}
-                      step={0.05}
-                      value={threshold}
-                      onChange={(e) => setThreshold(Number(e.target.value))}
-                      className="w-full accent-[#6EC6FF]"
-                      aria-label="一致度の閾値"
-                    />
-                    <div className="flex justify-between text-xs text-gray-400">
-                      <span>40%（緩い）</span>
-                      <span>90%（厳しい）</span>
-                    </div>
-                  </div>
-                )}
+                {/* Search mode selector */}
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                  <span className="text-xs font-medium text-gray-600">検索モード</span>
+                  <select
+                    value={searchMode}
+                    onChange={(e) => setSearchMode(e.target.value as SearchMode)}
+                    className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#6EC6FF]"
+                    aria-label="検索モード"
+                  >
+                    <option value="recommended">🎯 おすすめ（デフォルト）</option>
+                    <option value="strict">🔍 厳密</option>
+                    <option value="broad">📸 幅広く</option>
+                  </select>
+                  <p className="text-xs text-gray-400">AIが顔の特徴を分析して自動判定します</p>
+                </div>
 
                 <input
                   ref={fileInputRef}
@@ -874,7 +654,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
                 {matchPhotos.length === 0 && (
                   <p className="text-center text-sm text-gray-400 py-4">
-                    {isVisionMode ? "「幅広く」モードに変更すると結果が増えることがあります" : "閾値を下げると結果が増えます"}
+                    「幅広く」モードに変更すると結果が増えることがあります
                   </p>
                 )}
 
