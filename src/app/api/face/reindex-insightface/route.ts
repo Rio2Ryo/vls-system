@@ -46,12 +46,13 @@ async function getAllFacesFromUrl(imageUrl: string): Promise<Array<{ embedding: 
     count: number;
   };
 
-  // Return faces with det_score >= 0.7 and minimum bbox size (filters false positives like walls)
+  // Return faces with det_score >= 0.5 and minimum bbox size
+  // (matches standalone app: probs[j] < 0.5 → skip)
   return data.faces.filter(f => {
-    if (f.det_score < 0.7) return false;
+    if (f.det_score < 0.5) return false;
     const w = f.bbox[2] - f.bbox[0];
     const h = f.bbox[3] - f.bbox[1];
-    if (w < 30 || h < 30) return false; // too small = likely false positive
+    if (w < 20 || h < 20) return false; // min_face_size=20 in standalone
     return true;
   });
 }

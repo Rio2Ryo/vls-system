@@ -152,9 +152,9 @@ export async function POST(req: NextRequest) {
       _embedding: embedding,
     };
   })
-    // Filter out false positive detections (tiny bboxes = wall/texture)
+    // Filter out false positive detections (bbox smaller than min_face_size=20)
     .filter((r) => {
-      if (r.bbox && (r.bbox.width < 30 || r.bbox.height < 30)) return false;
+      if (r.bbox && (r.bbox.width < 20 || r.bbox.height < 20)) return false;
       return r.similarity >= threshold;
     })
     .sort((a, b) => b.similarity - a.similarity);
