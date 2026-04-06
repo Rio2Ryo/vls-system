@@ -54,10 +54,8 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const [reindexing, setReindexing] = useState(false);
   const [serverReindexing, setServerReindexing] = useState(false);
   const [serverReindexProgress, setServerReindexProgress] = useState({ current: 0, total: 0 });
-  // FaceNet reindex state
-  const [facenetReindexing, setFacenetReindexing] = useState(false);
-  const [facenetProgress, setFacenetProgress] = useState({ current: 0, total: 0, indexed: 0 });
-  const [facenetStatus, setFacenetStatus] = useState("");
+
+
   // Face search accuracy test state
   const [testSearchFile, setTestSearchFile] = useState<File | null>(null);
   const [testSearchDetecting, setTestSearchDetecting] = useState(false);
