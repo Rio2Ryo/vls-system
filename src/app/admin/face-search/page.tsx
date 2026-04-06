@@ -23,12 +23,9 @@ interface SearchResult {
 
 export default function FaceSearchAdminPage() {
   const [eventId, setEventId] = useState("evt-summer");
-  const [tab, setTab] = useState<"reindex" | "list" | "search">("reindex");
+  const [tab, setTab] = useState<"list" | "search">("search");
 
-  // Reindex state
-  const [reindexStatus, setReindexStatus] = useState<"idle" | "loading" | "running" | "done" | "error">("idle");
-  const [reindexProgress, setReindexProgress] = useState("");
-  const [reindexStats, setReindexStats] = useState<{ indexed: number; total: number } | null>(null);
+
 
   // List state
   const [embeddings, setEmbeddings] = useState<EmbeddingRow[]>([]);
@@ -44,58 +41,6 @@ export default function FaceSearchAdminPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ---- Reindex ----
-  const handleReindex = async () => {
-    setReindexStatus("loading");
-    setReindexProgress("写真リストをD1から取得中...");
-    setReindexStats(null);
-
-    try {
-      // Step 1: Get photo list from D1
-      const listRes = await fetch(`/api/face/event-photos?eventId=${encodeURIComponent(eventId)}`);
-      const listData = await listRes.json();
-      if (!listRes.ok) throw new Error(listData.error || `HTTP ${listRes.status}`);
-      const photos: Array<{ photoId: string; url: string }> = listData.photos || [];
-      if (photos.length === 0) throw new Error("写真が見つかりません");
-
-      // Step 2: Send in small batches (5 photos each to stay within Vercel timeout)
-      const BATCH = 5;
-      let totalIndexed = 0;
-      let totalFaces = 0;
-      setReindexStatus("running");
-
-      for (let i = 0; i < photos.length; i += BATCH) {
-        const batch = photos.slice(i, i + BATCH);
-        setReindexProgress(`処理中... ${Math.min(i + BATCH, photos.length)} / ${photos.length} 枚`);
-
-        const csrfToken = getCsrfToken();
-        const res = await fetch("/api/face/reindex-insightface", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-          },
-          body: JSON.stringify({
-            eventId,
-            photos: batch,
-            deleteFirst: i === 0,
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        totalIndexed += data.indexedPhotos || 0;
-        totalFaces += data.indexedFaces || 0;
-      }
-
-      setReindexStatus("done");
-      setReindexStats({ indexed: totalIndexed, total: photos.length });
-      setReindexProgress(`完了: ${totalIndexed} 枚をインデックス済み (${totalFaces} 顔)`);
-    } catch (e) {
-      setReindexStatus("error");
-      setReindexProgress(`エラー: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
 
   // ---- List ----
   const handleLoadList = async () => {
@@ -194,7 +139,7 @@ export default function FaceSearchAdminPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
-          {(["reindex", "list", "search"] as const).map((t) => (
+          {(["list", "search"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -204,59 +149,11 @@ export default function FaceSearchAdminPage() {
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              {t === "reindex" ? "再インデックス" : t === "list" ? "一覧" : "検索テスト"}
+              {t === "list" ? "一覧" : "検索テスト"}
             </button>
           ))}
         </div>
 
-        {/* Reindex Tab */}
-        {tab === "reindex" && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-            <h2 className="font-semibold text-gray-800 dark:text-gray-100 mb-1">
-              InsightFace 再インデックス
-            </h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              イベント内の全写真をInsightFace (512次元) で処理してD1に保存します。
-              face-api.js (128次元) より大幅に精度が向上します。
-            </p>
-
-            <div className="flex items-center gap-4 mb-4">
-              <button
-                onClick={handleReindex}
-                disabled={reindexStatus === "running" || reindexStatus === "loading"}
-                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {reindexStatus === "running" || reindexStatus === "loading"
-                  ? "インデックス中..."
-                  : "InsightFace 再インデックス実行"}
-              </button>
-              {(reindexStatus === "running" || reindexStatus === "loading") && (
-                <div className="h-5 w-5 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
-              )}
-            </div>
-
-            {reindexProgress && (
-              <p className={`text-sm ${
-                reindexStatus === "error" ? "text-red-500" :
-                reindexStatus === "done" ? "text-green-600 dark:text-green-400" :
-                "text-gray-500"
-              }`}>
-                {reindexProgress}
-              </p>
-            )}
-
-            {reindexStats && (
-              <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                <p className="text-sm text-green-700 dark:text-green-400 font-medium">
-                  ✅ 完了: {reindexStats.indexed} / {reindexStats.total} 枚をインデックスしました
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-500 mt-1">
-                  顔検索UIで検索できるようになりました。
-                </p>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* List Tab */}
         {tab === "list" && (
