@@ -149,19 +149,11 @@ export async function POST(req: NextRequest) {
       _embedding: embedding,
     };
   })
-    // Aggressively filter false positive detections (wall textures, small artifacts)
-    .filter((r) => {
-      if (r.bbox) {
-        // Min size: faces smaller than 40px are almost always false positives in group photos
-        if (r.bbox.width < 40 || r.bbox.height < 40) return false;
-        // Area check: real faces have area >= 1600px² (40x40)
-        if (r.bbox.width * r.bbox.height < 1600) return false;
-        // Aspect ratio: real faces are roughly square (0.5 to 2.0 ratio)
-        const aspect = r.bbox.width / r.bbox.height;
-        if (aspect < 0.5 || aspect > 2.0) return false;
-      }
-      return r.similarity >= threshold;
-    })
+    // No bbox size filter — the bbox values are from MTCNN's internal resolution
+    // where even real faces have median size of 18x23px. All entries already
+    // passed MTCNN's det_score >= 0.5 filter during database creation.
+    // Filter only by similarity threshold (same as standalone app: np.dot >= threshold)
+    .filter((r) => r.similarity >= threshold)
     .sort((a, b) => b.similarity - a.similarity);
 
   // No photoId dedup — standalone app does NOT deduplicate by image.

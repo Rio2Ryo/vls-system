@@ -149,8 +149,8 @@ function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string;
         const by = Number(faceBbox.y) || 0;
         const bw = Number(faceBbox.width) || 0;
         const bh = Number(faceBbox.height) || 0;
-        if (bw > 0 && bh > 0) {
-          // Simple blue border on matched face, no decoration
+        // Only draw bbox for faces large enough to be meaningful (skip tiny wall/texture detections)
+        if (bw >= 30 && bh >= 30) {
           ctx.strokeStyle = "#3b82f6";
           ctx.lineWidth = Math.max(3, Math.min(img.width, img.height) / 150);
           ctx.strokeRect(bx, by, bw, bh);
@@ -184,15 +184,20 @@ function ResultThumbnail({ src, bbox }: { src: string; bbox?: { x: number; y: nu
 
       // Draw matched face bbox - simple blue border, no decoration
       if (bbox) {
-        const scale = displaySize / size;
-        const bx = (Number(bbox.x) - sx) * scale;
-        const by = (Number(bbox.y) - sy) * scale;
-        const bw = Number(bbox.width) * scale;
-        const bh = Number(bbox.height) * scale;
-        if (bw > 0 && bh > 0) {
-          ctx.strokeStyle = "#3b82f6"; // blue-500
-          ctx.lineWidth = 2;
-          ctx.strokeRect(bx, by, bw, bh);
+        // Only draw bbox for faces large enough to be real (skip tiny wall/texture detections)
+        const origW = Number(bbox.width) || 0;
+        const origH = Number(bbox.height) || 0;
+        if (origW >= 30 && origH >= 30) {
+          const scale = displaySize / size;
+          const bx = (Number(bbox.x) - sx) * scale;
+          const by = (Number(bbox.y) - sy) * scale;
+          const bw = origW * scale;
+          const bh = origH * scale;
+          if (bw > 0 && bh > 0) {
+            ctx.strokeStyle = "#3b82f6"; // blue-500
+            ctx.lineWidth = 2;
+            ctx.strokeRect(bx, by, bw, bh);
+          }
         }
       }
     };
