@@ -144,7 +144,18 @@ function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
       drawWatermark(ctx, img.width, img.height, wmConfig);
-      // No bbox overlay — matches standalone app behavior (no rectangle on full photo)
+      // Draw blue rectangle on the matched face
+      if (faceBbox) {
+        const bx = Number(faceBbox.x) || 0;
+        const by = Number(faceBbox.y) || 0;
+        const bw = Number(faceBbox.width) || 0;
+        const bh = Number(faceBbox.height) || 0;
+        if (bw > 0 && bh > 0) {
+          ctx.strokeStyle = "#3b82f6";
+          ctx.lineWidth = Math.max(3, Math.min(img.width, img.height) / 150);
+          ctx.strokeRect(bx, by, bw, bh);
+        }
+      }
     };
     img.src = src;
   }, [src, wmConfig, faceBbox]);
@@ -171,7 +182,19 @@ function ResultThumbnail({ src, bbox }: { src: string; bbox?: { x: number; y: nu
       canvas.height = displaySize;
       ctx.drawImage(img, sx, sy, size, size, 0, 0, displaySize, displaySize);
 
-      // No bbox overlay — matches standalone app behavior
+      // Draw blue rectangle on the matched face
+      if (bbox) {
+        const scale = displaySize / size;
+        const bx = (Number(bbox.x) - sx) * scale;
+        const by = (Number(bbox.y) - sy) * scale;
+        const bw = Number(bbox.width) * scale;
+        const bh = Number(bbox.height) * scale;
+        if (bw > 0 && bh > 0) {
+          ctx.strokeStyle = "#3b82f6";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(bx, by, bw, bh);
+        }
+      }
     };
     img.src = src;
   }, [src, bbox]);

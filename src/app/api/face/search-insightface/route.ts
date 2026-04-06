@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   // Support multiple images for higher accuracy (up to 3)
   const imagesBase64 = body.imagesBase64 as string[] | undefined;
   const threshold = Number(body.threshold ?? 0.3);
-  const limit = Number(body.limit ?? 50);
+  const limit = Number(body.limit ?? 200);
 
   if (!eventId) {
     return NextResponse.json({ error: "eventId required" }, { status: 400 });
@@ -156,8 +156,8 @@ export async function POST(req: NextRequest) {
     .filter((r) => r.similarity >= threshold)
     .sort((a, b) => b.similarity - a.similarity);
 
-  // No photoId dedup — standalone app does NOT deduplicate by image.
-  // All matching faces are kept, even multiple from the same image.
+  // PhotoId dedup is handled on the frontend side.
+  // Server-side embedding dedup handles duplicate entries (same photo uploaded twice).
   const dedupByPhoto = scored;
 
   // Embedding-based deduplication (same as standalone app: dedup_threshold=0.90)
