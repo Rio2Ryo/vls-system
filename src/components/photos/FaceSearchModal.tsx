@@ -334,6 +334,42 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     });
   };
 
+  // Helper: Try to get embedding from local standalone app (localhost:5000) first,
+  // fall back to null if unavailable. This ensures identical embedding = identical results.
+  const getLocalEmbedding = async (dataUrl: string): Promise<number[] | null> => {
+    try {
+      // Convert data URL to blob for multipart upload
+      const resp = await fetch(dataUrl);
+      const blob = await resp.blob();
+      const formData = new FormData();
+      formData.append("file", blob, "query.jpg");
+
+      const localRes = await fetch("http://localhost:5000/embed", {
+        method: "POST",
+        body: formData,
+        signal: AbortSignal.timeout(10000), // 10s timeout
+      });
+      if (!localRes.ok) return null;
+      const data = await localRes.json();
+      if (!data.faces || data.faces.length === 0) return null;
+      // Pick face with highest det_score (same as server-side logic)
+      const best = data.faces.reduce((a: { det_score: number }, b: { det_score: number }) =>
+        b.det_score > a.det_score ? b : a
+      );
+      console.log("[FaceSearch] ✅ Local embedding obtained (localhost:5000)");
+      return best.embedding;
+    } catch {
+      console.log("[FaceSearch] Local standalone not available, will use HF API");
+      return null;
+    }
+  };
+
+  // Helper: Normalize an embedding vector to unit length
+  const normalizeEmbedding = (emb: number[]): number[] => {
+    const norm = Math.sqrt(emb.reduce((s, v) => s + v * v, 0)) || 1;
+    return emb.map(v => v / norm);
+  };
+
   const processImages = async (imageDataUrls: string[]) => {
     setStep("loading");
     setStatusText("AI顔認証で検索中... (" + imageDataUrls.length + "枚)");
@@ -343,20 +379,52 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setAllSearchResults([]); // clear previous results
 
     const csrfToken = getCsrfToken();
+
+    // Step 1: Try local standalone for embedding (identical to DB generation)
+    setStatusText(`ローカルAIで${imageDataUrls.length}枚を解析中...`);
+    const localEmbeddings: number[][] = [];
+    for (const url of imageDataUrls) {
+      const emb = await getLocalEmbedding(url);
+      if (emb) localEmbeddings.push(emb);
+    }
+
+    let queryEmbedding: number[] | undefined;
+    if (localEmbeddings.length > 0) {
+      // Average embeddings (same as standalone behavior)
+      if (localEmbeddings.length === 1) {
+        queryEmbedding = localEmbeddings[0];
+      } else {
+        const dim = localEmbeddings[0].length;
+        const avg = new Array(dim).fill(0) as number[];
+        for (const emb of localEmbeddings) {
+          for (let i = 0; i < dim; i++) avg[i] += emb[i];
+        }
+        queryEmbedding = normalizeEmbedding(avg);
+      }
+      setStatusText(`ローカルAIで${localEmbeddings.length}枚の顔を検出、検索中...`);
+    }
+
     try {
-      setStatusText(`FaceNet AIで${imageDataUrls.length}枚を解析中...`);
+      // Step 2: Search with embedding (local) or images (HF API fallback)
+      const bodyPayload: Record<string, unknown> = {
+        eventId,
+        threshold: 0.55,
+        limit: 200,
+      };
+      if (queryEmbedding) {
+        bodyPayload.queryEmbedding = queryEmbedding;
+      } else {
+        setStatusText(`FaceNet AIで${imageDataUrls.length}枚を解析中...`);
+        bodyPayload.imagesBase64 = imageDataUrls;
+      }
+
       const res = await fetch("/api/face/search-insightface", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
-        body: JSON.stringify({
-          eventId,
-          imagesBase64: imageDataUrls,
-          threshold: 0.55,
-          limit: 100,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
 
       if (res.ok) {
@@ -387,7 +455,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         setIsVisionMode(true);
         setAllSearchResults(results);
         setStep("results");
-        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
+        const source = queryEmbedding ? "ローカルAI" : "FaceNet";
+        setStatusText(results.length > 0 ? `${results.length}件ヒット（${source}で検索）` : "一致写真は見つかりませんでした");
         return;
       }
       await processImageWithFaceApi(imageDataUrls[0]);
@@ -405,22 +474,34 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     stopSearchRef.current = false;
     setAllSearchResults([]); // clear previous results
 
-    // Primary path: send image to server → API (512-dim, high accuracy)
     const csrfToken = getCsrfToken();
+
+    // Step 1: Try local standalone for embedding (identical to DB generation)
+    setStatusText("ローカルAIで顔を解析中...");
+    const localEmb = await getLocalEmbedding(imageDataUrl);
+
     try {
-      setStatusText("FaceNet AIで顔を解析中...");
+      // Step 2: Search with embedding (local) or image (HF API fallback)
+      const bodyPayload: Record<string, unknown> = {
+        eventId,
+        threshold: 0.55,
+        limit: 200,
+      };
+      if (localEmb) {
+        bodyPayload.queryEmbedding = localEmb;
+        setStatusText("ローカルAIで検出完了、検索中...");
+      } else {
+        setStatusText("FaceNet AIで顔を解析中...");
+        bodyPayload.imageBase64 = imageDataUrl;
+      }
+
       const res = await fetch("/api/face/search-insightface", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
-        body: JSON.stringify({
-          eventId,
-          imageBase64: imageDataUrl,
-          threshold: 0.55,
-          limit: 100,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
 
       if (res.ok) {
@@ -452,7 +533,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         setIsVisionMode(true);
         setAllSearchResults(results);
         setStep("results");
-        setStatusText(results.length > 0 ? `${results.length}枚見つかりました` : "一致写真は見つかりませんでした");
+        const source = localEmb ? "ローカルAI" : "FaceNet";
+        setStatusText(results.length > 0 ? `${results.length}件ヒット（${source}で検索）` : "一致写真は見つかりませんでした");
         return;
       }
 
