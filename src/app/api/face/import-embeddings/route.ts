@@ -102,12 +102,11 @@ export async function POST(req: NextRequest) {
       // Try matching by timestamp portion
       const tsMatch = entry.clean_name.match(/^(\d+)/);
       if (tsMatch) {
-        for (const [fn, pid] of photoMap.entries()) {
-          if (fn.includes(tsMatch[1])) {
+        photoMap.forEach((pid, fn) => {
+          if (!photoId && fn.includes(tsMatch[1])) {
             photoId = pid;
-            break;
           }
-        }
+        });
       }
     }
 
