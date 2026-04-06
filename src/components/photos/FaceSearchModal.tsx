@@ -28,7 +28,7 @@ type Step = "select" | "loading" | "results" | "error";
 type SearchMode = "recommended" | "strict" | "broad";
 
 const DEFAULT_MAX_RESULTS = 20;
-const DEFAULT_THRESHOLD = 0.55;
+const DEFAULT_THRESHOLD = 0.35;
 // rollback marker: preserve non-broken browser queryEmbedding path until isolated PoC is ready
 
 let faceApiLoaded = false;
@@ -145,28 +145,15 @@ function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string;
       ctx.drawImage(img, 0, 0);
       drawWatermark(ctx, img.width, img.height, wmConfig);
       if (faceBbox) {
-        const padding = 0.2;
         const bx = Number(faceBbox.x) || 0;
         const by = Number(faceBbox.y) || 0;
         const bw = Number(faceBbox.width) || 0;
         const bh = Number(faceBbox.height) || 0;
         if (bw > 0 && bh > 0) {
-          const x = bx - bw * padding;
-          const y = by - bh * padding;
-          const w = bw * (1 + padding * 2);
-          const h = bh * (1 + padding * 2);
+          // Simple blue border on matched face, no decoration
           ctx.strokeStyle = "#3b82f6";
-          ctx.lineWidth = Math.max(3, Math.min(img.width, img.height) / 100);
-          ctx.setLineDash([10, 5]);
-          ctx.strokeRect(x, y, w, h);
-          ctx.setLineDash([]);
-          const cornerSize = Math.max(10, Math.min(img.width, img.height) / 50);
-          ctx.strokeStyle = "#60a5fa";
-          ctx.lineWidth = Math.max(5, Math.min(img.width, img.height) / 50);
-          ctx.beginPath(); ctx.moveTo(x, y + cornerSize); ctx.lineTo(x, y); ctx.lineTo(x + cornerSize, y); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(x + w - cornerSize, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + cornerSize); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(x, y + h - cornerSize); ctx.lineTo(x, y + h); ctx.lineTo(x + cornerSize, y + h); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(x + w - cornerSize, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - cornerSize); ctx.stroke();
+          ctx.lineWidth = Math.max(3, Math.min(img.width, img.height) / 150);
+          ctx.strokeRect(bx, by, bw, bh);
         }
       }
     };
@@ -195,7 +182,7 @@ function ResultThumbnail({ src, bbox }: { src: string; bbox?: { x: number; y: nu
       canvas.height = displaySize;
       ctx.drawImage(img, sx, sy, size, size, 0, 0, displaySize, displaySize);
 
-      // Draw face bbox if available
+      // Draw matched face bbox - simple blue border, no decoration
       if (bbox) {
         const scale = displaySize / size;
         const bx = (Number(bbox.x) - sx) * scale;
@@ -203,19 +190,9 @@ function ResultThumbnail({ src, bbox }: { src: string; bbox?: { x: number; y: nu
         const bw = Number(bbox.width) * scale;
         const bh = Number(bbox.height) * scale;
         if (bw > 0 && bh > 0) {
-          // Main box
-          ctx.strokeStyle = "#22d3ee"; // cyan-400
+          ctx.strokeStyle = "#3b82f6"; // blue-500
           ctx.lineWidth = 2;
           ctx.strokeRect(bx, by, bw, bh);
-
-          // Corner accents
-          const cs = Math.max(6, Math.min(bw, bh) / 4);
-          ctx.strokeStyle = "#22d3ee";
-          ctx.lineWidth = 3;
-          ctx.beginPath(); ctx.moveTo(bx, by + cs); ctx.lineTo(bx, by); ctx.lineTo(bx + cs, by); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(bx + bw - cs, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + cs); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(bx, by + bh - cs); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + cs, by + bh); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(bx + bw - cs, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - cs); ctx.stroke();
         }
       }
     };
@@ -377,7 +354,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imagesBase64: imageDataUrls,
-          threshold: 0.55,
+          threshold: 0.35,
           limit: 100,
         }),
       });
@@ -441,7 +418,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imageBase64: imageDataUrl,
-          threshold: 0.55,
+          threshold: 0.35,
           limit: 100,
         }),
       });
