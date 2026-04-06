@@ -26,7 +26,7 @@ async function fetchImageBuffer(imageUrl: string): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
-async function getEmbeddingFromUrl(imageUrl: string): Promise<{ embedding: number[]; bbox: number[] } | null> {
+async function getAllFacesFromUrl(imageUrl: string): Promise<Array<{ embedding: number[]; bbox: number[]; det_score: number }>> {
   const imgBuffer = await fetchImageBuffer(imageUrl);
 
   // Send to FaceNet API
@@ -46,11 +46,8 @@ async function getEmbeddingFromUrl(imageUrl: string): Promise<{ embedding: numbe
     count: number;
   };
 
-  if (data.count === 0) return null;
-
-  // Return face with highest detection score
-  const best = data.faces.reduce((a, b) => (b.det_score > a.det_score ? b : a));
-  return { embedding: best.embedding, bbox: best.bbox };
+  // Return ALL faces with det_score >= 0.5 (same as standalone app)
+  return data.faces.filter(f => f.det_score >= 0.5);
 }
 
 export async function POST(req: NextRequest) {
@@ -124,40 +121,43 @@ export async function POST(req: NextRequest) {
 
   for (const photo of photos) {
     try {
-      const result = await getEmbeddingFromUrl(photo.url);
-      if (!result) {
+      const faces = await getAllFacesFromUrl(photo.url);
+      if (faces.length === 0) {
         console.log(`[reindex] No face detected for ${photo.photoId} (url: ${photo.url.slice(0, 80)})`);
         results.push({ photoId: photo.photoId, faces: 0 });
         continue;
       }
 
-      const { embedding, bbox } = result;
-      const faceId = `${photo.photoId}_if_0`;
+      // Store ALL detected faces (matching standalone app behavior)
+      for (let fi = 0; fi < faces.length; fi++) {
+        const face = faces[fi];
+        const faceId = `${photo.photoId}_if_${fi}`;
 
-      await d1Execute(
-        `INSERT OR REPLACE INTO face_embeddings
-         (id, event_id, photo_id, face_index, embedding, bbox, label, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          faceId,
-          eventId,
-          photo.photoId,
-          0,
-          JSON.stringify(embedding),
-          JSON.stringify({
-            x: Math.round(bbox[0]),
-            y: Math.round(bbox[1]),
-            width: Math.round(bbox[2] - bbox[0]),
-            height: Math.round(bbox[3] - bbox[1]),
-          }),
-          "facenet",
-          Date.now(),
-        ]
-      );
+        await d1Execute(
+          `INSERT OR REPLACE INTO face_embeddings
+           (id, event_id, photo_id, face_index, embedding, bbox, label, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            faceId,
+            eventId,
+            photo.photoId,
+            fi,
+            JSON.stringify(face.embedding),
+            JSON.stringify({
+              x: Math.round(face.bbox[0]),
+              y: Math.round(face.bbox[1]),
+              width: Math.round(face.bbox[2] - face.bbox[0]),
+              height: Math.round(face.bbox[3] - face.bbox[1]),
+            }),
+            "facenet",
+            Date.now(),
+          ]
+        );
+        indexedFaces++;
+      }
 
       indexedPhotos++;
-      indexedFaces++;
-      results.push({ photoId: photo.photoId, faces: 1 });
+      results.push({ photoId: photo.photoId, faces: faces.length });
     } catch (e) {
       console.error(`[reindex] Error processing ${photo.photoId}:`, e);
       results.push({ photoId: photo.photoId, faces: 0, error: String(e) });
