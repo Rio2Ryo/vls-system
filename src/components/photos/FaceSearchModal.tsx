@@ -238,15 +238,9 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
 
   // Filter and sort results, deduplicate by photoId, limit to maxResults
   const filteredResults = useMemo(() => {
-    const seen = new Set<string>();
     return allSearchResults
       .filter((r) => r.similarity >= threshold)
       .sort((a, b) => b.similarity - a.similarity)
-      .filter((r) => {
-        if (seen.has(r.photoId)) return false;
-        seen.add(r.photoId);
-        return true;
-      })
       .slice(0, maxResults);
   }, [allSearchResults, threshold, maxResults]);
 
