@@ -88,13 +88,9 @@ export async function POST(req: NextRequest) {
         const buf = base64ToBuffer(img);
         const faces = await getFaceNetEmbeddings(buf);
         if (faces.length > 0) {
-          // Use the largest face (by bounding box area) as the query subject
-          const largest = faces.reduce((best, f) => {
-            const area = (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]);
-            const bestArea = (best.bbox[2] - best.bbox[0]) * (best.bbox[3] - best.bbox[1]);
-            return area > bestArea ? f : best;
-          });
-          allEmbeddings.push(largest.embedding);
+          // Use face with highest detection score (matches standalone app behavior)
+          const best = faces.reduce((bestF, f) => f.det_score > bestF.det_score ? f : bestF);
+          allEmbeddings.push(best.embedding);
         }
       }
       if (allEmbeddings.length === 0) {

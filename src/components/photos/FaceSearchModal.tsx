@@ -28,7 +28,7 @@ type Step = "select" | "loading" | "results" | "error";
 type SearchMode = "recommended" | "strict" | "broad";
 
 const DEFAULT_MAX_RESULTS = 20;
-const DEFAULT_THRESHOLD = 0.35;
+const DEFAULT_THRESHOLD = 0.55;
 // rollback marker: preserve non-broken browser queryEmbedding path until isolated PoC is ready
 
 let faceApiLoaded = false;
@@ -354,7 +354,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imagesBase64: imageDataUrls,
-          threshold: 0.35,
+          threshold: 0.55,
           limit: 100,
         }),
       });
@@ -418,7 +418,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imageBase64: imageDataUrl,
-          threshold: 0.35,
+          threshold: 0.55,
           limit: 100,
         }),
       });
