@@ -191,6 +191,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Strip internal _embedding field before sending response
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const results = finalResults.map(({ _embedding, ...rest }) => rest);
 
   return NextResponse.json({
