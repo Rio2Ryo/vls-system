@@ -144,18 +144,7 @@ function WatermarkedPhoto({ src, wmConfig, className, faceBbox }: { src: string;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
       drawWatermark(ctx, img.width, img.height, wmConfig);
-      if (faceBbox) {
-        const bx = Number(faceBbox.x) || 0;
-        const by = Number(faceBbox.y) || 0;
-        const bw = Number(faceBbox.width) || 0;
-        const bh = Number(faceBbox.height) || 0;
-        // Only draw bbox for faces large enough to be meaningful (skip tiny wall/texture detections)
-        if (bw >= 30 && bh >= 30) {
-          ctx.strokeStyle = "#3b82f6";
-          ctx.lineWidth = Math.max(3, Math.min(img.width, img.height) / 150);
-          ctx.strokeRect(bx, by, bw, bh);
-        }
-      }
+      // No bbox overlay — matches standalone app behavior (no rectangle on full photo)
     };
     img.src = src;
   }, [src, wmConfig, faceBbox]);
@@ -182,24 +171,7 @@ function ResultThumbnail({ src, bbox }: { src: string; bbox?: { x: number; y: nu
       canvas.height = displaySize;
       ctx.drawImage(img, sx, sy, size, size, 0, 0, displaySize, displaySize);
 
-      // Draw matched face bbox - simple blue border, no decoration
-      if (bbox) {
-        // Only draw bbox for faces large enough to be real (skip tiny wall/texture detections)
-        const origW = Number(bbox.width) || 0;
-        const origH = Number(bbox.height) || 0;
-        if (origW >= 30 && origH >= 30) {
-          const scale = displaySize / size;
-          const bx = (Number(bbox.x) - sx) * scale;
-          const by = (Number(bbox.y) - sy) * scale;
-          const bw = origW * scale;
-          const bh = origH * scale;
-          if (bw > 0 && bh > 0) {
-            ctx.strokeStyle = "#3b82f6"; // blue-500
-            ctx.lineWidth = 2;
-            ctx.strokeRect(bx, by, bw, bh);
-          }
-        }
-      }
+      // No bbox overlay — matches standalone app behavior
     };
     img.src = src;
   }, [src, bbox]);
@@ -241,11 +213,17 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   }, []);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Filter and sort results, deduplicate by photoId, limit to maxResults
+  // Filter, sort, deduplicate by photoId (one result per photo), limit to maxResults
   const filteredResults = useMemo(() => {
+    const seen = new Set<string>();
     return allSearchResults
       .filter((r) => r.similarity >= threshold)
       .sort((a, b) => b.similarity - a.similarity)
+      .filter((r) => {
+        if (seen.has(r.photoId)) return false;
+        seen.add(r.photoId);
+        return true;
+      })
       .slice(0, maxResults);
   }, [allSearchResults, threshold, maxResults]);
 
