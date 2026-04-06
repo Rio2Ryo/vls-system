@@ -27,7 +27,7 @@ const ADMIN_PAGES = [
 const CSRF_METHODS = new Set(["POST", "PUT", "DELETE"]);
 
 /** API routes exempt from CSRF (handled externally). */
-const CSRF_EXEMPT = ["/api/auth/", "/api/webhook/stripe"];
+const CSRF_EXEMPT = ["/api/auth/", "/api/webhook/stripe", "/api/face/import-embeddings"];
 
 /**
  * API routes + methods that require admin auth (session or x-admin-password).
@@ -115,7 +115,7 @@ function checkRateLimit(
 
 const RL_TIERS = {
   login:      { max: 5,   windowMs: 60_000, lockoutMs: 60_000 },
-  mutation:   { max: 30,  windowMs: 60_000 },
+  mutation:   { max: 200, windowMs: 60_000 },
   publicPost: { max: 10,  windowMs: 60_000 },
   publicGet:  { max: 120, windowMs: 60_000 },
 };
