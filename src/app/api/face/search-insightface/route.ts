@@ -6,17 +6,14 @@ export const maxDuration = 60;
 
 const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "http://localhost:5000";
 
-function cosine(a: number[], b: number[]) {
+// Use dot product for similarity (embeddings are L2-normalized, same as standalone's np.dot)
+function dotSimilarity(a: number[], b: number[]) {
   let dot = 0;
-  let na = 0;
-  let nb = 0;
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) {
     dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
   }
-  return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
+  return dot;
 }
 
 /**
@@ -147,7 +144,7 @@ export async function POST(req: NextRequest) {
     return {
       photoId: r.photo_id as string,
       faceId: r.id as string,
-      similarity: Number(cosine(queryEmbedding!, embedding).toFixed(4)),
+      similarity: Number(dotSimilarity(queryEmbedding!, embedding).toFixed(4)),
       bbox,
       _embedding: embedding,
     };
@@ -159,14 +156,9 @@ export async function POST(req: NextRequest) {
     })
     .sort((a, b) => b.similarity - a.similarity);
 
-  // Deduplicate by photoId (keep best score per photo)
-  const dedupByPhoto = [] as typeof scored;
-  const seenPhotos = new Set<string>();
-  for (const r of scored) {
-    if (seenPhotos.has(r.photoId)) continue;
-    seenPhotos.add(r.photoId);
-    dedupByPhoto.push(r);
-  }
+  // No photoId dedup — standalone app does NOT deduplicate by image.
+  // All matching faces are kept, even multiple from the same image.
+  const dedupByPhoto = scored;
 
   // Embedding-based deduplication (same as standalone app: dedup_threshold=0.90)
   // Removes visually duplicate results where face embeddings are too similar
@@ -177,7 +169,7 @@ export async function POST(req: NextRequest) {
   for (const r of dedupByPhoto) {
     let isDup = false;
     for (const keptEmb of keptEmbeddings) {
-      const sim = cosine(r._embedding, keptEmb);
+      const sim = dotSimilarity(r._embedding, keptEmb);
       if (sim > DEDUP_THRESHOLD) {
         isDup = true;
         break;
