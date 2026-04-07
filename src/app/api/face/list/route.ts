@@ -22,5 +22,12 @@ export async function GET(req: NextRequest) {
     [eventId, label, limit]
   );
 
-  return NextResponse.json({ rows, count: rows.length });
+  // Get total count
+  const countResult = await d1Query(
+    `SELECT COUNT(*) as total FROM face_embeddings WHERE event_id = ? AND label = ?`,
+    [eventId, label]
+  );
+  const total = (countResult[0] as { total: number })?.total || 0;
+
+  return NextResponse.json({ rows, count: rows.length, total });
 }

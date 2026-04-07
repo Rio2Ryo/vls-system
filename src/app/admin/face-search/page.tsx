@@ -29,6 +29,7 @@ export default function FaceSearchAdminPage() {
   const [embeddings, setEmbeddings] = useState<EmbeddingRow[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState("");
+  const [listTotal, setListTotal] = useState<number | null>(null);
 
   // Search state
   const [searchFile, setSearchFile] = useState<File | null>(null);
@@ -53,6 +54,7 @@ export default function FaceSearchAdminPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setEmbeddings(data.rows || []);
+      setListTotal(data.total ?? null);
     } catch (e) {
       setListError(String(e));
     } finally {
@@ -235,7 +237,7 @@ export default function FaceSearchAdminPage() {
 
             {embeddings.length > 0 && (
               <div className="overflow-x-auto">
-                <p className="text-xs text-gray-500 mb-2">{embeddings.length} 件（最大100件）</p>
+                <p className="text-xs text-gray-500 mb-2">{embeddings.length} 件表示（DB総数: {listTotal ?? '?'} 件）</p>
                 <table className="w-full text-xs text-gray-700 dark:text-gray-300">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-700">
