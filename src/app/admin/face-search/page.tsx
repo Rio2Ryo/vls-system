@@ -23,9 +23,7 @@ interface SearchResult {
 
 export default function FaceSearchAdminPage() {
   const [eventId, setEventId] = useState("evt-summer");
-  const [tab, setTab] = useState<"list" | "search">("search");
-
-
+  const [tab, setTab] = useState<"search" | "list" | "reindex">("search");
 
   // List state
   const [embeddings, setEmbeddings] = useState<EmbeddingRow[]>([]);
@@ -39,8 +37,12 @@ export default function FaceSearchAdminPage() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Reindex state
+  const [reindexStatus, setReindexStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [reindexProgress, setReindexProgress] = useState("");
+  const [reindexDetail, setReindexDetail] = useState("");
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ---- List ----
   const handleLoadList = async () => {
@@ -113,6 +115,61 @@ export default function FaceSearchAdminPage() {
     }
   };
 
+  // ---- Reindex ----
+  const handleReindex = async () => {
+    if (!confirm(`VPS FaceNet APIで全写真を再インデックスします。\n既存データは削除されます。続けますか？`)) return;
+
+    setReindexStatus("running");
+    setReindexProgress("開始中...");
+    setReindexDetail("");
+
+    const BATCH = 10;
+    let offset = 0;
+    let totalFaces = 0;
+    let batchNum = 0;
+
+    try {
+      while (true) {
+        batchNum++;
+        const csrfToken = getCsrfToken();
+        const body: Record<string, unknown> = { eventId, offset, batchSize: BATCH };
+        if (offset === 0) body.deleteFirst = true;
+
+        setReindexProgress(`バッチ ${batchNum} 処理中... (offset=${offset})`);
+
+        const res = await fetch("/api/face/reindex-insightface", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const faces = data.indexedFaces || 0;
+        totalFaces += faces;
+        const hasMore = data.hasMore || false;
+
+        setReindexDetail(`バッチ ${batchNum}: ${faces}顔検出 | 合計: ${totalFaces}顔`);
+
+        if (!hasMore) break;
+        offset += BATCH;
+      }
+
+      setReindexStatus("done");
+      setReindexProgress(`完了！ 合計 ${totalFaces} 顔をインデックス済み`);
+    } catch (e) {
+      setReindexStatus("error");
+      setReindexProgress(`エラー: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-4xl mx-auto">
@@ -120,7 +177,7 @@ export default function FaceSearchAdminPage() {
           顔検索管理
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          InsightFace (512次元 ArcFace) による高精度顔認識
+          FaceNet-PyTorch (512次元) による高精度顔認識
         </p>
 
         {/* Event ID input */}
@@ -139,7 +196,7 @@ export default function FaceSearchAdminPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
-          {(["list", "search"] as const).map((t) => (
+          {(["search", "list", "reindex"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -149,18 +206,17 @@ export default function FaceSearchAdminPage() {
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              {t === "list" ? "一覧" : "検索テスト"}
+              {t === "list" ? "一覧" : t === "search" ? "検索テスト" : "再インデックス"}
             </button>
           ))}
         </div>
-
 
         {/* List Tab */}
         {tab === "list" && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-gray-800 dark:text-gray-100">
-                埋め込み一覧 (insightface-poc)
+                埋め込み一覧
               </h2>
               <button
                 onClick={handleLoadList}
@@ -174,7 +230,7 @@ export default function FaceSearchAdminPage() {
             {listError && <p className="text-red-500 text-sm mb-2">{listError}</p>}
 
             {embeddings.length === 0 && !listLoading && (
-              <p className="text-sm text-gray-400">「読み込む」を押してください。インデックスがない場合は再インデックスを実行してください。</p>
+              <p className="text-sm text-gray-400">「読み込む」を押してください。</p>
             )}
 
             {embeddings.length > 0 && (
@@ -277,7 +333,48 @@ export default function FaceSearchAdminPage() {
             )}
 
             {!searching && searchResults.length === 0 && searchFile && !searchError && (
-              <p className="text-sm text-gray-400">一致する顔は見つかりませんでした。再インデックスが必要かもしれません。</p>
+              <p className="text-sm text-gray-400">一致する顔は見つかりませんでした。</p>
+            )}
+          </div>
+        )}
+
+        {/* Reindex Tab */}
+        {tab === "reindex" && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <h2 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
+              FaceNet 再インデックス
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              VPS FaceNet APIで全写真のembeddingを再生成します。10枚ずつバッチ処理するため、ブラウザを閉じないでください。
+            </p>
+
+            <button
+              onClick={handleReindex}
+              disabled={reindexStatus === "running"}
+              className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-semibold hover:from-red-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {reindexStatus === "running" ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  インデックス中...
+                </span>
+              ) : "再インデックス実行"}
+            </button>
+
+            {reindexProgress && (
+              <p className={`mt-4 text-sm font-medium ${
+                reindexStatus === "error" ? "text-red-500" :
+                reindexStatus === "done" ? "text-green-600" :
+                "text-blue-500"
+              }`}>
+                {reindexProgress}
+              </p>
+            )}
+
+            {reindexDetail && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {reindexDetail}
+              </p>
             )}
           </div>
         )}
