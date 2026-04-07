@@ -354,7 +354,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imagesBase64: imageDataUrls,
-          threshold: 0.55,
+          threshold: 0.3,
           limit: 200,
         }),
       });
@@ -417,7 +417,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imageBase64: imageDataUrl,
-          threshold: 0.55,
+          threshold: 0.3,
           limit: 200,
         }),
       });
