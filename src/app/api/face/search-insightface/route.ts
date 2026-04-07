@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   const imageBase64 = body.imageBase64 as string | undefined;
   // Support multiple images for higher accuracy (up to 3)
   const imagesBase64 = body.imagesBase64 as string[] | undefined;
-  const threshold = Number(body.threshold ?? 0.3);
+  const threshold = Number(body.threshold ?? 0.55);
   const limit = Number(body.limit ?? 200);
 
   if (!eventId) {
@@ -149,11 +149,14 @@ export async function POST(req: NextRequest) {
       _embedding: embedding,
     };
   })
-    // No bbox size filter — the bbox values are from MTCNN's internal resolution
-    // where even real faces have median size of 18x23px. All entries already
-    // passed MTCNN's det_score >= 0.5 filter during database creation.
-    // Filter only by similarity threshold (same as standalone app: np.dot >= threshold)
-    .filter((r) => r.similarity >= threshold)
+    .filter((r) => {
+      // Bbox size filter: reject detections smaller than 80px (walls, noise)
+      if (r.bbox) {
+        if (r.bbox.width < 80 || r.bbox.height < 80) return false;
+      }
+      // Similarity threshold filter
+      return r.similarity >= threshold;
+    })
     .sort((a, b) => b.similarity - a.similarity);
 
   // PhotoId dedup is handled on the frontend side.
