@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   const imageBase64 = body.imageBase64 as string | undefined;
   // Support multiple images for higher accuracy (up to 3)
   const imagesBase64 = body.imagesBase64 as string[] | undefined;
-  const threshold = Number(body.threshold ?? 0.55);
+  const threshold = Number(body.threshold ?? 0.4);
   const limit = Number(body.limit ?? 200);
 
   if (!eventId) {
