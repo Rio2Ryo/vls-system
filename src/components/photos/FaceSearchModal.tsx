@@ -368,7 +368,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
           return;
         }
         if (data.error && data.matchCount === 0 && data.error.includes("API unavailable")) {
-          await processImageWithFaceApi(imageDataUrls[0]);
+          setStep("error");
+          setStatusText("顔認識サーバーに接続できません。しばらくしてからお試しください。");
           return;
         }
         if (data.error && data.matchCount === 0 && data.error.includes("No FaceNet embeddings")) {
@@ -390,10 +391,12 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         setStatusText(results.length > 0 ? `${results.length}件ヒット` : "一致写真は見つかりませんでした");
         return;
       }
-      await processImageWithFaceApi(imageDataUrls[0]);
+      setStep("error");
+      setStatusText("顔認識サーバーに接続できません。しばらくしてからお試しください。");
     } catch (e) {
       console.error("[FaceSearch] multi-image search error:", e);
-      await processImageWithFaceApi(imageDataUrls[0]);
+      setStep("error");
+      setStatusText("顔認識処理中にエラーが発生しました。しばらくしてからお試しください。");
     }
   };
 
@@ -455,13 +458,14 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         return;
       }
 
-      // HTTP error → fallback to face-api.js
-      console.warn("[FaceSearch] FaceNet search failed, falling back to face-api.js");
-      await processImageWithFaceApi(imageDataUrl);
+      // HTTP error → show error (face-api.js fallback disabled: 128-dim incompatible with FaceNet 512-dim DB)
+      console.warn("[FaceSearch] FaceNet search failed");
+      setStep("error");
+      setStatusText("顔認識サーバーに接続できません。しばらくしてからお試しください。");
     } catch (err) {
       console.error("[FaceSearch] FaceNet search error:", err);
-      // Fallback to face-api.js
-      await processImageWithFaceApi(imageDataUrl);
+      setStep("error");
+      setStatusText("顔認識処理中にエラーが発生しました。しばらくしてからお試しください。");
     }
   };
 
