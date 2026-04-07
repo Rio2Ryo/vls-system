@@ -4,7 +4,7 @@ import { d1Query } from "@/lib/d1";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "http://localhost:5000";
+const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "https://ryosukematsuura-facenet-api.hf.space";
 
 // Use dot product for similarity (embeddings are L2-normalized, same as standalone's np.dot)
 function dotSimilarity(a: number[], b: number[]) {

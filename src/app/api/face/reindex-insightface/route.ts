@@ -8,7 +8,7 @@ const d1Execute = d1Query;
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
 
-const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "http://localhost:5000";
+const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "https://ryosukematsuura-facenet-api.hf.space";
 
 /** Fetch image bytes: try R2 directly for /api/media/... paths, else HTTP fetch */
 async function fetchImageBuffer(imageUrl: string): Promise<ArrayBuffer> {
