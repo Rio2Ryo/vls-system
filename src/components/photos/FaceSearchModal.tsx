@@ -242,19 +242,25 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
   }, []);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Filter, sort, deduplicate by photoId (one result per photo), limit to maxResults
+  // Filter, sort, deduplicate by photoId AND image URL (one result per unique photo), limit to maxResults
   const filteredResults = useMemo(() => {
-    const seen = new Set<string>();
+    const seenIds = new Set<string>();
+    const seenUrls = new Set<string>();
     return allSearchResults
       .filter((r) => r.similarity >= threshold)
       .sort((a, b) => b.similarity - a.similarity)
       .filter((r) => {
-        if (seen.has(r.photoId)) return false;
-        seen.add(r.photoId);
+        if (seenIds.has(r.photoId)) return false;
+        seenIds.add(r.photoId);
+        // Also dedupe by image URL to catch duplicate photoIds with same image
+        const photo = allPhotos.find((p) => p.id === r.photoId);
+        const url = photo?.thumbnailUrl || photo?.url || photo?.originalUrl || "";
+        if (url && seenUrls.has(url)) return false;
+        if (url) seenUrls.add(url);
         return true;
       })
       .slice(0, maxResults);
-  }, [allSearchResults, threshold, maxResults]);
+  }, [allSearchResults, threshold, maxResults, allPhotos]);
 
   const matchPhotos = useMemo(() => filteredResults.map((r) => r.photoId), [filteredResults]);
 
