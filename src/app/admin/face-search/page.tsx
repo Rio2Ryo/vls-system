@@ -135,7 +135,6 @@ export default function FaceSearchAdminPage() {
         batchNum++;
         const csrfToken = getCsrfToken();
         const body: Record<string, unknown> = { eventId, offset, batchSize: BATCH };
-        if (offset === 0) body.deleteFirst = true;
 
         setReindexProgress(`バッチ ${batchNum} 処理中... (offset=${offset})`);
 
