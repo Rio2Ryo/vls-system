@@ -68,6 +68,8 @@ export async function POST(req: NextRequest) {
   const eventId = body.eventId as string | undefined;
   let photos = body.photos as Array<{ photoId: string; url: string }> | undefined;
   const deleteFirst = body.deleteFirst as boolean | undefined;
+  const offset = Number(body.offset ?? 0);
+  const batchSize = Number(body.batchSize ?? 50);
 
   if (!eventId) {
     return NextResponse.json({ error: "eventId required" }, { status: 400 });
@@ -89,17 +91,18 @@ export async function POST(req: NextRequest) {
     if (!event) {
       return NextResponse.json({ error: `Event "${eventId}" not found in D1` }, { status: 404 });
     }
-    photos = (event.photos || []).map((p) => {
+    const allPhotos = (event.photos || []).map((p) => {
       let url = p.originalUrl || p.thumbnailUrl || p.url || "";
-      // Convert relative URLs to absolute
       if (url && url.startsWith("/") && baseUrl) {
         url = `${baseUrl}${url}`;
       }
       return { photoId: p.id, url };
     }).filter((p) => p.url);
-    if (photos.length === 0) {
+    if (allPhotos.length === 0) {
       return NextResponse.json({ error: "No photos with URLs found in this event" }, { status: 400 });
     }
+    // Apply batch offset/limit
+    photos = allPhotos.slice(offset, offset + batchSize);
   }
 
   // Check FaceNet API health
@@ -175,6 +178,10 @@ export async function POST(req: NextRequest) {
     ok: true,
     indexedPhotos,
     indexedFaces,
+    totalPhotos: (photos?.length ?? 0) + offset,
+    offset,
+    batchSize,
+    hasMore: results.length >= batchSize,
     results,
   });
 }
