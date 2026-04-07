@@ -49,7 +49,7 @@ export default function FaceSearchAdminPage() {
     setListLoading(true);
     setListError("");
     try {
-      const res = await fetch(`/api/face/list?eventId=${encodeURIComponent(eventId)}&label=insightface-poc&limit=100`);
+      const res = await fetch(`/api/face/list?eventId=${encodeURIComponent(eventId)}&label=facenet&limit=100`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setEmbeddings(data.rows || []);
