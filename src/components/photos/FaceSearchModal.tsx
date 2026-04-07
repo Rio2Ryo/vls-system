@@ -28,8 +28,14 @@ type Step = "select" | "loading" | "results" | "error";
 type SearchMode = "recommended" | "strict" | "broad";
 
 const DEFAULT_MAX_RESULTS = 20;
-const DEFAULT_THRESHOLD = 0.55;
+const DEFAULT_THRESHOLD = 0.3;
 // rollback marker: preserve non-broken browser queryEmbedding path until isolated PoC is ready
+
+function getSearchThreshold(mode: SearchMode): number {
+  if (mode === "strict") return 0.4;
+  if (mode === "broad") return 0.25;
+  return DEFAULT_THRESHOLD;
+}
 
 let faceApiLoaded = false;
 
@@ -343,6 +349,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setAllSearchResults([]); // clear previous results
 
     const csrfToken = getCsrfToken();
+    const requestThreshold = getSearchThreshold(searchMode);
+    setThreshold(requestThreshold);
     try {
       setStatusText(`FaceNet AIで${imageDataUrls.length}枚を解析中...`);
       const res = await fetch("/api/face/search-insightface", {
@@ -354,7 +362,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imagesBase64: imageDataUrls,
-          threshold: 0.3,
+          threshold: requestThreshold,
           limit: 200,
         }),
       });
@@ -409,6 +417,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
     setAllSearchResults([]); // clear previous results
 
     const csrfToken = getCsrfToken();
+    const requestThreshold = getSearchThreshold(searchMode);
+    setThreshold(requestThreshold);
     try {
       setStatusText("FaceNet AIで顔を解析中...");
       const res = await fetch("/api/face/search-insightface", {
@@ -420,7 +430,7 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         body: JSON.stringify({
           eventId,
           imageBase64: imageDataUrl,
-          threshold: 0.3,
+          threshold: requestThreshold,
           limit: 200,
         }),
       });

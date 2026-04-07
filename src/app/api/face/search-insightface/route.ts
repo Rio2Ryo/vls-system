@@ -16,6 +16,18 @@ function dotSimilarity(a: number[], b: number[]) {
   return dot;
 }
 
+function dedupeByPhoto<T extends { photoId: string }>(rows: T[], limit: number): T[] {
+  const seen = new Set<string>();
+  const deduped: T[] = [];
+  for (const row of rows) {
+    if (seen.has(row.photoId)) continue;
+    seen.add(row.photoId);
+    deduped.push(row);
+    if (deduped.length >= limit) break;
+  }
+  return deduped;
+}
+
 /**
  * Convert a data URL or raw base64 string to a Buffer.
  */
@@ -146,54 +158,23 @@ export async function POST(req: NextRequest) {
       faceId: r.id as string,
       similarity: Number(dotSimilarity(queryEmbedding!, embedding).toFixed(4)),
       bbox,
-      _embedding: embedding,
     };
   })
-    .filter((r) => {
-      // Bbox size filter: reject detections smaller than 80px (walls, noise)
-      if (r.bbox) {
-        if (r.bbox.width < 80 || r.bbox.height < 80) return false;
-      }
-      // Similarity threshold filter
-      return r.similarity >= threshold;
-    })
+    .filter((r) => r.similarity >= threshold)
     .sort((a, b) => b.similarity - a.similarity);
 
-  // PhotoId dedup is handled on the frontend side.
-  // Server-side embedding dedup handles duplicate entries (same photo uploaded twice).
-  const dedupByPhoto = scored;
-
-  // Embedding-based deduplication (same as standalone app: dedup_threshold=0.90)
-  // Removes visually duplicate results where face embeddings are too similar
-  const DEDUP_THRESHOLD = 0.90;
-  const finalResults: typeof dedupByPhoto = [];
-  const keptEmbeddings: number[][] = [];
-
-  for (const r of dedupByPhoto) {
-    let isDup = false;
-    for (const keptEmb of keptEmbeddings) {
-      const sim = dotSimilarity(r._embedding, keptEmb);
-      if (sim > DEDUP_THRESHOLD) {
-        isDup = true;
-        break;
-      }
-    }
-    if (!isDup) {
-      finalResults.push(r);
-      keptEmbeddings.push(r._embedding);
-      if (finalResults.length >= limit) break;
-    }
-  }
-
-  // Strip internal _embedding field before sending response
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const results = finalResults.map(({ _embedding, ...rest }) => rest);
+  const results = dedupeByPhoto(scored, limit);
 
   return NextResponse.json({
     provider: "facenet",
     threshold,
     matchCount: results.length,
     results,
-    _debug: { storedEmbeddings: rows.length, queryDim: queryEmbedding.length, beforeDedup: dedupByPhoto.length },
+    _debug: {
+      storedEmbeddings: rows.length,
+      queryDim: queryEmbedding.length,
+      aboveThreshold: scored.length,
+      uniquePhotos: results.length,
+    },
   });
 }
