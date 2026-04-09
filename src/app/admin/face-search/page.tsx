@@ -43,6 +43,11 @@ export default function FaceSearchAdminPage() {
   const [reindexProgress, setReindexProgress] = useState("");
   const [reindexDetail, setReindexDetail] = useState("");
 
+  // HF Import state
+  const [importStatus, setImportStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [importProgress, setImportProgress] = useState("");
+  const [importDetail, setImportDetail] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ---- List ----
@@ -167,6 +172,39 @@ export default function FaceSearchAdminPage() {
     } catch (e) {
       setReindexStatus("error");
       setReindexProgress(`エラー: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  // ---- Import from HF ----
+  const handleImportFromHF = async () => {
+    setImportStatus("running");
+    setImportProgress("HF Spaceから顔データベースを取得中...");
+    setImportDetail("");
+
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch("/api/face/import-from-hf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ eventId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+
+      setImportStatus("done");
+      setImportProgress(`完了！ ${data.imported} 顔をインポート済み`);
+      setImportDetail(
+        `HF総数: ${data.totalFromHF} | マッチ: ${data.imported} | スキップ: ${data.skipped} | 未マッチファイル: ${data.unmatchedCount}`
+      );
+    } catch (e) {
+      setImportStatus("error");
+      setImportProgress(`エラー: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -340,42 +378,85 @@ export default function FaceSearchAdminPage() {
 
         {/* Reindex Tab */}
         {tab === "reindex" && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-            <h2 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
-              FaceNet 再インデックス
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              VPS FaceNet APIで全写真のembeddingを再生成します。10枚ずつバッチ処理するため、ブラウザを閉じないでください。
-            </p>
-
-            <button
-              onClick={handleReindex}
-              disabled={reindexStatus === "running"}
-              className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-semibold hover:from-red-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {reindexStatus === "running" ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  インデックス中...
-                </span>
-              ) : "再インデックス実行"}
-            </button>
-
-            {reindexProgress && (
-              <p className={`mt-4 text-sm font-medium ${
-                reindexStatus === "error" ? "text-red-500" :
-                reindexStatus === "done" ? "text-green-600" :
-                "text-blue-500"
-              }`}>
-                {reindexProgress}
+          <div className="space-y-6">
+            {/* HF Import (recommended) */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 border-2 border-green-200 dark:border-green-800">
+              <h2 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                ✅ HF Spaceからインポート（推奨）
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                顔テスト②のHF Spaceで前処理済みの顔データベース（8306顔）をそのままインポートします。
+                x86環境で生成された高精度なembeddingが使えます。
               </p>
-            )}
 
-            {reindexDetail && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {reindexDetail}
+              <button
+                onClick={handleImportFromHF}
+                disabled={importStatus === "running"}
+                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-semibold hover:from-green-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {importStatus === "running" ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    インポート中...
+                  </span>
+                ) : "HF Spaceからインポート実行"}
+              </button>
+
+              {importProgress && (
+                <p className={`mt-4 text-sm font-medium ${
+                  importStatus === "error" ? "text-red-500" :
+                  importStatus === "done" ? "text-green-600" :
+                  "text-blue-500"
+                }`}>
+                  {importProgress}
+                </p>
+              )}
+
+              {importDetail && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {importDetail}
+                </p>
+              )}
+            </div>
+
+            {/* Original reindex (fallback) */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+              <h2 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                FaceNet 再インデックス（個別処理）
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                R2の画像を1枚ずつHF Spaceに送信してembeddingを生成します。上のインポートが使えない場合のみ使用してください。
               </p>
-            )}
+
+              <button
+                onClick={handleReindex}
+                disabled={reindexStatus === "running"}
+                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-semibold hover:from-red-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {reindexStatus === "running" ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    インデックス中...
+                  </span>
+                ) : "再インデックス実行"}
+              </button>
+
+              {reindexProgress && (
+                <p className={`mt-4 text-sm font-medium ${
+                  reindexStatus === "error" ? "text-red-500" :
+                  reindexStatus === "done" ? "text-green-600" :
+                  "text-blue-500"
+                }`}>
+                  {reindexProgress}
+                </p>
+              )}
+
+              {reindexDetail && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {reindexDetail}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>
