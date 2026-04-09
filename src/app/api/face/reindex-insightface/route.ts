@@ -50,9 +50,14 @@ async function getAllFacesFromUrl(imageUrl: string): Promise<Array<{ embedding: 
     count: number;
   };
 
-  // Return faces with det_score >= 0.3 (matches HF Space app.py: probs[j] < 0.3 → skip)
-  // No bbox minimum filter — aligned with face_test_0409 for consistent results
-  return data.faces.filter(f => f.det_score >= 0.3);
+  // Return faces with det_score >= 0.3 + minimum bbox 20x20 to filter wall false positives
+  return data.faces.filter(f => {
+    if (f.det_score < 0.3) return false;
+    const w = f.bbox[2] - f.bbox[0];
+    const h = f.bbox[3] - f.bbox[1];
+    if (w < 20 || h < 20) return false;
+    return true;
+  });
 }
 
 export async function POST(req: NextRequest) {
