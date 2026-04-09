@@ -61,8 +61,8 @@ async function getFaceNetEmbeddings(imageBuffer: Buffer): Promise<FaceNetFace[]>
   }
 
   const data = await res.json() as { faces: Array<{ embedding: number[]; bbox: number[]; det_score: number }>; count: number };
-  // Filter low-confidence faces
-  return data.faces.filter(f => f.det_score >= 0.5);
+  // Filter faces — aligned with HF Space (det_score >= 0.3)
+  return data.faces.filter(f => f.det_score >= 0.3);
 }
 
 export async function POST(req: NextRequest) {
