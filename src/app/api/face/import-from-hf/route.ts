@@ -45,17 +45,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Event "${eventId}" not found` }, { status: 404 });
   }
 
-  // Build filename → photoId map
-  const filenameToPhotoId = new Map<string, string>();
+  // Build suffix → photoId map
+  // VLS filenames: "1773571007297-gym_001.jpg" → suffix: "gym_001.jpg"
+  // HF filenames: "imgi_100_1773752174078-gym_118.jpg" → suffix: "gym_118.jpg"
+  const suffixToPhotoId = new Map<string, string>();
   for (const p of event.photos || []) {
     const url = p.originalUrl || p.thumbnailUrl || p.url || "";
     const filename = url.split("/").pop() || "";
-    if (filename) {
-      filenameToPhotoId.set(filename, p.id);
+    // Extract suffix after last hyphen: "1773571007297-gym_001.jpg" → "gym_001.jpg"
+    const hyphenIdx = filename.lastIndexOf("-");
+    const suffix = hyphenIdx >= 0 ? filename.slice(hyphenIdx + 1) : filename;
+    if (suffix) {
+      suffixToPhotoId.set(suffix, p.id);
     }
   }
 
-  console.log(`[import-from-hf] Event: ${eventId}, photos mapped: ${filenameToPhotoId.size}`);
+  console.log(`[import-from-hf] Event: ${eventId}, photos mapped: ${suffixToPhotoId.size}`);
 
   // 2. Fetch face database from HF Space
   let exportData: { total: number; faces: HFFace[] };
@@ -96,7 +101,10 @@ export async function POST(req: NextRequest) {
   const unmatchedFiles = new Set<string>();
 
   for (const face of exportData.faces) {
-    const photoId = filenameToPhotoId.get(face.image_name);
+    // Extract suffix from HF image_name: "imgi_100_1773752174078-gym_118.jpg" → "gym_118.jpg"
+    const hfHyphenIdx = face.image_name.lastIndexOf("-");
+    const hfSuffix = hfHyphenIdx >= 0 ? face.image_name.slice(hfHyphenIdx + 1) : face.image_name;
+    const photoId = suffixToPhotoId.get(hfSuffix);
     if (!photoId) {
       unmatchedFiles.add(face.image_name);
       skipped++;
@@ -145,12 +153,8 @@ export async function POST(req: NextRequest) {
     imported,
     skipped,
     totalFromHF: exportData.total,
-    mappedPhotos: filenameToPhotoId.size,
+    mappedPhotos: suffixToPhotoId.size,
     unmatchedFiles: Array.from(unmatchedFiles).slice(0, 10),
     unmatchedCount: unmatchedFiles.size,
-    debug: {
-      vlsFilenames: Array.from(filenameToPhotoId.keys()).slice(0, 10),
-      hfFilenames: [...new Set(exportData.faces.map(f => f.image_name))].slice(0, 10),
-    },
   });
 }
