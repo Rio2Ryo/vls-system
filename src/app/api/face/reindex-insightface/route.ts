@@ -8,7 +8,8 @@ const d1Execute = d1Query;
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
 
-const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "https://ryosukematsuura-facenet-api.hf.space";
+const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "https://ryosukematsuura-face-test-0409.hf.space";
+const HF_TOKEN = process.env.HF_TOKEN || "";
 
 /** Fetch image bytes: try R2 directly for /api/media/... paths, else HTTP fetch */
 async function fetchImageBuffer(imageUrl: string): Promise<ArrayBuffer> {
@@ -35,6 +36,9 @@ async function getAllFacesFromUrl(imageUrl: string): Promise<Array<{ embedding: 
 
   const embedRes = await fetch(`${FACENET_API_URL}/embed`, {
     method: "POST",
+    headers: {
+      ...(HF_TOKEN ? { "Authorization": `Bearer ${HF_TOKEN}` } : {}),
+    },
     body: formData,
     signal: AbortSignal.timeout(30000),
   });
@@ -108,6 +112,9 @@ export async function POST(req: NextRequest) {
   // Check FaceNet API health
   try {
     const health = await fetch(`${FACENET_API_URL}/health`, {
+      headers: {
+        ...(HF_TOKEN ? { "Authorization": `Bearer ${HF_TOKEN}` } : {}),
+      },
       signal: AbortSignal.timeout(5000),
     });
     if (!health.ok) throw new Error("FaceNet API not healthy");

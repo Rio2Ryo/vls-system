@@ -4,7 +4,8 @@ import { d1Query } from "@/lib/d1";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "https://ryosukematsuura-facenet-api.hf.space";
+const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "https://ryosukematsuura-face-test-0409.hf.space";
+const HF_TOKEN = process.env.HF_TOKEN || "";
 
 // Use dot product for similarity (embeddings are L2-normalized, same as standalone's np.dot)
 function dotSimilarity(a: number[], b: number[]) {
@@ -48,6 +49,9 @@ async function getFaceNetEmbeddings(imageBuffer: Buffer): Promise<FaceNetFace[]>
 
   const res = await fetch(`${FACENET_API_URL}/embed`, {
     method: "POST",
+    headers: {
+      ...(HF_TOKEN ? { "Authorization": `Bearer ${HF_TOKEN}` } : {}),
+    },
     body: formData,
     signal: AbortSignal.timeout(30000),
   });
