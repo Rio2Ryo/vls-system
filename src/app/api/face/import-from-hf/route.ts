@@ -146,7 +146,11 @@ export async function POST(req: NextRequest) {
     skipped,
     totalFromHF: exportData.total,
     mappedPhotos: filenameToPhotoId.size,
-    unmatchedFiles: Array.from(unmatchedFiles).slice(0, 20),
+    unmatchedFiles: Array.from(unmatchedFiles).slice(0, 10),
     unmatchedCount: unmatchedFiles.size,
+    debug: {
+      vlsFilenames: Array.from(filenameToPhotoId.keys()).slice(0, 10),
+      hfFilenames: [...new Set(exportData.faces.map(f => f.image_name))].slice(0, 10),
+    },
   });
 }
