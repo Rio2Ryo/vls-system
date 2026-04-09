@@ -119,7 +119,6 @@ export default function FaceSearchAdminPage() {
 
   // ---- Reindex ----
   const handleReindex = async () => {
-    if (!confirm(`VPS FaceNet APIで全写真を再インデックスします。\n既存データは削除されます。続けますか？`)) return;
 
     setReindexStatus("running");
     setReindexProgress("開始中...");
