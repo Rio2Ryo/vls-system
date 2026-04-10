@@ -545,9 +545,10 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
       }).then(setDetectedFaceUrl).catch(() => setDetectedFaceUrl(null));
     }
 
-    const queryEmbedding = Array.from(detections[0].descriptor);
+    // Send the raw image to HF Space via search-insightface (same as 顔テスト②)
+    // No browser-side embedding — all processing happens on HF Space (x86)
     try {
-      const res = await fetch("/api/face/search", {
+      const res = await fetch("/api/face/search-insightface", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -555,8 +556,8 @@ export default function FaceSearchModal({ open, onClose, eventId, onResults, all
         },
         body: JSON.stringify({
           eventId,
-          queryEmbedding,
-          threshold: 0.55,
+          imageBase64: imageDataUrl,
+          threshold: 0.4,
           limit: 100,
         }),
       });
