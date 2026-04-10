@@ -1,68 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { d1Query } from "@/lib/d1";
+import { d1Get } from "@/lib/d1";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const FACENET_API_URL = process.env.FACENET_API_URL || process.env.INSIGHTFACE_API_URL || "https://ryosukematsuura-face-test-0409.hf.space";
+const FACENET_API_URL = process.env.FACENET_API_URL || "https://ryosukematsuura-face-test-0409.hf.space";
 const HF_TOKEN = process.env.HF_TOKEN || "";
 
-// Use dot product for similarity (embeddings are L2-normalized, same as standalone's np.dot)
-function dotSimilarity(a: number[], b: number[]) {
-  let dot = 0;
-  const n = Math.min(a.length, b.length);
-  for (let i = 0; i < n; i++) {
-    dot += a[i] * b[i];
-  }
-  return dot;
-}
-
-function dedupeByPhoto<T extends { photoId: string }>(rows: T[], limit: number): T[] {
-  const seen = new Set<string>();
-  const deduped: T[] = [];
-  for (const row of rows) {
-    if (seen.has(row.photoId)) continue;
-    seen.add(row.photoId);
-    deduped.push(row);
-    if (deduped.length >= limit) break;
-  }
-  return deduped;
-}
-
 /**
- * Convert a data URL or raw base64 string to a Buffer.
+ * VLS 顔検索 — 顔テスト②と完全同一方式
+ * 画像をHF Spaceの /search に転送 → 結果のimage_nameをVLS photoIdにマッピング
+ * D1のembeddingは使わない。全てHF Space (x86) 上で完結。
  */
+
 function base64ToBuffer(b64: string): Buffer {
-  const dataUrlMatch = b64.match(/^data:[^;]+;base64,(.+)$/);
-  return Buffer.from(dataUrlMatch ? dataUrlMatch[1] : b64, "base64");
-}
-
-/**
- * Call InsightFace API /embed endpoint with an image buffer.
- * Returns array of face embeddings (512-dim each).
- */
-type FaceNetFace = { embedding: number[]; bbox: number[]; det_score: number };
-
-async function getFaceNetEmbeddings(imageBuffer: Buffer): Promise<FaceNetFace[]> {
-  const formData = new FormData();
-  formData.append("file", new Blob([new Uint8Array(imageBuffer)], { type: "image/jpeg" }), "query.jpg");
-
-  const res = await fetch(`${FACENET_API_URL}/embed`, {
-    method: "POST",
-    headers: {
-      ...(HF_TOKEN ? { "Authorization": `Bearer ${HF_TOKEN}` } : {}),
-    },
-    body: formData,
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!res.ok) {
-    throw new Error(`FaceNet API error: ${res.status}`);
-  }
-
-  const data = await res.json() as { faces: Array<{ embedding: number[]; bbox: number[]; det_score: number }>; count: number };
-  // Filter faces — aligned with HF Space (det_score >= 0.3)
-  return data.faces.filter(f => f.det_score >= 0.3);
+  const m = b64.match(/^data:[^;]+;base64,(.+)$/);
+  return Buffer.from(m ? m[1] : b64, "base64");
 }
 
 export async function POST(req: NextRequest) {
@@ -74,9 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   const eventId = body.eventId as string | undefined;
-  let queryEmbedding = body.queryEmbedding as number[] | undefined;
   const imageBase64 = body.imageBase64 as string | undefined;
-  // Support multiple images for higher accuracy (up to 3)
   const imagesBase64 = body.imagesBase64 as string[] | undefined;
   const threshold = Number(body.threshold ?? 0.4);
   const limit = Number(body.limit ?? 200);
@@ -85,100 +36,128 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "eventId required" }, { status: 400 });
   }
 
-  // Build list of images to process
-  const imagesToProcess: string[] = [];
+  // Collect images
+  const images: string[] = [];
   if (imagesBase64 && imagesBase64.length > 0) {
-    imagesToProcess.push(...imagesBase64.slice(0, 3));
+    images.push(...imagesBase64.slice(0, 3));
   } else if (imageBase64) {
-    imagesToProcess.push(imageBase64);
+    images.push(imageBase64);
+  }
+  if (images.length === 0) {
+    return NextResponse.json({ error: "imageBase64 or imagesBase64 required" }, { status: 400 });
   }
 
-  // If images provided, call FaceNet API to get embeddings and average them
-  if (imagesToProcess.length > 0 && !queryEmbedding) {
-    try {
-      const allEmbeddings: number[][] = [];
-      for (const img of imagesToProcess) {
-        const buf = base64ToBuffer(img);
-        const faces = await getFaceNetEmbeddings(buf);
-        if (faces.length > 0) {
-          // Use face with highest detection score (matches standalone app behavior)
-          const best = faces.reduce((bestF, f) => f.det_score > bestF.det_score ? f : bestF);
-          allEmbeddings.push(best.embedding);
+  // --- Build suffix → photoId map (for mapping HF results back to VLS photos) ---
+  let suffixToPhotoId: Map<string, string> | null = null;
+  try {
+    const eventsJson = await d1Get("vls_admin_events");
+    if (eventsJson) {
+      const events = JSON.parse(eventsJson) as Array<{
+        id: string;
+        photos?: Array<{ id: string; originalUrl?: string; thumbnailUrl?: string; url?: string }>;
+      }>;
+      const event = events.find((e) => e.id === eventId);
+      if (event?.photos) {
+        suffixToPhotoId = new Map();
+        for (const p of event.photos) {
+          const url = p.originalUrl || p.thumbnailUrl || p.url || "";
+          const fn = url.split("/").pop() || "";
+          const hi = fn.lastIndexOf("-");
+          const suffix = hi >= 0 ? fn.slice(hi + 1) : fn;
+          if (suffix) suffixToPhotoId.set(suffix, p.id);
         }
       }
-      if (allEmbeddings.length === 0) {
-        return NextResponse.json({
-          error: "No face detected in uploaded image(s)",
-          matchCount: 0,
-          results: [],
-        }, { status: 200 });
-      }
-      // Average embeddings across all images for higher accuracy
-      if (allEmbeddings.length === 1) {
-        queryEmbedding = allEmbeddings[0];
-      } else {
-        const dim = allEmbeddings[0].length;
-        const avg = new Array(dim).fill(0) as number[];
-        for (const emb of allEmbeddings) {
-          for (let i = 0; i < dim; i++) avg[i] += emb[i];
-        }
-        const norm = Math.sqrt(avg.reduce((s, v) => s + v * v, 0)) || 1;
-        queryEmbedding = avg.map((v) => v / norm);
-      }
-    } catch (e) {
-      console.error("[search-insightface] InsightFace API error:", e);
+    }
+  } catch (e) {
+    console.error("[search] Failed to load events for mapping:", e);
+  }
+
+  // --- Forward to HF Space /search (same as 顔テスト②) ---
+  try {
+    const formData = new FormData();
+    for (let i = 0; i < images.length; i++) {
+      const buf = base64ToBuffer(images[i]);
+      formData.append("images", new Blob([new Uint8Array(buf)], { type: "image/jpeg" }), `query_${i}.jpg`);
+    }
+    formData.append("threshold", String(threshold));
+    formData.append("max_results", String(limit));
+
+    const hfRes = await fetch(`${FACENET_API_URL}/search`, {
+      method: "POST",
+      headers: {
+        ...(HF_TOKEN ? { Authorization: `Bearer ${HF_TOKEN}` } : {}),
+      },
+      body: formData,
+      signal: AbortSignal.timeout(45000),
+    });
+
+    if (!hfRes.ok) {
+      const text = await hfRes.text();
       return NextResponse.json({
-        error: `FaceNet API unavailable: ${e instanceof Error ? e.message : String(e)}`,
+        error: `HF Space /search failed: ${hfRes.status} ${text.slice(0, 200)}`,
         matchCount: 0,
         results: [],
-      }, { status: 200 });
+      });
     }
-  }
 
-  if (!queryEmbedding || !Array.isArray(queryEmbedding)) {
-    return NextResponse.json({ error: "eventId and (imageBase64 or queryEmbedding) required" }, { status: 400 });
-  }
+    const hfData = (await hfRes.json()) as {
+      results: Array<{
+        image_name: string;
+        face_index: number;
+        bbox: number[];
+        similarity: number;
+        det_score: number;
+      }>;
+      total_results: number;
+      total_matched: number;
+      query_faces: unknown[];
+      threshold: number;
+    };
 
-  // Query D1 for FaceNet embeddings
-  const rows = await d1Query(
-    "SELECT id, photo_id, embedding, bbox FROM face_embeddings WHERE event_id = ? AND label = ? ORDER BY photo_id, face_index",
-    [eventId, "facenet"]
-  );
+    // --- Map image_name → VLS photoId ---
+    const mapped = hfData.results.map((r) => {
+      let photoId = r.image_name; // fallback
+      if (suffixToPhotoId) {
+        const hi = r.image_name.lastIndexOf("-");
+        const suffix = hi >= 0 ? r.image_name.slice(hi + 1) : r.image_name;
+        photoId = suffixToPhotoId.get(suffix) || r.image_name;
+      }
+      return {
+        photoId,
+        faceId: `${photoId}_if_${r.face_index}`,
+        similarity: r.similarity,
+        bbox: r.bbox
+          ? { x: Math.round(r.bbox[0]), y: Math.round(r.bbox[1]), width: Math.round(r.bbox[2] - r.bbox[0]), height: Math.round(r.bbox[3] - r.bbox[1]) }
+          : undefined,
+      };
+    });
 
-  if (rows.length === 0) {
+    // Deduplicate by photoId (keep highest similarity)
+    const seen = new Set<string>();
+    const deduped = mapped.filter((r) => {
+      if (seen.has(r.photoId)) return false;
+      seen.add(r.photoId);
+      return true;
+    });
+
     return NextResponse.json({
-      error: "No FaceNet embeddings in database. Please run reindex first.",
+      provider: "facenet",
+      threshold,
+      matchCount: deduped.length,
+      results: deduped,
+      _debug: {
+        hfTotalMatched: hfData.total_matched,
+        hfTotalResults: hfData.total_results,
+        queryFaces: hfData.query_faces?.length ?? 0,
+        mappedPhotos: suffixToPhotoId?.size ?? 0,
+      },
+    });
+  } catch (e) {
+    console.error("[search] HF Space error:", e);
+    return NextResponse.json({
+      error: `HF Space connection failed: ${e instanceof Error ? e.message : String(e)}`,
       matchCount: 0,
       results: [],
-      _debug: { storedEmbeddings: 0, label: "facenet" },
     });
   }
-
-  const scored = rows.map((r) => {
-    const embedding = JSON.parse(r.embedding as string) as number[];
-    const bbox = r.bbox ? JSON.parse(r.bbox as string) as { x: number; y: number; width: number; height: number } : undefined;
-    return {
-      photoId: r.photo_id as string,
-      faceId: r.id as string,
-      similarity: Number(dotSimilarity(queryEmbedding!, embedding).toFixed(4)),
-      bbox,
-    };
-  })
-    .filter((r) => r.similarity >= threshold)
-    .sort((a, b) => b.similarity - a.similarity);
-
-  const results = dedupeByPhoto(scored, limit);
-
-  return NextResponse.json({
-    provider: "facenet",
-    threshold,
-    matchCount: results.length,
-    results,
-    _debug: {
-      storedEmbeddings: rows.length,
-      queryDim: queryEmbedding.length,
-      aboveThreshold: scored.length,
-      uniquePhotos: results.length,
-    },
-  });
 }
