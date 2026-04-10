@@ -6,7 +6,7 @@
  * face-api.js, TensorFlow.js, D1, Claude Vision は一切使わない
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   searchFaces,
   type SearchResponse,
@@ -25,8 +25,16 @@ interface Props {
   allPhotos?: { id: string; originalUrl?: string; thumbnailUrl?: string }[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function FaceSearchModal({ open, onClose, eventId: _eventId, onResults, allPhotos = [] }: Props) {
+export default function FaceSearchModal({
+  open,
+  onClose,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  eventId: _eventId,
+  onResults,
+  allPhotos = [],
+}: Props) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Upload state
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -73,9 +81,9 @@ export default function FaceSearchModal({ open, onClose, eventId: _eventId, onRe
 
   const removeFile = useCallback(
     (index: number) => {
-      const updated = selectedFiles.filter((_, i) => i !== index);
+      const updated = selectedFiles.filter((_: File, i: number) => i !== index);
       setSelectedFiles(updated);
-      setPreviews((prev) => prev.filter((_, i) => i !== index));
+      setPreviews((prev: string[]) => prev.filter((_: string, i: number) => i !== index));
     },
     [selectedFiles]
   );
@@ -178,28 +186,46 @@ export default function FaceSearchModal({ open, onClose, eventId: _eventId, onRe
           alignItems: "center",
           justifyContent: "center",
           padding: "16px",
+          pointerEvents: "none",
         }}
       >
         <div
           style={{
-            background: "var(--bg-secondary, #0d0d1a)",
+            background: "#0d0d1a",
             borderRadius: "20px",
-            border: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
+            border: "1px solid rgba(255,255,255,0.08)",
             maxWidth: "1200px",
             width: "100%",
             maxHeight: "90vh",
             overflow: "auto",
             padding: "28px",
+            pointerEvents: "auto",
           }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close button */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <h2 style={{ fontSize: "20px", fontWeight: 700, background: "var(--gradient-main, linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <h2 style={{ fontSize: "20px", fontWeight: 700, background: "linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               🔍 顔で検索
             </h2>
-            <button className="modal-close" onClick={onClose}>✕</button>
+            <button
+              style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8ecf4", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}
+              onClick={onClose}
+            >✕</button>
           </div>
+
+          {/* Hidden file input — triggered by ref */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              if (e.target.files) handleFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
 
           {/* Upload Card (same as 顔テスト②) */}
           <div className="card">
@@ -214,22 +240,12 @@ export default function FaceSearchModal({ open, onClose, eventId: _eventId, onRe
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                onClick={() => document.getElementById("faceFinderFileInput")?.click()}
+                onClick={() => fileInputRef.current?.click()}
+                style={{ cursor: "pointer" }}
               >
                 <div className="upload-icon">📁</div>
                 <div className="upload-text">画像をドラッグ＆ドロップ</div>
                 <div className="upload-hint">またはクリックして選択（JPG / PNG）</div>
-                <input
-                  type="file"
-                  id="faceFinderFileInput"
-                  multiple
-                  accept="image/*"
-                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }}
-                  onChange={(e) => {
-                    if (e.target.files) handleFiles(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
               </div>
             )}
 
@@ -339,7 +355,7 @@ export default function FaceSearchModal({ open, onClose, eventId: _eventId, onRe
                 <div className="empty-state">
                   <div className="empty-icon">😕</div>
                   <p>条件に合う顔が見つかりませんでした</p>
-                  <p style={{ fontSize: "13px", marginTop: "8px", color: "var(--text-muted)" }}>
+                  <p style={{ fontSize: "13px", marginTop: "8px", color: "#5a6178" }}>
                     閾値を下げて再検索してみてください
                   </p>
                 </div>

@@ -1,5 +1,5 @@
-/* ===== CSS Variables (Design System) ===== */
-:root {
+/* ===== CSS Variables scoped to face-finder only ===== */
+.face-finder-scope {
   --bg-primary: #07070d;
   --bg-secondary: #0d0d1a;
   --bg-card: rgba(255, 255, 255, 0.04);
@@ -22,51 +22,13 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
-}
-
-/* ===== Reset & Base ===== */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html, body {
-  height: 100%;
-}
-
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: var(--bg-primary);
   color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Animated background */
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background:
-    radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(6, 182, 212, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.04) 0%, transparent 60%);
-  pointer-events: none;
-  z-index: 0;
-}
+/* NO global reset — do not override *, body, html */
 
-/* ===== Layout ===== */
-.app-container {
-  position: relative;
-  z-index: 1;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 40px 24px;
-}
+
 
 /* ===== Header ===== */
 .header {
@@ -603,7 +565,7 @@ body::before {
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  z-index: 1000;
+  z-index: 10001;
   display: flex;
   align-items: center;
   justify-content: center;
