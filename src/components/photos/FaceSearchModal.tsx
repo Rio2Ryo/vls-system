@@ -25,7 +25,7 @@ interface Props {
   allPhotos?: { id: string; originalUrl?: string; thumbnailUrl?: string }[];
 }
 
-export default function FaceSearchModal({ open, onClose, eventId, onResults, allPhotos = [] }: Props) {
+export default function FaceSearchModal({ open, onClose, eventId: _eventId, onResults, allPhotos = [] }: Props) {
   // Upload state
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
