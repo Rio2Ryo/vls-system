@@ -1,15 +1,15 @@
-/* ===== CSS Variables scoped to face-finder only ===== */
+/* ===== CSS Variables scoped to face-finder only (LIGHT THEME) ===== */
 .face-finder-scope {
-  --bg-primary: #07070d;
-  --bg-secondary: #0d0d1a;
-  --bg-card: rgba(255, 255, 255, 0.04);
-  --bg-card-hover: rgba(255, 255, 255, 0.07);
-  --bg-glass: rgba(255, 255, 255, 0.06);
-  --border-subtle: rgba(255, 255, 255, 0.08);
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f2f5;
+  --bg-glass: #f5f6f8;
+  --border-subtle: #e0e0e0;
   --border-active: rgba(99, 102, 241, 0.5);
-  --text-primary: #e8ecf4;
-  --text-secondary: #8b92a8;
-  --text-muted: #5a6178;
+  --text-primary: #1a1a2e;
+  --text-secondary: #555;
+  --text-muted: #999;
   --accent-primary: #6366f1;
   --accent-secondary: #8b5cf6;
   --accent-cyan: #06b6d4;
@@ -17,7 +17,7 @@
   --accent-amber: #f59e0b;
   --accent-red: #ef4444;
   --gradient-main: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);
-  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.15);
+  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -359,7 +359,7 @@
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
 }
 
@@ -660,7 +660,7 @@
   display: inline-block;
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(0, 0, 0, 0.1);
   border-top-color: var(--accent-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

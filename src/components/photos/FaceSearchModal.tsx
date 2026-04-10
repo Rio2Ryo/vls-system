@@ -53,6 +53,9 @@ export default function FaceSearchModal({
   // Error state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Display limit (default: top 20)
+  const [displayLimit, setDisplayLimit] = useState<number>(20);
+
   // Handle file selection (same as 顔テスト②)
   const handleFiles = useCallback(
     (files: FileList | File[]) => {
@@ -191,9 +194,9 @@ export default function FaceSearchModal({
       >
         <div
           style={{
-            background: "#0d0d1a",
+            background: "#ffffff",
             borderRadius: "20px",
-            border: "1px solid rgba(255,255,255,0.08)",
+            border: "1px solid #e0e0e0",
             maxWidth: "1200px",
             width: "100%",
             maxHeight: "90vh",
@@ -202,14 +205,15 @@ export default function FaceSearchModal({
             pointerEvents: "auto",
           }}
           onClick={(e) => e.stopPropagation()}
+          className="face-finder-scope"
         >
           {/* Close button */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <h2 style={{ fontSize: "20px", fontWeight: 700, background: "linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#1a1a2e" }}>
               🔍 顔で検索
             </h2>
             <button
-              style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8ecf4", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}
+              style={{ width: 32, height: 32, borderRadius: "50%", background: "#f0f0f0", border: "1px solid #ddd", color: "#333", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}
               onClick={onClose}
             >✕</button>
           </div>
@@ -333,22 +337,34 @@ export default function FaceSearchModal({
                     検索結果
                   </div>
                   <div className="results-count">
-                    <strong>{searchResult.total_results}</strong>件 表示 /
+                    <strong>{Math.min(displayLimit || searchResult.total_results, searchResult.total_results)}</strong>件 表示 /
                     <strong> {searchResult.total_matched}</strong>件 マッチ
                     {searchResult.duplicates_removed > 0 && (
                       <span> ({searchResult.duplicates_removed}件 重複除去)</span>
                     )}
                   </div>
                 </div>
-                <div className="results-meta">
-                  <span>Embeddings: {searchResult.embeddings_used}枚</span>
-                  <span>閾値: {searchResult.threshold}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <select
+                    value={displayLimit || 0}
+                    onChange={(e) => setDisplayLimit(Number(e.target.value))}
+                    style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", background: "#fff", color: "#333", cursor: "pointer" }}
+                  >
+                    <option value={20}>Top 20</option>
+                    <option value={50}>50件表示</option>
+                    <option value={100}>100件表示</option>
+                    <option value={0}>全件表示</option>
+                  </select>
+                  <div className="results-meta">
+                    <span>Embeddings: {searchResult.embeddings_used}枚</span>
+                    <span>閾値: {searchResult.threshold}</span>
+                  </div>
                 </div>
               </div>
 
               {searchResult.results.length > 0 ? (
                 <ResultsGrid
-                  results={searchResult.results}
+                  results={displayLimit ? searchResult.results.slice(0, displayLimit) : searchResult.results}
                   onCardClick={(result) => setModalResult(result)}
                 />
               ) : (
