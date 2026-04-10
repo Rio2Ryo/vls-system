@@ -25,6 +25,7 @@ interface Props {
   allPhotos?: { id: string; originalUrl?: string; thumbnailUrl?: string }[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function FaceSearchModal({ open, onClose, eventId: _eventId, onResults, allPhotos = [] }: Props) {
   // Upload state
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
