@@ -149,3 +149,42 @@ export function getFaceCropUrl(imageName: string, faceIndex: number): string {
 export function getAnnotatedImageUrl(imageName: string, faceIndex: number): string {
   return `${PROXY_BASE}/image-annotated/${encodeURIComponent(imageName)}/${faceIndex}`;
 }
+
+/**
+ * Re-rank results using Claude Vision (2-stage search)
+ */
+export interface RerankCandidate {
+  image_name: string;
+  face_index: number;
+  similarity: number;
+}
+
+export interface RerankResult extends RerankCandidate {
+  verified: boolean;
+  confidence: number;
+}
+
+export interface RerankResponse {
+  results: RerankResult[];
+  totalVerified: number;
+  totalCandidates: number;
+  error?: string;
+}
+
+export async function rerankResults(
+  queryImageBase64: string,
+  candidates: RerankCandidate[],
+  maxCandidates: number = 30
+): Promise<RerankResponse> {
+  const res = await fetch('/api/face/rerank', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ queryImageBase64, candidates, maxCandidates }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || `Rerank failed: ${res.status}`);
+  }
+  return data;
+}

@@ -3,14 +3,16 @@
 /**
  * FaceSearchModal — 顔テスト②の page.tsx をモーダル化したもの
  * 検索ロジックは顔テスト②と100%同一: /api/proxy/search → HF Space /search
- * face-api.js, TensorFlow.js, D1, Claude Vision は一切使わない
+ * 高精度モード: FaceNet→Claude Visionの2段階検索(Re-ranking)
  */
 
 import { useState, useCallback, useRef } from "react";
 import {
   searchFaces,
+  rerankResults,
   type SearchResponse,
   type FaceResult,
+  type RerankResult,
 } from "@/lib/face-api-client";
 import ResultsGrid from "@/components/face-search/ResultsGrid";
 import FaceDetailModal from "@/components/face-search/FaceDetailModal";
@@ -43,6 +45,11 @@ export default function FaceSearchModal({
   const [threshold, setThreshold] = useState(0.70);
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
+
+  // High-precision mode (Re-ranking: FaceNet → Claude Vision)
+  const [highPrecision, setHighPrecision] = useState(false);
+  const [reranking, setReranking] = useState(false);
+  const [rerankData, setRerankData] = useState<{ results: RerankResult[]; totalVerified: number } | null>(null);
 
   // Detail modal state (same as 顔テスト②)
   const [modalResult, setModalResult] = useState<FaceResult | null>(null);
@@ -91,7 +98,7 @@ export default function FaceSearchModal({
     [selectedFiles]
   );
 
-  // Search (same as 顔テスト②)
+  // Search (same as 顔テスト② + high-precision re-ranking)
   const handleSearch = async () => {
     if (selectedFiles.length === 0) {
       setErrorMsg("画像をアップロードしてください");
@@ -100,6 +107,7 @@ export default function FaceSearchModal({
 
     setSearching(true);
     setSearchResult(null);
+    setRerankData(null);
     setErrorMsg(null);
 
     try {
@@ -107,31 +115,70 @@ export default function FaceSearchModal({
       setSearchResult(result);
 
       // Map image_name → VLS photoId for gallery filtering
-      if (onResults && allPhotos.length > 0) {
-        const suffixToPhotoId = new Map<string, string>();
-        for (const p of allPhotos) {
-          const url = p.originalUrl || p.thumbnailUrl || "";
-          const fn = url.split("/").pop() || "";
-          const hi = fn.lastIndexOf("-");
-          const suffix = hi >= 0 ? fn.slice(hi + 1) : fn;
-          if (suffix) suffixToPhotoId.set(suffix, p.id);
-        }
-
-        const matchedPhotoIds: string[] = [];
-        for (const r of result.results) {
-          const hi = r.image_name.lastIndexOf("-");
-          const suffix = hi >= 0 ? r.image_name.slice(hi + 1) : r.image_name;
-          const photoId = suffixToPhotoId.get(suffix);
-          if (photoId && !matchedPhotoIds.includes(photoId)) {
-            matchedPhotoIds.push(photoId);
+      const mapPhotoIds = (results: { image_name: string }[]) => {
+        if (onResults && allPhotos.length > 0) {
+          const suffixToPhotoId = new Map<string, string>();
+          for (const p of allPhotos) {
+            const url = p.originalUrl || p.thumbnailUrl || "";
+            const fn = url.split("/").pop() || "";
+            const hi = fn.lastIndexOf("-");
+            const suffix = hi >= 0 ? fn.slice(hi + 1) : fn;
+            if (suffix) suffixToPhotoId.set(suffix, p.id);
           }
+
+          const matchedPhotoIds: string[] = [];
+          for (const r of results) {
+            const hi = r.image_name.lastIndexOf("-");
+            const suffix = hi >= 0 ? r.image_name.slice(hi + 1) : r.image_name;
+            const photoId = suffixToPhotoId.get(suffix);
+            if (photoId && !matchedPhotoIds.includes(photoId)) {
+              matchedPhotoIds.push(photoId);
+            }
+          }
+          onResults(matchedPhotoIds);
         }
-        onResults(matchedPhotoIds);
-      }
+      };
 
       const noFace = result.query_faces.filter((f) => f.status === "no_face");
       if (noFace.length > 0) {
         setErrorMsg(`${noFace.length}枚の画像で顔が検出されませんでした`);
+      }
+
+      // Re-ranking with Claude Vision (high-precision mode)
+      if (highPrecision && result.results.length > 0) {
+        setSearching(false);
+        setReranking(true);
+        try {
+          // Read query image as base64
+          const queryBase64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(selectedFiles[0]);
+          });
+
+          const rerank = await rerankResults(
+            queryBase64,
+            result.results.map((r) => ({
+              image_name: r.image_name,
+              face_index: r.face_index,
+              similarity: r.similarity,
+            })),
+            30
+          );
+          setRerankData(rerank);
+
+          // Update gallery filter with verified results only
+          const verifiedResults = rerank.results.filter((r) => r.verified);
+          mapPhotoIds(verifiedResults);
+        } catch (err) {
+          setErrorMsg(`Re-rankingエラー: ${err}。FaceNetの結果をそのまま表示します。`);
+          mapPhotoIds(result.results);
+        } finally {
+          setReranking(false);
+        }
+      } else {
+        mapPhotoIds(result.results);
       }
     } catch (err) {
       setErrorMsg(`${err}`);
@@ -144,6 +191,7 @@ export default function FaceSearchModal({
     setSelectedFiles([]);
     setPreviews([]);
     setSearchResult(null);
+    setRerankData(null);
     setErrorMsg(null);
   };
 
@@ -277,7 +325,7 @@ export default function FaceSearchModal({
               ))}
             </div>
 
-            {/* Search controls (same as 顔テスト②) */}
+            {/* Search controls */}
             <div className="search-controls">
               <div className="threshold-control">
                 <label>スコア閾値</label>
@@ -291,15 +339,24 @@ export default function FaceSearchModal({
                 />
                 <span className="threshold-value">{threshold.toFixed(2)}</span>
               </div>
+              <label className="precision-toggle" title="FaceNetで候補を絞り、Claude Visionで再判定します。精度が上がりますが検索に時間がかかります。">
+                <input
+                  type="checkbox"
+                  checked={highPrecision}
+                  onChange={(e) => setHighPrecision(e.target.checked)}
+                  disabled={searching || reranking}
+                />
+                <span>🎯 高精度モード</span>
+              </label>
               <button
                 className="btn btn-primary"
                 onClick={handleSearch}
-                disabled={selectedFiles.length === 0 || searching}
+                disabled={selectedFiles.length === 0 || searching || reranking}
               >
-                {searching ? (
-                  <><span className="spinner" /> 検索中...</>
+                {searching || reranking ? (
+                  <><span className="spinner" /> {reranking ? '再判定中...' : '検索中...'}</>
                 ) : (
-                  <>🔍 顔検索</>
+                  <>🔍 {highPrecision ? '高精度検索' : '顔検索'}</>
                 )}
               </button>
               {searchResult && (
@@ -317,30 +374,54 @@ export default function FaceSearchModal({
             </div>
           )}
 
-          {/* Loading (same as 顔テスト②) */}
-          {searching && (
+          {/* Loading */}
+          {(searching || reranking) && (
             <div className="card">
               <div className="searching-overlay">
                 <div className="spinner spinner-large" />
-                <div className="searching-text">FaceNet で顔を検索しています...</div>
+                <div className="searching-text">
+                  {reranking
+                    ? '🎯 Claude Vision で再判定しています（10〜30秒）...'
+                    : 'FaceNet で顔を検索しています...'}
+                </div>
+                {reranking && (
+                  <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
+                    FaceNetの結果をClaude Visionで精査中
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* Results (same as 顔テスト②) */}
-          {searchResult && !searching && (
+          {/* Results */}
+          {searchResult && !searching && !reranking && (
             <div className="card results-section">
               <div className="results-header">
                 <div>
                   <div className="card-title" style={{ marginBottom: "4px" }}>
                     <span className="icon">🎯</span>
                     検索結果
+                    {rerankData && (
+                      <span className="search-mode-badge mode-embedding" style={{ marginLeft: 8, fontSize: 11 }}>
+                        🎯 高精度モード
+                      </span>
+                    )}
                   </div>
                   <div className="results-count">
-                    <strong>{Math.min(displayLimit || searchResult.total_results, searchResult.total_results)}</strong>件 表示 /
-                    <strong> {searchResult.total_matched}</strong>件 マッチ
-                    {searchResult.duplicates_removed > 0 && (
-                      <span> ({searchResult.duplicates_removed}件 重複除去)</span>
+                    {rerankData ? (
+                      <>
+                        <strong>{rerankData.totalVerified}</strong>件 確認済み /
+                        <strong> {rerankData.results.length}</strong>件 検証済み
+                        （FaceNet: {searchResult.total_matched}件マッチ）
+                      </>
+                    ) : (
+                      <>
+                        <strong>{Math.min(displayLimit || searchResult.total_results, searchResult.total_results)}</strong>件 表示 /
+                        <strong> {searchResult.total_matched}</strong>件 マッチ
+                        {searchResult.duplicates_removed > 0 && (
+                          <span> ({searchResult.duplicates_removed}件 重複除去)</span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -355,23 +436,71 @@ export default function FaceSearchModal({
                     <option value={100}>100件表示</option>
                     <option value={0}>全件表示</option>
                   </select>
-                <div className="results-meta">
+                  <div className="results-meta">
                     <span>Embeddings: {searchResult.embeddings_used}枚</span>
                     <span>閾値: {searchResult.threshold}</span>
-                    {searchResult.searchMode && (
-                      <span className={`search-mode-badge ${searchResult.searchMode === 'embedding' ? 'mode-embedding' : 'mode-vision'}`}>
-                        {searchResult.searchMode === 'embedding' ? '🧮 FaceNet Embedding' : '👁️ Claude Vision'}
-                      </span>
-                    )}
+                    <span className="search-mode-badge mode-embedding">
+                      🧮 FaceNet{rerankData ? ' + 👁️ Claude Vision' : ''}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {searchResult.results.length > 0 ? (
+              {rerankData ? (
+                /* Re-ranked results: show verified first, then unverified */
+                rerankData.results.length > 0 ? (
+                  <div className="results-grid">
+                    {(displayLimit ? rerankData.results.slice(0, displayLimit) : rerankData.results).map((rr, index) => {
+                      const simPercent = Math.round(rr.similarity * 100);
+                      const simBarWidth = Math.max(0, (rr.similarity - 0.3) / 0.7 * 100);
+                      return (
+                        <div
+                          key={`${rr.image_name}-${rr.face_index}`}
+                          className={`result-card ${rr.verified ? 'sim-high' : 'sim-low'}`}
+                          onClick={() => setModalResult({
+                            image_name: rr.image_name,
+                            face_index: rr.face_index,
+                            similarity: rr.similarity,
+                            det_score: 0,
+                            bbox: [],
+                          })}
+                          style={{ animationDelay: `${index * 0.05}s`, opacity: rr.verified ? 1 : 0.5 }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            className="face-img"
+                            src={`/api/proxy/face-crop/${encodeURIComponent(rr.image_name)}/${rr.face_index}`}
+                            alt={`Face from ${rr.image_name}`}
+                            loading="lazy"
+                          />
+                          <div className="result-info">
+                            <div className="similarity-bar">
+                              <div className="similarity-fill" style={{ width: `${simBarWidth}%` }} />
+                            </div>
+                            <div className="similarity-score">
+                              {rr.verified ? `✅ スコア ${simPercent}` : `❌ スコア ${simPercent}`}
+                            </div>
+                            {rr.verified && (
+                              <div style={{ fontSize: 10, color: '#10b981', fontWeight: 600 }}>
+                                Claude確信度: {rr.confidence}
+                              </div>
+                            )}
+                            <div className="image-name" title={rr.image_name}>{rr.image_name}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    <div className="empty-icon">😕</div>
+                    <p>Claude Visionで確認できた一致がありませんでした</p>
+                  </div>
+                )
+              ) : searchResult.results.length > 0 ? (
                 <ResultsGrid
                   results={displayLimit ? searchResult.results.slice(0, displayLimit) : searchResult.results}
                   onCardClick={(result) => setModalResult(result)}
-                  searchMode={searchResult.searchMode}
                 />
               ) : (
                 <div className="empty-state">
