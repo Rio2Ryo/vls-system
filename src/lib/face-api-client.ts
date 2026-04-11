@@ -34,6 +34,7 @@ export interface SearchResponse {
   duplicates_removed: number;
   embeddings_used: number;
   threshold: number;
+  searchMode?: 'embedding' | 'vision';
   error?: string;
 }
 
@@ -113,7 +114,7 @@ export async function getPreprocessStatus(): Promise<PreprocessStatus> {
  */
 export async function searchFaces(
   files: File[],
-  threshold: number = 0.55,
+  threshold: number = 0.70,
   maxResults: number = 0
 ): Promise<SearchResponse> {
   const formData = new FormData();

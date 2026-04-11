@@ -40,7 +40,7 @@ export default function FaceSearchModal({
   const [previews, setPreviews] = useState<string[]>([]);
 
   // Search state (same as 顔テスト②)
-  const [threshold, setThreshold] = useState(0.55);
+  const [threshold, setThreshold] = useState(0.70);
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
 
@@ -355,9 +355,14 @@ export default function FaceSearchModal({
                     <option value={100}>100件表示</option>
                     <option value={0}>全件表示</option>
                   </select>
-                  <div className="results-meta">
+                <div className="results-meta">
                     <span>Embeddings: {searchResult.embeddings_used}枚</span>
                     <span>閾値: {searchResult.threshold}</span>
+                    {searchResult.searchMode && (
+                      <span className={`search-mode-badge ${searchResult.searchMode === 'embedding' ? 'mode-embedding' : 'mode-vision'}`}>
+                        {searchResult.searchMode === 'embedding' ? '🧮 FaceNet Embedding' : '👁️ Claude Vision'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -366,6 +371,7 @@ export default function FaceSearchModal({
                 <ResultsGrid
                   results={displayLimit ? searchResult.results.slice(0, displayLimit) : searchResult.results}
                   onCardClick={(result) => setModalResult(result)}
+                  searchMode={searchResult.searchMode}
                 />
               ) : (
                 <div className="empty-state">

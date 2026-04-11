@@ -213,7 +213,8 @@ async function runClaudeVisionBatch(
       (m: number | { index: number; confidence?: number }) => {
         const idx = typeof m === "number" ? m : m.index;
         const conf = typeof m === "number" ? 80 : (m.confidence ?? 80);
-        // No server-side filtering — return all matches, let frontend filter by search mode
+        // Filter: only include confidence >= 70 to reduce false positives
+        if (conf < 70) return null;
         const photoId = candidates.find((c) => c.index === idx)?.photoId;
         return photoId ? { photoId, confidence: conf } : null;
       }
@@ -333,6 +334,7 @@ async function handlePost(req: NextRequest) {
         matchCount: embResults.length,
         uniquePhotos: new Set(embResults.map((r) => r.photoId)).size,
         results: embResults,
+        searchMode: "embedding",
         _debug: { mode: "embedding", storedEmbeddings: storedEmbeddings.length },
       });
     }
@@ -467,6 +469,7 @@ async function handlePost(req: NextRequest) {
     matchCount: results.length,
     uniquePhotos,
     results,
+    searchMode: "vision",
     _debug: {
       totalPhotos: event.photos.length,
       fetchedPhotos: validPhotos.length,

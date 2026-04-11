@@ -55,7 +55,7 @@ export interface FaceSearchResult {
 export function searchEmbeddings(
   query: number[],
   stored: { id: string; photoId: string; embedding: number[]; bbox?: FaceBox }[],
-  threshold = 0.6,
+  threshold = 0.7,
 ): FaceSearchResult[] {
   const results: FaceSearchResult[] = [];
   for (const s of stored) {

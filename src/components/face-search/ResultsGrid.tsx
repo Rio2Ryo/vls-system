@@ -3,17 +3,19 @@
 import { type FaceResult, getFaceCropUrl } from "@/lib/face-api-client";
 
 function getSimClass(similarity: number): string {
-  if (similarity >= 0.7) return "sim-high";
-  if (similarity >= 0.55) return "sim-medium";
+  if (similarity >= 0.75) return "sim-high";
+  if (similarity >= 0.60) return "sim-medium";
   return "sim-low";
 }
 
 interface ResultsGridProps {
   results: FaceResult[];
   onCardClick: (result: FaceResult) => void;
+  searchMode?: 'embedding' | 'vision';
 }
 
-export default function ResultsGrid({ results, onCardClick }: ResultsGridProps) {
+export default function ResultsGrid({ results, onCardClick, searchMode }: ResultsGridProps) {
+  const scoreLabel = searchMode === 'vision' ? '確信度' : '類似度';
   return (
     <div className="results-grid">
       {results.map((result, index) => {
@@ -43,6 +45,7 @@ export default function ResultsGrid({ results, onCardClick }: ResultsGridProps) 
                 />
               </div>
               <div className="similarity-score">{simPercent}%</div>
+              <div className="score-label">{scoreLabel}</div>
               <div className="image-name" title={result.image_name}>
                 {result.image_name}
               </div>
