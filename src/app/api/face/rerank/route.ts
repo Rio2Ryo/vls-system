@@ -21,8 +21,6 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const CLAUDE_MODEL = "claude-sonnet-4-6";
-const HF_API_URL = process.env.HF_API_URL || process.env.FACENET_API_URL || "https://ryosukematsuura-face-test-0409.hf.space";
-const HF_TOKEN = process.env.HF_TOKEN || "";
 
 const BATCH_SIZE = 5;
 const CONCURRENCY = 3;
@@ -38,12 +36,11 @@ interface VerifiedResult extends Candidate {
   confidence: number;
 }
 
-/** Fetch a face crop image from HF Space and return as base64 */
-async function fetchFaceCropBase64(imageName: string, faceIndex: number): Promise<string | null> {
+/** Fetch a face crop image via our own proxy (avoids HF Space CSRF) */
+async function fetchFaceCropBase64(proxyBase: string, imageName: string, faceIndex: number): Promise<string | null> {
   try {
-    const url = `${HF_API_URL}/face-crop/${encodeURIComponent(imageName)}/${faceIndex}`;
+    const url = `${proxyBase}/face-crop/${encodeURIComponent(imageName)}/${faceIndex}`;
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${HF_TOKEN}` },
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return null;
@@ -170,21 +167,26 @@ export async function POST(req: NextRequest) {
 
     const { base64: queryBase64, mimeType: queryMimeType } = parseQueryImage(queryImageRaw);
 
+    // Build proxy URL from request host (avoids direct HF Space CSRF issues)
+    const host = req.headers.get("host") || "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const proxyBase = `${protocol}://${host}/api/proxy`;
+
     // Limit candidates to top N by similarity
     const topCandidates = candidates
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, maxCandidates);
 
-    console.log(`[rerank] Verifying ${topCandidates.length} candidates with Claude Vision`);
+    console.log(`[rerank] Verifying ${topCandidates.length} candidates via proxy ${proxyBase}`);
 
-    // Fetch face crops from HF Space in parallel
+    // Fetch face crops via our own proxy in parallel
     const FETCH_CONCURRENCY = 10;
     const fetched: { candidate: Candidate; base64: string }[] = [];
     for (let i = 0; i < topCandidates.length; i += FETCH_CONCURRENCY) {
       const batch = topCandidates.slice(i, i + FETCH_CONCURRENCY);
       const results = await Promise.all(
         batch.map(async (c) => {
-          const b64 = await fetchFaceCropBase64(c.image_name, c.face_index);
+          const b64 = await fetchFaceCropBase64(proxyBase, c.image_name, c.face_index);
           return b64 ? { candidate: c, base64: b64 } : null;
         })
       );
