@@ -280,7 +280,7 @@ export default function FaceSearchModal({
             {/* Search controls (same as 顔テスト②) */}
             <div className="search-controls">
               <div className="threshold-control">
-                <label>類似度閾値</label>
+                <label>スコア閾値</label>
                 <input
                   type="range"
                   min="0.3"

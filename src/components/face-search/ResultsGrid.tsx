@@ -14,8 +14,7 @@ interface ResultsGridProps {
   searchMode?: 'embedding' | 'vision';
 }
 
-export default function ResultsGrid({ results, onCardClick, searchMode }: ResultsGridProps) {
-  const scoreLabel = searchMode === 'vision' ? '確信度' : '類似度';
+export default function ResultsGrid({ results, onCardClick }: ResultsGridProps) {
   return (
     <div className="results-grid">
       {results.map((result, index) => {
@@ -44,8 +43,7 @@ export default function ResultsGrid({ results, onCardClick, searchMode }: Result
                   style={{ width: `${simBarWidth}%` }}
                 />
               </div>
-              <div className="similarity-score">{simPercent}%</div>
-              <div className="score-label">{scoreLabel}</div>
+              <div className="similarity-score">スコア {simPercent}</div>
               <div className="image-name" title={result.image_name}>
                 {result.image_name}
               </div>

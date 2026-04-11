@@ -47,7 +47,7 @@ export default function FaceDetailModal({ result, onClose }: FaceModalProps) {
           />
           <div className="modal-info">
             <span>
-              類似度: <strong>{(result.similarity * 100).toFixed(1)}%</strong>
+              スコア: <strong>{Math.round(result.similarity * 100)}</strong>
             </span>
             <span>
               検出スコア: <strong>{(result.det_score * 100).toFixed(1)}%</strong>
