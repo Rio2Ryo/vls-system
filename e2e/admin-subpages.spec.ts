@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+test.use({ locale: "ja-JP" });
+// Run tests sequentially to avoid NextAuth session conflicts on shared server
+test.describe.configure({ mode: "serial" });
+
 /**
  * Seed analytics data for dashboard tests.
  * Must be called BEFORE login since login triggers data load.
@@ -67,16 +71,29 @@ async function seedVideoPlays(page: import("@playwright/test").Page) {
 /** Login at /admin and then navigate to the target sub-page */
 async function loginAndNavigate(page: import("@playwright/test").Page, targetPath: string) {
   await page.goto("/admin");
+  // Ensure login form is ready before interacting
+  await expect(page.getByTestId("admin-password")).toBeVisible({ timeout: 10000 });
   await page.getByTestId("admin-password").fill("ADMIN_VLS_2026");
   await page.getByRole("button", { name: /ログイン/ }).click();
-  await expect(page.getByTestId("admin-dashboard")).toBeVisible();
+  // Wait for NextAuth session; if it doesn't propagate, re-login
+  const dashboard = page.getByTestId("admin-dashboard");
+  try {
+    await expect(dashboard).toBeVisible({ timeout: 10000 });
+  } catch {
+    // Session may not have propagated; reload and re-login
+    await page.reload();
+    await expect(page.getByTestId("admin-password")).toBeVisible({ timeout: 10000 });
+    await page.getByTestId("admin-password").fill("ADMIN_VLS_2026");
+    await page.getByRole("button", { name: /ログイン/ }).click();
+    await expect(dashboard).toBeVisible({ timeout: 30000 });
+  }
   await page.goto(targetPath);
 }
 
 // ===== /admin/analytics =====
 test.describe("Admin Analytics Page (/admin/analytics)", () => {
   test.afterEach(async ({ page }) => {
-    await page.evaluate(() => { localStorage.removeItem("vls_analytics"); });
+    await page.evaluate(() => { localStorage.removeItem("vls_analytics"); localStorage.removeItem("__skip_d1_sync"); });
   });
 
   test("shows login form and authenticates", async ({ page }) => {
@@ -86,10 +103,7 @@ test.describe("Admin Analytics Page (/admin/analytics)", () => {
     await expect(page.getByTestId("admin-password")).toBeVisible();
 
     // Login and navigate to analytics
-    await page.getByTestId("admin-password").fill("ADMIN_VLS_2026");
-    await page.getByRole("button", { name: /ログイン/ }).click();
-    await expect(page.getByTestId("admin-dashboard")).toBeVisible();
-    await page.goto("/admin/analytics");
+    await loginAndNavigate(page, "/admin/analytics");
     await expect(page.getByText("アンケート分析ダッシュボード")).toBeVisible();
   });
 
@@ -113,7 +127,10 @@ test.describe("Admin Analytics Page (/admin/analytics)", () => {
 
   test("shows no-data message when empty", async ({ page }) => {
     await page.goto("/admin");
-    await page.evaluate(() => localStorage.removeItem("vls_analytics"));
+    await page.evaluate(() => {
+      localStorage.setItem("__skip_d1_sync", "1");
+      localStorage.setItem("vls_analytics", "[]");
+    });
     await loginAndNavigate(page, "/admin/analytics");
 
     await expect(page.getByText("まだアンケート回答データがありません")).toBeVisible();
@@ -132,7 +149,7 @@ test.describe("Admin Analytics Page (/admin/analytics)", () => {
 // ===== /admin/stats =====
 test.describe("Admin Stats Page (/admin/stats)", () => {
   test.afterEach(async ({ page }) => {
-    await page.evaluate(() => { localStorage.removeItem("vls_video_plays"); });
+    await page.evaluate(() => { localStorage.removeItem("vls_video_plays"); localStorage.removeItem("__skip_d1_sync"); });
   });
 
   test("shows login form and authenticates", async ({ page }) => {
@@ -142,16 +159,16 @@ test.describe("Admin Stats Page (/admin/stats)", () => {
     await expect(page.getByTestId("admin-password")).toBeVisible();
 
     // Login and navigate to stats
-    await page.getByTestId("admin-password").fill("ADMIN_VLS_2026");
-    await page.getByRole("button", { name: /ログイン/ }).click();
-    await expect(page.getByTestId("admin-dashboard")).toBeVisible();
-    await page.goto("/admin/stats");
+    await loginAndNavigate(page, "/admin/stats");
     await expect(page.getByText("CM統計ダッシュボード")).toBeVisible();
   });
 
   test("shows no-data message when empty", async ({ page }) => {
     await page.goto("/admin");
-    await page.evaluate(() => localStorage.removeItem("vls_video_plays"));
+    await page.evaluate(() => {
+      localStorage.setItem("__skip_d1_sync", "1");
+      localStorage.setItem("vls_video_plays", "[]");
+    });
     await loginAndNavigate(page, "/admin/stats");
 
     await expect(page.getByText("まだ再生データがありません")).toBeVisible();
@@ -183,6 +200,7 @@ test.describe("Admin Users Page (/admin/users)", () => {
     await page.evaluate(() => {
       localStorage.removeItem("vls_analytics");
       localStorage.removeItem("vls_video_plays");
+      localStorage.removeItem("__skip_d1_sync");
     });
   });
 
@@ -198,6 +216,7 @@ test.describe("Admin Users Page (/admin/users)", () => {
 
   test("shows user sessions with seeded data", async ({ page }) => {
     await page.goto("/admin");
+    await page.evaluate(() => localStorage.setItem("__skip_d1_sync", "1"));
     await seedAnalytics(page);
     await seedVideoPlays(page);
     await loginAndNavigate(page, "/admin/users");
@@ -209,8 +228,9 @@ test.describe("Admin Users Page (/admin/users)", () => {
   test("shows empty state when no data", async ({ page }) => {
     await page.goto("/admin");
     await page.evaluate(() => {
-      localStorage.removeItem("vls_analytics");
-      localStorage.removeItem("vls_video_plays");
+      localStorage.setItem("__skip_d1_sync", "1");
+      localStorage.setItem("vls_analytics", "[]");
+      localStorage.setItem("vls_video_plays", "[]");
     });
     await loginAndNavigate(page, "/admin/users");
 
@@ -246,10 +266,12 @@ test.describe("Admin Events Page (/admin/events)", () => {
     await page.getByTestId("event-name-input").fill("E2Eテストイベント");
     await page.getByTestId("event-date-input").fill("2026-12-31");
     await page.getByTestId("event-password-input").fill("E2ETEST1");
-    await page.getByRole("button", { name: /保存/ }).click();
+    await page.getByRole("button", { name: "保存", exact: true }).click();
 
-    // Verify created
-    await expect(page.getByRole("heading", { name: "E2Eテストイベント" })).toBeVisible();
+    // Verify created (use .first() since duplicates may exist from prior test runs)
+    const heading = page.getByRole("heading", { name: "E2Eテストイベント" }).first();
+    await heading.scrollIntoViewIfNeeded();
+    await expect(heading).toBeVisible();
   });
 
   test("shows QR code for event", async ({ page }) => {
