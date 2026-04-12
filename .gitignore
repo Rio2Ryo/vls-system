@@ -37,3 +37,4 @@ next-env.d.ts
 .wrangler/
 workers/r2-lifecycle/node_modules/
 .env.prod
+test-results/
