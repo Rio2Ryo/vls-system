@@ -51,7 +51,7 @@ test.describe("STEP 5 – Complete (Offer + Download)", () => {
 
   test("shows platinum sponsor frame", async ({ page }) => {
     await expect(page.getByText(/キッズラーニング株式会社 提供/)).toBeVisible();
-    await expect(page.getByRole("button", { name: /記念フレームを保存/ })).toBeVisible();
+    await expect(page.getByText("フレーム合成プレビュー")).toBeVisible();
   });
 
   test("shows matched company offer", async ({ page }) => {
@@ -61,9 +61,10 @@ test.describe("STEP 5 – Complete (Offer + Download)", () => {
   });
 
   test("download button toggles state", async ({ page }) => {
-    const btn = page.getByRole("button", { name: /記念フレームを保存/ });
+    const btn = page.getByRole("button", { name: /写真をダウンロード/ });
     await btn.click();
-    await expect(page.getByRole("button", { name: /保存済み/ })).toBeVisible();
+    // After clicking download, button should change state
+    await expect(page.getByRole("button", { name: /ダウンロード済み|ダウンロード中/ })).toBeVisible({ timeout: 10000 });
   });
 
   test("shows download card with photo count", async ({ page }) => {

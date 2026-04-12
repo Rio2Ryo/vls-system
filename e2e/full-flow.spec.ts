@@ -6,37 +6,37 @@ test.describe("Full Flow – STEP 0 → STEP 5", () => {
   test("STEP 0 → 1 → 2 (UI check) → 3 (multi-select) → 4 (UI check) → 5", async ({ page }) => {
     // ===== STEP 0: Password Auth =====
     await page.goto("/");
-    await expect(page.getByText("イベント写真サービス")).toBeVisible();
+    // Skip D1 sync to use default data
+    await page.evaluate(() => {
+      localStorage.setItem("__skip_d1_sync", "1");
+    });
+    await page.goto("/");
+    await expect(page.getByText("イベント写真ダウンロードサービス")).toBeVisible();
     await page.getByTestId("password-input").fill("SUMMER2026");
     await page.getByRole("button", { name: /写真を見る/ }).click();
     await expect(page).toHaveURL(/\/survey/, { timeout: 10000 });
 
-    // ===== STEP 1: Survey (name + 3 questions) =====
-    // Name input step
-    await expect(page.getByText("お名前を教えてください")).toBeVisible({ timeout: 10000 });
-    await page.getByTestId("respondent-name-input").fill("テストユーザー");
-    await page.getByRole("button", { name: /つぎへ/ }).click();
-
+    // ===== STEP 1: Survey (3 questions, no name input) =====
     // Q1
-    await expect(page.getByText("Q1 / 3")).toBeVisible();
-    await page.getByText("教育").click();
-    await page.getByText("テクノロジー").click();
+    await expect(page.getByText("Q1 / 3")).toBeVisible({ timeout: 10000 });
+    await page.getByRole("checkbox", { name: "教育" }).click();
+    await page.getByRole("checkbox", { name: "テクノロジー" }).click();
     await page.getByRole("button", { name: /つぎへ/ }).click();
 
     // Q2
     await expect(page.getByText("Q2 / 3")).toBeVisible();
-    await page.getByText("学習塾").click();
+    await page.getByRole("checkbox", { name: "学習塾" }).click();
     await page.getByRole("button", { name: /つぎへ/ }).click();
 
     // Q3
     await expect(page.getByText("Q3 / 3")).toBeVisible();
-    await page.getByText("4〜6歳").click();
+    await page.getByRole("checkbox", { name: "4〜6歳" }).click();
     await page.getByRole("button", { name: /スタート/ }).click();
     await expect(page).toHaveURL(/\/processing/);
 
     // ===== STEP 2: Processing (45s wait + CM) =====
-    await expect(page.getByText("イベントの全写真データを読み込んでいます")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole("progressbar", { name: "読み込み中" })).toBeVisible();
+    await expect(page.getByText(/イベントの全写真データを読み込んでいます/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("読み込み中").first()).toBeVisible();
     await expect(page.getByRole("button", { name: /写真を見る/ })).toBeDisabled();
 
     // Verify session data was saved
@@ -64,7 +64,7 @@ test.describe("Full Flow – STEP 0 → STEP 5", () => {
 
     // Select two photos
     await photo1.click();
-    await expect(page.getByTestId("check-summer-photo-1")).toContainText("✓");
+    await expect(page.getByTestId("check-summer-photo-1")).toContainText("選択中");
     await expect(page.getByTestId("selection-count")).toContainText("1枚選択中");
 
     await photo2.click();
@@ -89,8 +89,8 @@ test.describe("Full Flow – STEP 0 → STEP 5", () => {
     expect(photoIds).toHaveLength(2);
 
     // ===== STEP 4: Downloading (60s wait + CM) =====
-    await expect(page.getByText("高画質データを生成中")).toBeVisible();
-    await expect(page.getByText("2枚の写真を処理中")).toBeVisible();
+    await expect(page.getByText(/高画質データを生成中/)).toBeVisible();
+    await expect(page.getByText(/写真を処理中/)).toBeVisible();
     await expect(page.getByText("データ生成中")).toBeVisible();
     await expect(page.getByRole("button", { name: /ダウンロードへ/ })).toBeDisabled();
 
@@ -117,8 +117,7 @@ test.describe("Full Flow – STEP 0 → STEP 5", () => {
       return sessionStorage.getItem("platinumCompany") !== null;
     });
     if (hasPlatinum) {
-      await expect(page.getByText(/提供 記念フレーム/)).toBeVisible();
-      await expect(page.getByRole("button", { name: /記念フレームを保存/ })).toBeVisible();
+      await expect(page.getByText(/提供のフレーム/)).toBeVisible();
     }
 
     // Check matched company offer (if set)

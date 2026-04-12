@@ -8,7 +8,7 @@ test.describe("STEP 0 – Password Auth (Top Page)", () => {
   });
 
   test("shows title and password input", async ({ page }) => {
-    await expect(page.getByText("イベント写真サービス")).toBeVisible();
+    await expect(page.getByText("イベント写真ダウンロードサービス")).toBeVisible();
     await expect(page.getByTestId("password-input")).toBeVisible();
     await expect(page.getByRole("button", { name: /写真を見る/ })).toBeVisible();
   });

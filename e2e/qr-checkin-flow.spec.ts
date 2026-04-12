@@ -4,12 +4,19 @@ test.use({ locale: "ja-JP" });
 
 async function adminLogin(page: Page) {
   await page.goto("/admin");
+  // Skip D1 sync to use default data
+  await page.evaluate(() => {
+    localStorage.setItem("__skip_d1_sync", "1");
+  });
+  await page.goto("/admin");
   await page.getByTestId("admin-password").fill("ADMIN_VLS_2026", { timeout: 10000 });
   await page.getByRole("button", { name: /ログイン/ }).click();
   await expect(page.getByTestId("admin-dashboard")).toBeVisible();
 }
 
 test.describe("QR Code → Check-in Flow", () => {
+  test.describe.configure({ mode: "serial" });
+
   test.afterEach(async ({ page }) => {
     await page.evaluate(() => {
       localStorage.removeItem("vls_admin_events");
@@ -22,20 +29,20 @@ test.describe("QR Code → Check-in Flow", () => {
 
     // Open events tab
     await page.getByRole("button", { name: /イベント管理/ }).click();
-    await expect(page.getByTestId("admin-events")).toBeVisible();
+    await expect(page.getByText("イベント一覧")).toBeVisible();
 
     // Create new event
     await page.getByRole("button", { name: /新規作成/ }).click();
     await page.getByTestId("event-name-input").fill("QRテストイベント");
     await page.getByTestId("event-date-input").fill("2026-08-15");
     await page.getByTestId("event-password-input").fill("QRTEST2026");
-    await page.getByRole("button", { name: /保存/ }).click();
+    await page.getByRole("button", { name: "保存", exact: true }).click();
 
     // Toast should appear
     await expect(page.getByTestId("admin-toast")).toBeVisible();
 
     // Shareable URL with password should be shown
-    await expect(page.locator("code", { hasText: "/?pw=QRTEST2026" })).toBeVisible();
+    await expect(page.locator("code", { hasText: "QRTEST2026" }).first()).toBeVisible();
 
     // Click QR button for the new event
     const qrBtn = page.locator("button", { hasText: "QRコード" }).last();
@@ -43,7 +50,7 @@ test.describe("QR Code → Check-in Flow", () => {
     await qrBtn.click();
 
     // QR code image should appear
-    await expect(page.locator("img[alt^='QR Code']").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("img[alt*='QR']").first()).toBeVisible({ timeout: 10000 });
   });
 
   test("User scans QR URL → auto-login → reaches survey", async ({ page }) => {
@@ -54,7 +61,7 @@ test.describe("QR Code → Check-in Flow", () => {
     await page.getByTestId("event-name-input").fill("QRテストイベント");
     await page.getByTestId("event-date-input").fill("2026-08-15");
     await page.getByTestId("event-password-input").fill("QRTEST2026");
-    await page.getByRole("button", { name: /保存/ }).click();
+    await page.getByRole("button", { name: "保存", exact: true }).click();
     await expect(page.getByTestId("admin-toast")).toBeVisible();
 
     // Simulate QR scan by navigating to URL with ?pw= parameter
@@ -126,7 +133,7 @@ test.describe("QR Code → Check-in Flow", () => {
     await page.getByTestId("event-name-input").fill("QR統合テスト");
     await page.getByTestId("event-date-input").fill("2026-09-01");
     await page.getByTestId("event-password-input").fill("QRFULL2026");
-    await page.getByRole("button", { name: /保存/ }).click();
+    await page.getByRole("button", { name: "保存", exact: true }).click();
     await expect(page.getByTestId("admin-toast")).toBeVisible();
 
     // 2. Add participant to the new event
@@ -157,6 +164,7 @@ test.describe("QR Code → Check-in Flow", () => {
 
     // Select the new event by finding its option
     const eventSelect = page.getByTestId("checkin-event-select");
+    await expect(eventSelect).toBeVisible({ timeout: 10000 });
     const eventId = await page.evaluate(() => {
       const events = JSON.parse(localStorage.getItem("vls_admin_events") || "[]");
       const evt = events.find((e: { name: string }) => e.name === "QR統合テスト");

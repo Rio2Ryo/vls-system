@@ -13,12 +13,12 @@ test.use({ locale: "ja-JP" });
 test.describe("Landing Page (/lp)", () => {
   test("loads and shows hero section", async ({ page }) => {
     await page.goto("/lp");
-    await expect(page.getByText("イベント写真")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: /イベント写真/ })).toBeVisible({ timeout: 10000 });
   });
 
   test("shows CTA buttons", async ({ page }) => {
     await page.goto("/lp");
-    await expect(page.getByRole("link", { name: /デモ体験/ })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("link", { name: "デモを体験する" })).toBeVisible({ timeout: 10000 });
   });
 
   test("shows pricing section", async ({ page }) => {

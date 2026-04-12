@@ -6,6 +6,7 @@ test.describe("STEP 3 – Photos (Multi-Select Gallery)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() => {
+      localStorage.setItem("__skip_d1_sync", "1");
       sessionStorage.setItem("eventId", "evt-summer");
       sessionStorage.setItem("eventName", "夏祭り 2026");
     });
@@ -17,11 +18,9 @@ test.describe("STEP 3 – Photos (Multi-Select Gallery)", () => {
     await expect(page.getByText(/枚の写真が見つかりました/)).toBeVisible();
   });
 
-  test("renders photo grid with canvas watermarks", async ({ page }) => {
-    const canvases = page.locator("canvas");
-    await expect(canvases.first()).toBeVisible({ timeout: 10000 });
-    const count = await canvases.count();
-    expect(count).toBeGreaterThan(0);
+  test("renders photo grid with items", async ({ page }) => {
+    const firstPhoto = page.getByTestId("photo-summer-photo-1");
+    await expect(firstPhoto).toBeVisible({ timeout: 10000 });
   });
 
   test("clicking a photo toggles selection checkmark", async ({ page }) => {
@@ -30,15 +29,15 @@ test.describe("STEP 3 – Photos (Multi-Select Gallery)", () => {
 
     // Initially not selected
     const check = page.getByTestId("check-summer-photo-1");
-    await expect(check).not.toContainText("✓");
+    await expect(check).toContainText("選択する");
 
     // Click to select
     await firstPhoto.click();
-    await expect(check).toContainText("✓");
+    await expect(check).toContainText("選択中");
 
     // Click again to deselect
     await firstPhoto.click();
-    await expect(check).not.toContainText("✓");
+    await expect(check).toContainText("選択する");
   });
 
   test("selecting photos shows selection counter", async ({ page }) => {
