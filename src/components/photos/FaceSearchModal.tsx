@@ -10,7 +10,10 @@ import { useState, useCallback, useRef } from "react";
 import {
   searchFaces,
   type SearchResponse,
+  type FaceResult,
 } from "@/lib/face-api-client";
+import ResultsGrid from "@/components/face-search/ResultsGrid";
+import FaceDetailModal from "@/components/face-search/FaceDetailModal";
 import "@/app/face-search.css";
 
 interface Props {
@@ -36,16 +39,22 @@ export default function FaceSearchModal({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
 
-  // Search state
+  // Search state (same as 顔テスト②)
   const [threshold, setThreshold] = useState(0.70);
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
+
+  // Detail modal state (same as 顔テスト②)
+  const [modalResult, setModalResult] = useState<FaceResult | null>(null);
 
   // Drag state
   const [isDragging, setIsDragging] = useState(false);
 
   // Error state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Display limit (default: top 20)
+  const [displayLimit, setDisplayLimit] = useState<number>(20);
 
   // Handle file selection (same as 顔テスト②)
   const handleFiles = useCallback(
@@ -123,9 +132,6 @@ export default function FaceSearchModal({
       const noFace = result.query_faces.filter((f) => f.status === "no_face");
       if (noFace.length > 0) {
         setErrorMsg(`${noFace.length}枚の画像で顔が検出されませんでした`);
-      } else {
-        // 検索成功時はモーダルを閉じてVLSギャラリーで結果を表示
-        onClose();
       }
     } catch (err) {
       setErrorMsg(`${err}`);
@@ -311,7 +317,7 @@ export default function FaceSearchModal({
             </div>
           )}
 
-          {/* Loading */}
+          {/* Loading (same as 顔テスト②) */}
           {searching && (
             <div className="card">
               <div className="searching-overlay">
@@ -321,18 +327,73 @@ export default function FaceSearchModal({
             </div>
           )}
 
-          {/* 検索完了時: 結果なしの場合のみモーダル内に表示 */}
-          {searchResult && !searching && searchResult.results.length === 0 && (
-            <div className="card" style={{ textAlign: "center", padding: "32px 16px" }}>
-              <div style={{ fontSize: "48px", marginBottom: "12px" }}>😕</div>
-              <p style={{ fontSize: "15px", fontWeight: 600, color: "#333" }}>条件に合う顔が見つかりませんでした</p>
-              <p style={{ fontSize: "13px", marginTop: "8px", color: "#888" }}>
-                閾値を下げるか、別の画像で再検索してみてください
-              </p>
+          {/* Results (same as 顔テスト②) */}
+          {searchResult && !searching && (
+            <div className="card results-section">
+              <div className="results-header">
+                <div>
+                  <div className="card-title" style={{ marginBottom: "4px" }}>
+                    <span className="icon">🎯</span>
+                    検索結果
+                  </div>
+                  <div className="results-count">
+                    <strong>{Math.min(displayLimit || searchResult.total_results, searchResult.total_results)}</strong>件 表示 /
+                    <strong> {searchResult.total_matched}</strong>件 マッチ
+                    {searchResult.duplicates_removed > 0 && (
+                      <span> ({searchResult.duplicates_removed}件 重複除去)</span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <select
+                    value={displayLimit || 0}
+                    onChange={(e) => setDisplayLimit(Number(e.target.value))}
+                    style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", background: "#fff", color: "#333", cursor: "pointer" }}
+                  >
+                    <option value={20}>Top 20</option>
+                    <option value={50}>50件表示</option>
+                    <option value={100}>100件表示</option>
+                    <option value={0}>全件表示</option>
+                  </select>
+                <div className="results-meta">
+                    <span>Embeddings: {searchResult.embeddings_used}枚</span>
+                    <span>閾値: {searchResult.threshold}</span>
+                    {searchResult.searchMode && (
+                      <span className={`search-mode-badge ${searchResult.searchMode === 'embedding' ? 'mode-embedding' : 'mode-vision'}`}>
+                        {searchResult.searchMode === 'embedding' ? '🧮 FaceNet Embedding' : '👁️ Claude Vision'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {searchResult.results.length > 0 ? (
+                <ResultsGrid
+                  results={displayLimit ? searchResult.results.slice(0, displayLimit) : searchResult.results}
+                  onCardClick={(result) => setModalResult(result)}
+                  searchMode={searchResult.searchMode}
+                />
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">😕</div>
+                  <p>条件に合う顔が見つかりませんでした</p>
+                  <p style={{ fontSize: "13px", marginTop: "8px", color: "#5a6178" }}>
+                    閾値を下げて再検索してみてください
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Detail modal (same as 顔テスト②) */}
+      {modalResult && (
+        <FaceDetailModal
+          result={modalResult}
+          onClose={() => setModalResult(null)}
+        />
+      )}
     </div>
   );
 }
