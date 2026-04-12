@@ -6,8 +6,9 @@
     "passwordPlaceholder": "例: SUMMER2026",
     "errorEmpty": "パスワードを入力してください",
     "errorWrong": "パスワードが違います",
-    "errorArchived": "このイベントの写真は長期保存中のため現在ご覧いただけません",
+    "errorArchived": "このイベントは終了しました",
     "errorExpired": "このイベントの写真公開期間は終了しました",
+    "errorPreparing": "このイベントは準備中です",
     "submit": "写真を見る →",
     "hint": "イベント主催者からお知らせされたパスワードを入力してください"
   },

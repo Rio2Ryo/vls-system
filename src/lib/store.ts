@@ -152,6 +152,10 @@ export function getEventBySlug(slug: string): EventData | null {
   return events.find((e) => e.slug === slug.toLowerCase()) || null;
 }
 
+export function getEventsByStatus(status: EventData["status"]): EventData[] {
+  return getStoredEvents().filter((e) => (e.status || "active") === status);
+}
+
 // --- Companies ---
 export function getStoredCompanies(): Company[] {
   return safeGet(KEYS.companies, DEFAULT_COMPANIES);

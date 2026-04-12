@@ -6,8 +6,9 @@
     "passwordPlaceholder": "e.g. SUMMER2026",
     "errorEmpty": "Please enter a password",
     "errorWrong": "Incorrect password",
-    "errorArchived": "Photos for this event are currently in long-term storage and unavailable",
+    "errorArchived": "This event has ended and is no longer accessible",
     "errorExpired": "The photo viewing period for this event has ended",
+    "errorPreparing": "This event is currently being prepared",
     "submit": "View Photos →",
     "hint": "Enter the password provided by the event organizer"
   },

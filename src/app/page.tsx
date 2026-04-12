@@ -47,12 +47,17 @@ function TopPageInner() {
       return;
     }
 
-    // Check publish period
-    if (event.status === "archived") {
+    // Check event status
+    const eventStatus = event.status || "active";
+    if (eventStatus === "archived") {
       setError(t("errorArchived"));
       return;
     }
-    if (event.expiresAt && event.expiresAt < Date.now() && event.status !== "active") {
+    if (eventStatus === "preparing") {
+      setError(t("errorPreparing"));
+      return;
+    }
+    if (event.expiresAt && event.expiresAt < Date.now() && eventStatus !== "active") {
       setError(t("errorExpired"));
       return;
     }

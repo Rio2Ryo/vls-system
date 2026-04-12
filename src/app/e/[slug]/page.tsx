@@ -21,6 +21,13 @@ export default function SlugRedirectPage() {
       return;
     }
 
+    // Check event status — block archived and preparing
+    const eventStatus = event.status || "active";
+    if (eventStatus === "archived" || eventStatus === "preparing") {
+      router.replace("/?error=event-unavailable");
+      return;
+    }
+
     // Set session like normal password login
     sessionStorage.setItem("eventId", event.id);
     sessionStorage.setItem("eventName", event.name);

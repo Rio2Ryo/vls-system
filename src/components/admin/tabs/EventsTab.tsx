@@ -33,7 +33,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [frames, setFrames] = useState<FrameTemplate[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] as string[], frameTemplateId: "", slug: "", notifyEmail: "" });
+  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "", password: "", companyIds: [] as string[], frameTemplateId: "", slug: "", notifyEmail: "", status: "active" as EventStatus });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [qrEventId, setQrEventId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -48,6 +48,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
   const [filterText, setFilterText] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterStatus, setFilterStatus] = useState<EventStatus | "all">("all");
 
   const activeFrame = useMemo(
     () => frames.find((frame) => frame.isActive) ?? frames[0] ?? null,
@@ -123,7 +124,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
   const startNew = () => {
     if (maxEventsReached) return;
     setEditing("__new__");
-    setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [], frameTemplateId: "", slug: "", notifyEmail: "" });
+    setForm({ name: "", date: "", venue: "", description: "", password: "", companyIds: [], frameTemplateId: "", slug: "", notifyEmail: "", status: "active" });
   };
 
   const [lockWarning, setLockWarning] = useState<string | null>(null);
@@ -148,6 +149,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
       frameTemplateId: evt.frameTemplateId || "",
       slug: evt.slug || "",
       notifyEmail: evt.notifyEmail || "",
+      status: evt.status || "active",
     });
   };
 
@@ -194,6 +196,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
         slug: slugVal,
         notifyEmail: emailVal,
         tenantId: tid,
+        status: form.status,
       };
       updatedAll = [...allEvents, newEvt];
     } else {
@@ -210,6 +213,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
               frameTemplateId: form.frameTemplateId || undefined,
               slug: slugVal,
               notifyEmail: emailVal,
+              status: form.status,
             }
           : e
       );
@@ -254,6 +258,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
       frameTemplateId: evt.frameTemplateId || "",
       slug: "",
       notifyEmail: evt.notifyEmail || "",
+      status: "preparing",
     });
     onSave("イベントを複製しました。日付とパスワードを入力してください");
     logAudit("event_clone", { type: "event", id: evt.id, name: evt.name });
@@ -295,6 +300,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
       frameTemplateId: tmpl.frameTemplateId || "",
       slug: "",
       notifyEmail: "",
+      status: "preparing",
     });
     onSave("テンプレートを読み込みました。日付とパスワードを入力してください");
   };
@@ -310,6 +316,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
   };
 
   const filtered = events.filter((evt) => {
+    if (filterStatus !== "all" && getEventStatus(evt) !== filterStatus) return false;
     if (filterText) {
       const q = filterText.toLowerCase();
       const match =
@@ -336,7 +343,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
         }
       });
 
-  const hasActiveFilters = !!(filterText || filterDateFrom || filterDateTo);
+  const hasActiveFilters = !!(filterText || filterDateFrom || filterDateTo || filterStatus !== "all");
 
   const [pdfGenerating, setPdfGenerating] = useState(false);
 
@@ -392,23 +399,30 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
   };
 
   const getEventStatus = (evt: EventData): EventStatus => {
-    if (evt.status === "archived") return "archived";
-    if (evt.expiresAt && evt.expiresAt < Date.now()) return "expired";
     return evt.status || "active";
   };
 
-  const STATUS_BADGE: Record<EventStatus, { label: string; icon: string; cls: string }> = {
-    active: { label: "公開中", icon: "🟢", cls: "bg-green-50 text-green-600 border-green-200" },
-    expired: { label: "期限切れ", icon: "🟡", cls: "bg-yellow-50 text-yellow-600 border-yellow-200" },
-    archived: { label: "アーカイブ済", icon: "📦", cls: "bg-gray-100 text-gray-500 border-gray-200" },
+  const STATUS_BADGE: Record<EventStatus, { label: string; cls: string }> = {
+    preparing: { label: "準備中", cls: "bg-blue-50 text-blue-600 border-blue-200" },
+    active: { label: "開催中", cls: "bg-green-50 text-green-600 border-green-200" },
+    ended: { label: "終了", cls: "bg-yellow-50 text-yellow-600 border-yellow-200" },
+    archived: { label: "アーカイブ", cls: "bg-gray-100 text-gray-500 border-gray-200" },
   };
+
+  const STATUS_OPTIONS: { value: EventStatus | "all"; label: string }[] = [
+    { value: "all", label: "すべて" },
+    { value: "preparing", label: "準備中" },
+    { value: "active", label: "開催中" },
+    { value: "ended", label: "終了" },
+    { value: "archived", label: "アーカイブ" },
+  ];
 
   const extendExpiry = (evtId: string, days: number) => {
     const allEvents = getStoredEvents();
     const updatedAll = allEvents.map((e) => {
       if (e.id !== evtId) return e;
       const base = e.expiresAt && e.expiresAt > Date.now() ? e.expiresAt : Date.now();
-      return { ...e, expiresAt: base + days * 86400000, status: "active" as EventStatus };
+      return { ...e, expiresAt: base + days * 86400000 };
     });
     setStoredEvents(updatedAll);
     setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
@@ -422,7 +436,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
     const updatedAll = allEvents.map((e) => {
       if (e.id !== evtId) return e;
       const ts = new Date(dateStr + "T23:59:59").getTime();
-      return { ...e, expiresAt: ts, status: (ts > Date.now() ? "active" : "expired") as EventStatus };
+      return { ...e, expiresAt: ts };
     });
     setStoredEvents(updatedAll);
     setEvents(tenantId ? updatedAll.filter((e) => e.tenantId === tenantId) : updatedAll);
@@ -490,6 +504,34 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
         </Card>
       )}
 
+      {/* Status filter buttons */}
+      <div className="flex gap-1.5 flex-wrap" data-testid="event-status-filter">
+        {STATUS_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setFilterStatus(opt.value)}
+            aria-label={`ステータス: ${opt.label}`}
+            aria-pressed={filterStatus === opt.value}
+            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+              filterStatus === opt.value
+                ? opt.value === "all" ? "bg-gray-800 text-white border-gray-800"
+                  : opt.value === "preparing" ? "bg-blue-500 text-white border-blue-500"
+                  : opt.value === "active" ? "bg-green-500 text-white border-green-500"
+                  : opt.value === "ended" ? "bg-yellow-500 text-white border-yellow-500"
+                  : "bg-gray-500 text-white border-gray-500"
+                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            {opt.label}
+            {opt.value !== "all" && (
+              <span className="ml-1 opacity-75">
+                {events.filter((e) => opt.value === "all" ? true : getEventStatus(e) === opt.value).length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Sort & Filter bar */}
       <Card>
         <div className="space-y-3">
@@ -528,7 +570,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
             <span className="text-xs text-gray-400" aria-hidden="true">〜</span>
             <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} aria-label="終了日" className="px-2 py-1.5 rounded-lg border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-xs text-gray-600" data-testid="event-filter-date-to" />
             {hasActiveFilters && (
-              <button onClick={() => { setFilterText(""); setFilterDateFrom(""); setFilterDateTo(""); }} aria-label="フィルタをすべて解除" className="text-[10px] text-red-400 hover:text-red-600 ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">
+              <button onClick={() => { setFilterText(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterStatus("all"); }} aria-label="フィルタをすべて解除" className="text-[10px] text-red-400 hover:text-red-600 ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">
                 フィルタ解除
               </button>
             )}
@@ -580,6 +622,28 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
             <input className={inputCls + " font-mono"} placeholder="カスタムURL slug（例: summer2026 → /e/summer2026）" aria-label="カスタムURL slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} data-testid="event-slug-input" />
             <input className={inputCls} type="email" placeholder="通知メール（任意: admin@example.com）" aria-label="通知メールアドレス" value={form.notifyEmail} onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })} data-testid="event-notify-email" />
 
+            <div className="border border-gray-100 rounded-xl p-3">
+              <p className="text-xs font-bold text-gray-500 mb-2">ステータス</p>
+              <select
+                className={inputCls}
+                aria-label="イベントステータス"
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value as EventStatus })}
+                data-testid="event-status-select"
+              >
+                <option value="preparing">準備中 (Preparing)</option>
+                <option value="active">開催中 (Active)</option>
+                <option value="ended">終了 (Ended)</option>
+                <option value="archived">アーカイブ (Archived)</option>
+              </select>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {form.status === "preparing" && "ユーザーはアクセスできません"}
+                {form.status === "active" && "ユーザーがアクセス・ダウンロード可能"}
+                {form.status === "ended" && "ユーザーはURL経由でダウンロード可能"}
+                {form.status === "archived" && "URLアクセス不可・ダウンロード不可"}
+              </p>
+            </div>
+
             <div className="border border-gray-100 rounded-xl p-3" data-testid="event-company-assign">
               <p className="text-xs font-bold text-gray-500 mb-2">CM企業の割り当て</p>
               <p className="text-[10px] text-gray-400 mb-2">未選択の場合は全企業のCMが配信されます</p>
@@ -630,7 +694,14 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
         <Card key={evt.id}>
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="font-bold text-gray-700">{evt.name}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-gray-700">{evt.name}</h3>
+                {(() => {
+                  const st = getEventStatus(evt);
+                  const b = STATUS_BADGE[st];
+                  return <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${b.cls}`}>{b.label}</span>;
+                })()}
+              </div>
               <p className="text-sm text-gray-400">
                 {evt.date}{evt.venue ? ` · ${evt.venue}` : ""}{evt.description ? ` · ${evt.description}` : ""}
               </p>
@@ -709,7 +780,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
               return (
                 <>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${badge.cls}`}>
-                    {badge.icon} {badge.label}
+                    {badge.label}
                   </span>
                   {evt.expiresAt && (
                     <span className="text-[10px] text-gray-400">

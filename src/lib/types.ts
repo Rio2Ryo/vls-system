@@ -26,7 +26,7 @@ export interface Company {
   portalPassword?: string;  // スポンサーポータルログイン用
 }
 
-export type EventStatus = "active" | "expired" | "archived";
+export type EventStatus = "preparing" | "active" | "ended" | "archived";
 
 export interface EventData {
   id: string;
@@ -46,7 +46,7 @@ export interface EventData {
   publishedAt?: number;         // publish start (Unix ms)
   expiresAt?: number;           // publish deadline (Unix ms), default publishedAt + 7 days
   archivedAt?: number;          // archive timestamp (compressed)
-  status?: EventStatus;         // "active" | "expired" | "archived"
+  status?: EventStatus;         // "preparing" | "active" | "ended" | "archived"
 }
 
 // Photo scene classification (AI auto-classification)
