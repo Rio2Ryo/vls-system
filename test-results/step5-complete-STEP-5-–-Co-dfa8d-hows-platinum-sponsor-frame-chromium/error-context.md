@@ -1,0 +1,51 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "メインコンテンツへスキップ" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - alert [ref=e3]
+  - main [ref=e5]:
+    - generic [ref=e6]:
+      - group "Language" [ref=e8]:
+        - button "日本語" [ref=e9] [cursor=pointer]
+        - button "English" [pressed] [ref=e10] [cursor=pointer]
+      - generic [ref=e11]:
+        - generic [ref=e12]: 🎉
+        - heading "Your photos are ready!" [level=1] [ref=e13]
+        - paragraph [ref=e14]: 3 photos selected
+      - generic [ref=e15]:
+        - paragraph [ref=e16]: Frame Preview
+        - generic [ref=e19]: 📷
+        - paragraph [ref=e20]: 📷 A frame provided by キッズラーニング株式会社 will be applied to all photos
+      - generic [ref=e21]:
+        - paragraph [ref=e22]: Download 3 high-quality photos
+        - button "Download Photos" [ref=e23] [cursor=pointer]
+      - generic [ref=e24]:
+        - paragraph [ref=e25]: Receive via Email Later
+        - paragraph [ref=e26]: We'll send you a download link by email (valid for 7 days)
+        - generic [ref=e27]:
+          - textbox "Your name" [ref=e28]
+          - textbox "Email address" [ref=e29]
+          - button "Send to Email" [ref=e30] [cursor=pointer]
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - img "ファミリートラベル" [ref=e34]
+          - generic [ref=e35]:
+            - paragraph [ref=e36]: ファミリートラベル
+            - paragraph [ref=e37]: Limited Offer
+        - generic [ref=e38]:
+          - paragraph [ref=e39]: 家族旅行10%OFFクーポン
+          - paragraph [ref=e40]:
+            - text: "Coupon code:"
+            - button "クーポンコードをコピー" [ref=e41] [cursor=pointer]: VLSTRIP2026
+        - link "View Details →" [ref=e42] [cursor=pointer]:
+          - /url: https://example.com/family-travel
+          - button "View Details →" [ref=e43]
+      - button "Return to top page" [ref=e45] [cursor=pointer]: Back to Top
+    - generic [ref=e47]:
+      - generic [ref=e48]: Sponsored by
+      - generic [ref=e49]:
+        - img "キッズラーニング株式会社" [ref=e50]
+        - generic [ref=e51]: キッズラーニング株式会社
+```

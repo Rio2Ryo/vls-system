@@ -1,0 +1,1440 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - link "メインコンテンツへスキップ" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - alert [ref=e3]
+  - main [ref=e5]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - heading "VLS Admin" [level=1] [ref=e10]
+        - generic [ref=e11]:
+          - combobox "テナント切り替え" [ref=e12]:
+            - option "全テナント (Super)" [selected]
+            - option "さくら学園"
+            - option "ひまわり幼稚園"
+            - option "株式会社イベントプロ"
+          - button "データをデフォルトにリセット" [ref=e13] [cursor=pointer]: リセット
+          - generic "リアルタイム接続中" [ref=e14]: LIVE
+          - button "グローバル検索 (Ctrl+K)" [ref=e15] [cursor=pointer]:
+            - generic [ref=e16]: 🔍
+            - generic [ref=e17]: ⌘K
+          - button "ダークモードに切替" [ref=e18] [cursor=pointer]: 🌙
+          - button "ログアウト" [ref=e19] [cursor=pointer]
+      - navigation "管理画面ナビゲーション" [ref=e20]:
+        - generic [ref=e21]:
+          - link "Admin" [ref=e22] [cursor=pointer]:
+            - /url: /admin
+          - link "イベント" [ref=e23] [cursor=pointer]:
+            - /url: /admin/events
+          - link "アンケート" [ref=e24] [cursor=pointer]:
+            - /url: /admin/analytics
+          - link "CM統計" [ref=e25] [cursor=pointer]:
+            - /url: /admin/stats
+          - link "ユーザー" [ref=e26] [cursor=pointer]:
+            - /url: /admin/users
+          - link "インポート" [ref=e27] [cursor=pointer]:
+            - /url: /admin/import
+          - link "チェックイン" [ref=e28] [cursor=pointer]:
+            - /url: /admin/checkin
+          - link "ライブ" [ref=e29] [cursor=pointer]:
+            - /url: /admin/live
+          - link "統合管理" [ref=e30] [cursor=pointer]:
+            - /url: /admin/command
+          - link "ROI" [ref=e31] [cursor=pointer]:
+            - /url: /admin/roi
+          - link "セグメント" [ref=e32] [cursor=pointer]:
+            - /url: /admin/segments
+          - link "カレンダー" [ref=e33] [cursor=pointer]:
+            - /url: /admin/calendar
+          - link "レポート" [ref=e34] [cursor=pointer]:
+            - /url: /admin/reports
+          - link "テーマ設定" [ref=e35] [cursor=pointer]:
+            - /url: /admin/settings
+          - link "チャット" [ref=e36] [cursor=pointer]:
+            - /url: /admin/chat
+          - link "バイラル" [ref=e37] [cursor=pointer]:
+            - /url: /admin/viral
+    - generic [ref=e39]:
+      - generic [ref=e40]: "操作対象:"
+      - radiogroup "操作対象:" [ref=e41]:
+        - radio "夏祭り 2026(346枚)" [checked] [ref=e42] [cursor=pointer]:
+          - text: 夏祭り 2026
+          - generic [ref=e43]: (346枚)
+        - radio "運動会 2026(9枚)" [ref=e44] [cursor=pointer]:
+          - text: 運動会 2026
+          - generic [ref=e45]: (9枚)
+        - radio "卒業式 2026(15枚)" [ref=e46] [cursor=pointer]:
+          - text: 卒業式 2026
+          - generic [ref=e47]: (15枚)
+        - radio "テクノロジーフェス 2026(10枚)" [ref=e48] [cursor=pointer]:
+          - text: テクノロジーフェス 2026
+          - generic [ref=e49]: (10枚)
+        - radio "テストイベント(0枚)" [ref=e50] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e51]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e52] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e53]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e54] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e55]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e56] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e57]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e58] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e59]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e60] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e61]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e62] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e63]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e64] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e65]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e66] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e67]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e68] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e69]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e70] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e71]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e72] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e73]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e74] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e75]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e76] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e77]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e78] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e79]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e80] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e81]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e82] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e83]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e84] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e85]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e86] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e87]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e88] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e89]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e90] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e91]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e92] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e93]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e94] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e95]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e96] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e97]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e98] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e99]: (0枚)
+        - radio "E2Eテストイベント(0枚)" [ref=e100] [cursor=pointer]:
+          - text: E2Eテストイベント
+          - generic [ref=e101]: (0枚)
+        - radio "テストイベント(0枚)" [ref=e102] [cursor=pointer]:
+          - text: テストイベント
+          - generic [ref=e103]: (0枚)
+    - generic [ref=e104]:
+      - tablist "管理タブ" [ref=e105]:
+        - button "ダッシュボード" [ref=e106] [cursor=pointer]:
+          - generic [ref=e107]: 📊
+          - text: ダッシュボード
+        - button "イベント管理" [ref=e108] [cursor=pointer]:
+          - generic [ref=e109]: 🎪
+          - text: イベント管理
+        - button "写真管理" [ref=e110] [cursor=pointer]:
+          - generic [ref=e111]: 📷
+          - text: 写真管理
+        - button "企業管理" [ref=e112] [cursor=pointer]:
+          - generic [ref=e113]: 🏢
+          - text: 企業管理
+        - button "CM動画管理" [ref=e114] [cursor=pointer]:
+          - generic [ref=e115]: 🎬
+          - text: CM動画管理
+        - button "フレーム管理" [ref=e116] [cursor=pointer]:
+          - generic [ref=e117]: 🖼️
+          - text: フレーム管理
+        - button "アンケート" [ref=e118] [cursor=pointer]:
+          - generic [ref=e119]: 📝
+          - text: アンケート
+        - button "参加者管理" [ref=e120] [cursor=pointer]:
+          - generic [ref=e121]: 👥
+          - text: 参加者管理
+        - button "請求書" [ref=e122] [cursor=pointer]:
+          - generic [ref=e123]: 🧾
+          - text: 請求書
+        - button "レポート" [ref=e124] [cursor=pointer]:
+          - generic [ref=e125]: 📑
+          - text: レポート
+        - button "完了率分析" [ref=e126] [cursor=pointer]:
+          - generic [ref=e127]: 📉
+          - text: 完了率分析
+        - button "QR分析" [ref=e128] [cursor=pointer]:
+          - generic [ref=e129]: 📱
+          - text: QR分析
+        - button "Chart.js分析" [ref=e130] [cursor=pointer]:
+          - generic [ref=e131]: 📈
+          - text: Chart.js分析
+        - button "ライセンス管理" [ref=e132] [cursor=pointer]:
+          - generic [ref=e133]: 🔑
+          - text: ライセンス管理
+        - button "テナント管理" [ref=e134] [cursor=pointer]:
+          - generic [ref=e135]: 🏫
+          - text: テナント管理
+        - button "通知ログ" [ref=e136] [cursor=pointer]:
+          - generic [ref=e137]: 🔔
+          - text: 通知ログ
+        - button "エラーログ" [ref=e138] [cursor=pointer]:
+          - generic [ref=e139]: 🐛
+          - text: エラーログ
+        - button "R2ストレージ" [ref=e140] [cursor=pointer]:
+          - generic [ref=e141]: ☁️
+          - text: R2ストレージ
+        - button "マッチングテスト" [ref=e142] [cursor=pointer]:
+          - generic [ref=e143]: 🎯
+          - text: マッチングテスト
+        - button "CSVエクスポート" [ref=e144] [cursor=pointer]:
+          - generic [ref=e145]: 📤
+          - text: CSVエクスポート
+        - button "設定" [ref=e146] [cursor=pointer]:
+          - generic [ref=e147]: ⚙️
+          - text: 設定
+      - tabpanel "イベント管理" [ref=e148]:
+        - generic [ref=e149]:
+          - generic [ref=e150]:
+            - heading "イベント一覧" [level=2] [ref=e151]
+            - generic [ref=e152]:
+              - button "QR一括PDF生成 (31件)" [ref=e153] [cursor=pointer]: QR一括PDF (31件)
+              - button "+ 新規作成" [ref=e154] [cursor=pointer]
+          - generic [ref=e156]:
+            - generic [ref=e157]:
+              - generic [ref=e158]:
+                - textbox "イベント検索" [ref=e159]:
+                  - /placeholder: イベント名・会場・パスワードで検索
+                - generic: 🔍
+              - combobox "並び替え" [ref=e160]:
+                - option "登録順" [selected]
+                - 'option "日付: 新しい順"'
+                - 'option "日付: 古い順"'
+                - 'option "名前: A→Z"'
+                - 'option "名前: Z→A"'
+                - 'option "写真: 多い順"'
+            - generic [ref=e161]:
+              - generic [ref=e162]: "期間:"
+              - textbox "開始日" [ref=e163]
+              - generic [ref=e164]: 〜
+              - textbox "終了日" [ref=e165]
+            - paragraph [ref=e166]: 31件のイベント
+          - generic [ref=e167]:
+            - heading "新規イベント" [level=3] [ref=e168]
+            - generic [ref=e169]:
+              - textbox "イベント名" [ref=e170]: QR統合テスト
+              - textbox "開催日" [ref=e171]: 2026-09-01
+              - textbox "会場" [ref=e172]:
+                - /placeholder: "会場（例: 東京ビッグサイト）"
+              - textbox "イベント説明" [ref=e173]:
+                - /placeholder: 説明
+              - generic [ref=e174]:
+                - paragraph [ref=e175]: フレーム設定
+                - paragraph [ref=e176]: 未選択の場合は「フレーム管理」で設定した使用フレームが適用されます
+                - combobox "フレーム選択" [ref=e177]:
+                  - option "既定フレーム（デフォルトフレーム）" [selected]
+                  - option "デフォルトフレーム（現在の使用フレーム）"
+                - generic [ref=e178]:
+                  - img "デフォルトフレーム" [ref=e179]
+                  - generic [ref=e180]:
+                    - paragraph [ref=e181]: デフォルトフレーム
+                    - paragraph [ref=e182]: 既定フレーム
+              - textbox "パスワード" [active] [ref=e183]:
+                - /placeholder: "パスワード（例: SUMMER2026）"
+                - text: QRFULL2026
+              - textbox "カスタムURL slug" [ref=e184]:
+                - /placeholder: "カスタムURL slug（例: summer2026 → /e/summer2026）"
+              - textbox "通知メールアドレス" [ref=e185]:
+                - /placeholder: "通知メール（任意: admin@example.com）"
+              - generic [ref=e186]:
+                - paragraph [ref=e187]: CM企業の割り当て
+                - paragraph [ref=e188]: 未選択の場合は全企業のCMが配信されます
+                - generic [ref=e189]:
+                  - generic [ref=e190] [cursor=pointer]:
+                    - checkbox "キッズラーニング株式会社 platinum" [ref=e191]
+                    - generic [ref=e192]: キッズラーニング株式会社
+                    - generic [ref=e193]: platinum
+                  - generic [ref=e194] [cursor=pointer]:
+                    - checkbox "すこやか保険グループ platinum" [ref=e195]
+                    - generic [ref=e196]: すこやか保険グループ
+                    - generic [ref=e197]: platinum
+                  - generic [ref=e198] [cursor=pointer]:
+                    - checkbox "ファミリートラベル gold" [ref=e199]
+                    - generic [ref=e200]: ファミリートラベル
+                    - generic [ref=e201]: gold
+                  - generic [ref=e202] [cursor=pointer]:
+                    - checkbox "テックキッズラボ gold" [ref=e203]
+                    - generic [ref=e204]: テックキッズラボ
+                    - generic [ref=e205]: gold
+                  - generic [ref=e206] [cursor=pointer]:
+                    - checkbox "パシャリカメラ gold" [ref=e207]
+                    - generic [ref=e208]: パシャリカメラ
+                    - generic [ref=e209]: gold
+                  - generic [ref=e210] [cursor=pointer]:
+                    - checkbox "スポーツキッズアカデミー silver" [ref=e211]
+                    - generic [ref=e212]: スポーツキッズアカデミー
+                    - generic [ref=e213]: silver
+                  - generic [ref=e214] [cursor=pointer]:
+                    - checkbox "ネイチャーキャンプ silver" [ref=e215]
+                    - generic [ref=e216]: ネイチャーキャンプ
+                    - generic [ref=e217]: silver
+                  - generic [ref=e218] [cursor=pointer]:
+                    - checkbox "アートワンダー教室 silver" [ref=e219]
+                    - generic [ref=e220]: アートワンダー教室
+                    - generic [ref=e221]: silver
+                  - generic [ref=e222] [cursor=pointer]:
+                    - checkbox "スマイルスマホ silver" [ref=e223]
+                    - generic [ref=e224]: スマイルスマホ
+                    - generic [ref=e225]: silver
+                  - generic [ref=e226] [cursor=pointer]:
+                    - checkbox "おいしいキッチン bronze" [ref=e227]
+                    - generic [ref=e228]: おいしいキッチン
+                    - generic [ref=e229]: bronze
+                  - generic [ref=e230] [cursor=pointer]:
+                    - checkbox "こどもブックス bronze" [ref=e231]
+                    - generic [ref=e232]: こどもブックス
+                    - generic [ref=e233]: bronze
+                  - generic [ref=e234] [cursor=pointer]:
+                    - checkbox "げんきスナック bronze" [ref=e235]
+                    - generic [ref=e236]: げんきスナック
+                    - generic [ref=e237]: bronze
+                  - generic [ref=e238] [cursor=pointer]:
+                    - checkbox "スマートドライブ自動車 gold" [ref=e239]
+                    - generic [ref=e240]: スマートドライブ自動車
+                    - generic [ref=e241]: gold
+                  - generic [ref=e242] [cursor=pointer]:
+                    - checkbox "ひかりモバイル gold" [ref=e243]
+                    - generic [ref=e244]: ひかりモバイル
+                    - generic [ref=e245]: gold
+                  - generic [ref=e246] [cursor=pointer]:
+                    - checkbox "ゲームキングダム gold" [ref=e247]
+                    - generic [ref=e248]: ゲームキングダム
+                    - generic [ref=e249]: gold
+                  - generic [ref=e250] [cursor=pointer]:
+                    - checkbox "げんきドリンクラボ silver" [ref=e251]
+                    - generic [ref=e252]: げんきドリンクラボ
+                    - generic [ref=e253]: silver
+                  - generic [ref=e254] [cursor=pointer]:
+                    - checkbox "フィットネスプラス silver" [ref=e255]
+                    - generic [ref=e256]: フィットネスプラス
+                    - generic [ref=e257]: silver
+                  - generic [ref=e258] [cursor=pointer]:
+                    - checkbox "ドリームランドトイズ silver" [ref=e259]
+                    - generic [ref=e260]: ドリームランドトイズ
+                    - generic [ref=e261]: silver
+                  - generic [ref=e262] [cursor=pointer]:
+                    - checkbox "リゾートステイホテルズ bronze" [ref=e263]
+                    - generic [ref=e264]: リゾートステイホテルズ
+                    - generic [ref=e265]: bronze
+                  - generic [ref=e266] [cursor=pointer]:
+                    - checkbox "サクサクフードデリバリー bronze" [ref=e267]
+                    - generic [ref=e268]: サクサクフードデリバリー
+                    - generic [ref=e269]: bronze
+                  - generic [ref=e270] [cursor=pointer]:
+                    - checkbox "Mother Vegetable platinum" [ref=e271]
+                    - generic [ref=e272]: Mother Vegetable
+                    - generic [ref=e273]: platinum
+                  - generic [ref=e274] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e275]
+                    - generic [ref=e276]: テスト企業
+                    - generic [ref=e277]: platinum
+                  - generic [ref=e278] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e279]
+                    - generic [ref=e280]: テスト企業
+                    - generic [ref=e281]: platinum
+                  - generic [ref=e282] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e283]
+                    - generic [ref=e284]: テスト企業
+                    - generic [ref=e285]: platinum
+                  - generic [ref=e286] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e287]
+                    - generic [ref=e288]: テスト企業
+                    - generic [ref=e289]: platinum
+                  - generic [ref=e290] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e291]
+                    - generic [ref=e292]: テスト企業
+                    - generic [ref=e293]: platinum
+                  - generic [ref=e294] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e295]
+                    - generic [ref=e296]: テスト企業
+                    - generic [ref=e297]: platinum
+                  - generic [ref=e298] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e299]
+                    - generic [ref=e300]: テスト企業
+                    - generic [ref=e301]: platinum
+                  - generic [ref=e302] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e303]
+                    - generic [ref=e304]: テスト企業
+                    - generic [ref=e305]: platinum
+                  - generic [ref=e306] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e307]
+                    - generic [ref=e308]: テスト企業
+                    - generic [ref=e309]: platinum
+                  - generic [ref=e310] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e311]
+                    - generic [ref=e312]: テスト企業
+                    - generic [ref=e313]: platinum
+                  - generic [ref=e314] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e315]
+                    - generic [ref=e316]: テスト企業
+                    - generic [ref=e317]: platinum
+                  - generic [ref=e318] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e319]
+                    - generic [ref=e320]: テスト企業
+                    - generic [ref=e321]: platinum
+                  - generic [ref=e322] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e323]
+                    - generic [ref=e324]: テスト企業
+                    - generic [ref=e325]: platinum
+                  - generic [ref=e326] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e327]
+                    - generic [ref=e328]: テスト企業
+                    - generic [ref=e329]: platinum
+                  - generic [ref=e330] [cursor=pointer]:
+                    - checkbox "テスト企業 platinum" [ref=e331]
+                    - generic [ref=e332]: テスト企業
+                    - generic [ref=e333]: platinum
+              - generic [ref=e334]:
+                - button "保存" [ref=e335] [cursor=pointer]
+                - button "キャンセル" [ref=e336] [cursor=pointer]
+          - generic [ref=e337]:
+            - generic [ref=e338]:
+              - generic [ref=e339]:
+                - heading "夏祭り 2026" [level=3] [ref=e340]
+                - paragraph [ref=e341]: 2026-08-15 · 楽しい夏祭りイベント
+                - paragraph [ref=e342]:
+                  - text: "パスワード:"
+                  - code [ref=e343]: SUMMER2026
+                  - generic [ref=e344]: "slug: /e/summer2026"
+              - generic [ref=e345]:
+                - generic [ref=e346]: 346枚
+                - button "夏祭り 2026をクローン" [ref=e347] [cursor=pointer]: クローン
+                - button "夏祭り 2026をテンプレート保存" [ref=e348] [cursor=pointer]: テンプレ保存
+                - button "夏祭り 2026を編集" [ref=e349] [cursor=pointer]: 編集
+                - button "夏祭り 2026を削除" [ref=e350] [cursor=pointer]: 削除
+            - generic [ref=e351]:
+              - generic [ref=e352]: "CM企業:"
+              - generic [ref=e353]: 全企業
+            - generic [ref=e354]:
+              - generic [ref=e355]: "フレーム:"
+              - generic [ref=e356]: デフォルトフレーム
+              - generic [ref=e357]: 既定
+            - generic [ref=e358]:
+              - generic [ref=e359]: 🟢 公開中
+              - button "夏祭り 2026の期限を7日延長" [ref=e360] [cursor=pointer]: +7日
+              - textbox "夏祭り 2026の公開期限を設定" [ref=e361]
+              - button "夏祭り 2026をアーカイブ" [ref=e362] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e363]:
+              - paragraph [ref=e364]: ユーザー向け共有URL
+              - generic [ref=e365]:
+                - code [ref=e366]: https://vls-system.vercel.app/e/summer2026
+                - button "夏祭り 2026のURLをコピー" [ref=e367] [cursor=pointer]: URLコピー
+                - button "夏祭り 2026のQRコードを表示" [ref=e368] [cursor=pointer]: QRコード
+          - generic [ref=e369]:
+            - generic [ref=e370]:
+              - generic [ref=e371]:
+                - heading "運動会 2026" [level=3] [ref=e372]
+                - paragraph [ref=e373]: 2026-10-10 · 秋の大運動会
+                - paragraph [ref=e374]:
+                  - text: "パスワード:"
+                  - code [ref=e375]: SPORTS2026
+                  - generic [ref=e376]: "slug: /e/sports2026"
+              - generic [ref=e377]:
+                - generic [ref=e378]: 9枚
+                - button "運動会 2026をクローン" [ref=e379] [cursor=pointer]: クローン
+                - button "運動会 2026をテンプレート保存" [ref=e380] [cursor=pointer]: テンプレ保存
+                - button "運動会 2026を編集" [ref=e381] [cursor=pointer]: 編集
+                - button "運動会 2026を削除" [ref=e382] [cursor=pointer]: 削除
+            - generic [ref=e383]:
+              - generic [ref=e384]: "CM企業:"
+              - generic [ref=e385]: キッズラーニング株式会社
+              - generic [ref=e386]: テックキッズラボ
+              - generic [ref=e387]: スポーツキッズアカデミー
+              - generic [ref=e388]: ネイチャーキャンプ
+              - generic [ref=e389]: げんきスナック
+              - generic [ref=e390]: げんきドリンクラボ
+              - generic [ref=e391]: フィットネスプラス
+            - generic [ref=e392]:
+              - generic [ref=e393]: "フレーム:"
+              - generic [ref=e394]: デフォルトフレーム
+              - generic [ref=e395]: 既定
+            - generic [ref=e396]:
+              - generic [ref=e397]: 🟢 公開中
+              - button "運動会 2026の期限を7日延長" [ref=e398] [cursor=pointer]: +7日
+              - textbox "運動会 2026の公開期限を設定" [ref=e399]
+              - button "運動会 2026をアーカイブ" [ref=e400] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e401]:
+              - paragraph [ref=e402]: ユーザー向け共有URL
+              - generic [ref=e403]:
+                - code [ref=e404]: https://vls-system.vercel.app/e/sports2026
+                - button "運動会 2026のURLをコピー" [ref=e405] [cursor=pointer]: URLコピー
+                - button "運動会 2026のQRコードを表示" [ref=e406] [cursor=pointer]: QRコード
+          - generic [ref=e407]:
+            - generic [ref=e408]:
+              - generic [ref=e409]:
+                - heading "卒業式 2026" [level=3] [ref=e410]
+                - paragraph [ref=e411]: 2026-03-20 · 感動の卒業式
+                - paragraph [ref=e412]:
+                  - text: "パスワード:"
+                  - code [ref=e413]: GRADUATION2026
+                  - generic [ref=e414]: "slug: /e/graduation2026"
+              - generic [ref=e415]:
+                - generic [ref=e416]: 15枚
+                - button "卒業式 2026をクローン" [ref=e417] [cursor=pointer]: クローン
+                - button "卒業式 2026をテンプレート保存" [ref=e418] [cursor=pointer]: テンプレ保存
+                - button "卒業式 2026を編集" [ref=e419] [cursor=pointer]: 編集
+                - button "卒業式 2026を削除" [ref=e420] [cursor=pointer]: 削除
+            - generic [ref=e421]:
+              - generic [ref=e422]: "CM企業:"
+              - generic [ref=e423]: キッズラーニング株式会社
+              - generic [ref=e424]: すこやか保険グループ
+              - generic [ref=e425]: パシャリカメラ
+              - generic [ref=e426]: スポーツキッズアカデミー
+              - generic [ref=e427]: アートワンダー教室
+              - generic [ref=e428]: こどもブックス
+              - generic [ref=e429]: ドリームランドトイズ
+              - generic [ref=e430]: リゾートステイホテルズ
+            - generic [ref=e431]:
+              - generic [ref=e432]: "フレーム:"
+              - generic [ref=e433]: デフォルトフレーム
+              - generic [ref=e434]: 既定
+            - generic [ref=e435]:
+              - generic [ref=e436]: 🟢 公開中
+              - button "卒業式 2026の期限を7日延長" [ref=e437] [cursor=pointer]: +7日
+              - textbox "卒業式 2026の公開期限を設定" [ref=e438]
+              - button "卒業式 2026をアーカイブ" [ref=e439] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e440]:
+              - paragraph [ref=e441]: ユーザー向け共有URL
+              - generic [ref=e442]:
+                - code [ref=e443]: https://vls-system.vercel.app/e/graduation2026
+                - button "卒業式 2026のURLをコピー" [ref=e444] [cursor=pointer]: URLコピー
+                - button "卒業式 2026のQRコードを表示" [ref=e445] [cursor=pointer]: QRコード
+          - generic [ref=e446]:
+            - generic [ref=e447]:
+              - generic [ref=e448]:
+                - heading "テクノロジーフェス 2026" [level=3] [ref=e449]
+                - paragraph [ref=e450]: 2026-11-23 · 最新テクノロジー体験イベント
+                - paragraph [ref=e451]:
+                  - text: "パスワード:"
+                  - code [ref=e452]: TECHFES2026
+                  - generic [ref=e453]: "slug: /e/techfes2026"
+              - generic [ref=e454]:
+                - generic [ref=e455]: 10枚
+                - button "テクノロジーフェス 2026をクローン" [ref=e456] [cursor=pointer]: クローン
+                - button "テクノロジーフェス 2026をテンプレート保存" [ref=e457] [cursor=pointer]: テンプレ保存
+                - button "テクノロジーフェス 2026を編集" [ref=e458] [cursor=pointer]: 編集
+                - button "テクノロジーフェス 2026を削除" [ref=e459] [cursor=pointer]: 削除
+            - generic [ref=e460]:
+              - generic [ref=e461]: "CM企業:"
+              - generic [ref=e462]: スマートドライブ自動車
+              - generic [ref=e463]: ひかりモバイル
+              - generic [ref=e464]: ゲームキングダム
+              - generic [ref=e465]: スマイルスマホ
+              - generic [ref=e466]: げんきドリンクラボ
+              - generic [ref=e467]: フィットネスプラス
+              - generic [ref=e468]: リゾートステイホテルズ
+              - generic [ref=e469]: サクサクフードデリバリー
+            - generic [ref=e470]:
+              - generic [ref=e471]: "フレーム:"
+              - generic [ref=e472]: デフォルトフレーム
+              - generic [ref=e473]: 既定
+            - generic [ref=e474]:
+              - generic [ref=e475]: 🟢 公開中
+              - button "テクノロジーフェス 2026の期限を7日延長" [ref=e476] [cursor=pointer]: +7日
+              - textbox "テクノロジーフェス 2026の公開期限を設定" [ref=e477]
+              - button "テクノロジーフェス 2026をアーカイブ" [ref=e478] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e479]:
+              - paragraph [ref=e480]: ユーザー向け共有URL
+              - generic [ref=e481]:
+                - code [ref=e482]: https://vls-system.vercel.app/e/techfes2026
+                - button "テクノロジーフェス 2026のURLをコピー" [ref=e483] [cursor=pointer]: URLコピー
+                - button "テクノロジーフェス 2026のQRコードを表示" [ref=e484] [cursor=pointer]: QRコード
+          - generic [ref=e485]:
+            - generic [ref=e486]:
+              - generic [ref=e487]:
+                - heading "テストイベント" [level=3] [ref=e488]
+                - paragraph [ref=e489]: 2026-12-25
+                - paragraph [ref=e490]:
+                  - text: "パスワード:"
+                  - code [ref=e491]: TEST1234
+              - generic [ref=e492]:
+                - generic [ref=e493]: 0枚
+                - button "テストイベントをクローン" [ref=e494] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e495] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e496] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e497] [cursor=pointer]: 削除
+            - generic [ref=e498]:
+              - generic [ref=e499]: "CM企業:"
+              - generic [ref=e500]: 全企業
+            - generic [ref=e501]:
+              - generic [ref=e502]: "フレーム:"
+              - generic [ref=e503]: デフォルトフレーム
+              - generic [ref=e504]: 既定
+            - generic [ref=e505]:
+              - generic [ref=e506]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e507] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e508]
+              - button "テストイベントをアーカイブ" [ref=e509] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e510]:
+              - paragraph [ref=e511]: ユーザー向け共有URL
+              - generic [ref=e512]:
+                - code [ref=e513]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e514] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e515] [cursor=pointer]: QRコード
+          - generic [ref=e516]:
+            - generic [ref=e517]:
+              - generic [ref=e518]:
+                - heading "テストイベント" [level=3] [ref=e519]
+                - paragraph [ref=e520]: 2026-12-25
+                - paragraph [ref=e521]:
+                  - text: "パスワード:"
+                  - code [ref=e522]: TEST1234
+              - generic [ref=e523]:
+                - generic [ref=e524]: 0枚
+                - button "テストイベントをクローン" [ref=e525] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e526] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e527] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e528] [cursor=pointer]: 削除
+            - generic [ref=e529]:
+              - generic [ref=e530]: "CM企業:"
+              - generic [ref=e531]: 全企業
+            - generic [ref=e532]:
+              - generic [ref=e533]: "フレーム:"
+              - generic [ref=e534]: デフォルトフレーム
+              - generic [ref=e535]: 既定
+            - generic [ref=e536]:
+              - generic [ref=e537]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e538] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e539]
+              - button "テストイベントをアーカイブ" [ref=e540] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e541]:
+              - paragraph [ref=e542]: ユーザー向け共有URL
+              - generic [ref=e543]:
+                - code [ref=e544]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e545] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e546] [cursor=pointer]: QRコード
+          - generic [ref=e547]:
+            - generic [ref=e548]:
+              - generic [ref=e549]:
+                - heading "テストイベント" [level=3] [ref=e550]
+                - paragraph [ref=e551]: 2026-12-25
+                - paragraph [ref=e552]:
+                  - text: "パスワード:"
+                  - code [ref=e553]: TEST1234
+              - generic [ref=e554]:
+                - generic [ref=e555]: 0枚
+                - button "テストイベントをクローン" [ref=e556] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e557] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e558] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e559] [cursor=pointer]: 削除
+            - generic [ref=e560]:
+              - generic [ref=e561]: "CM企業:"
+              - generic [ref=e562]: 全企業
+            - generic [ref=e563]:
+              - generic [ref=e564]: "フレーム:"
+              - generic [ref=e565]: デフォルトフレーム
+              - generic [ref=e566]: 既定
+            - generic [ref=e567]:
+              - generic [ref=e568]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e569] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e570]
+              - button "テストイベントをアーカイブ" [ref=e571] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e572]:
+              - paragraph [ref=e573]: ユーザー向け共有URL
+              - generic [ref=e574]:
+                - code [ref=e575]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e576] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e577] [cursor=pointer]: QRコード
+          - generic [ref=e578]:
+            - generic [ref=e579]:
+              - generic [ref=e580]:
+                - heading "テストイベント" [level=3] [ref=e581]
+                - paragraph [ref=e582]: 2026-12-25
+                - paragraph [ref=e583]:
+                  - text: "パスワード:"
+                  - code [ref=e584]: TEST1234
+              - generic [ref=e585]:
+                - generic [ref=e586]: 0枚
+                - button "テストイベントをクローン" [ref=e587] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e588] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e589] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e590] [cursor=pointer]: 削除
+            - generic [ref=e591]:
+              - generic [ref=e592]: "CM企業:"
+              - generic [ref=e593]: 全企業
+            - generic [ref=e594]:
+              - generic [ref=e595]: "フレーム:"
+              - generic [ref=e596]: デフォルトフレーム
+              - generic [ref=e597]: 既定
+            - generic [ref=e598]:
+              - generic [ref=e599]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e600] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e601]
+              - button "テストイベントをアーカイブ" [ref=e602] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e603]:
+              - paragraph [ref=e604]: ユーザー向け共有URL
+              - generic [ref=e605]:
+                - code [ref=e606]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e607] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e608] [cursor=pointer]: QRコード
+          - generic [ref=e609]:
+            - generic [ref=e610]:
+              - generic [ref=e611]:
+                - heading "E2Eテストイベント" [level=3] [ref=e612]
+                - paragraph [ref=e613]: 2026-12-31
+                - paragraph [ref=e614]:
+                  - text: "パスワード:"
+                  - code [ref=e615]: E2ETEST1
+              - generic [ref=e616]:
+                - generic [ref=e617]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e618] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e619] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e620] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e621] [cursor=pointer]: 削除
+            - generic [ref=e622]:
+              - generic [ref=e623]: "CM企業:"
+              - generic [ref=e624]: 全企業
+            - generic [ref=e625]:
+              - generic [ref=e626]: "フレーム:"
+              - generic [ref=e627]: デフォルトフレーム
+              - generic [ref=e628]: 既定
+            - generic [ref=e629]:
+              - generic [ref=e630]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e631] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e632]
+              - button "E2Eテストイベントをアーカイブ" [ref=e633] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e634]:
+              - paragraph [ref=e635]: ユーザー向け共有URL
+              - generic [ref=e636]:
+                - code [ref=e637]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e638] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e639] [cursor=pointer]: QRコード
+          - generic [ref=e640]:
+            - generic [ref=e641]:
+              - generic [ref=e642]:
+                - heading "テストイベント" [level=3] [ref=e643]
+                - paragraph [ref=e644]: 2026-12-25
+                - paragraph [ref=e645]:
+                  - text: "パスワード:"
+                  - code [ref=e646]: TEST1234
+              - generic [ref=e647]:
+                - generic [ref=e648]: 0枚
+                - button "テストイベントをクローン" [ref=e649] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e650] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e651] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e652] [cursor=pointer]: 削除
+            - generic [ref=e653]:
+              - generic [ref=e654]: "CM企業:"
+              - generic [ref=e655]: 全企業
+            - generic [ref=e656]:
+              - generic [ref=e657]: "フレーム:"
+              - generic [ref=e658]: デフォルトフレーム
+              - generic [ref=e659]: 既定
+            - generic [ref=e660]:
+              - generic [ref=e661]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e662] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e663]
+              - button "テストイベントをアーカイブ" [ref=e664] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e665]:
+              - paragraph [ref=e666]: ユーザー向け共有URL
+              - generic [ref=e667]:
+                - code [ref=e668]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e669] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e670] [cursor=pointer]: QRコード
+          - generic [ref=e671]:
+            - generic [ref=e672]:
+              - generic [ref=e673]:
+                - heading "E2Eテストイベント" [level=3] [ref=e674]
+                - paragraph [ref=e675]: 2026-12-31
+                - paragraph [ref=e676]:
+                  - text: "パスワード:"
+                  - code [ref=e677]: E2ETEST1
+              - generic [ref=e678]:
+                - generic [ref=e679]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e680] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e681] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e682] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e683] [cursor=pointer]: 削除
+            - generic [ref=e684]:
+              - generic [ref=e685]: "CM企業:"
+              - generic [ref=e686]: 全企業
+            - generic [ref=e687]:
+              - generic [ref=e688]: "フレーム:"
+              - generic [ref=e689]: デフォルトフレーム
+              - generic [ref=e690]: 既定
+            - generic [ref=e691]:
+              - generic [ref=e692]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e693] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e694]
+              - button "E2Eテストイベントをアーカイブ" [ref=e695] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e696]:
+              - paragraph [ref=e697]: ユーザー向け共有URL
+              - generic [ref=e698]:
+                - code [ref=e699]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e700] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e701] [cursor=pointer]: QRコード
+          - generic [ref=e702]:
+            - generic [ref=e703]:
+              - generic [ref=e704]:
+                - heading "E2Eテストイベント" [level=3] [ref=e705]
+                - paragraph [ref=e706]: 2026-12-31
+                - paragraph [ref=e707]:
+                  - text: "パスワード:"
+                  - code [ref=e708]: E2ETEST1
+              - generic [ref=e709]:
+                - generic [ref=e710]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e711] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e712] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e713] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e714] [cursor=pointer]: 削除
+            - generic [ref=e715]:
+              - generic [ref=e716]: "CM企業:"
+              - generic [ref=e717]: 全企業
+            - generic [ref=e718]:
+              - generic [ref=e719]: "フレーム:"
+              - generic [ref=e720]: デフォルトフレーム
+              - generic [ref=e721]: 既定
+            - generic [ref=e722]:
+              - generic [ref=e723]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e724] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e725]
+              - button "E2Eテストイベントをアーカイブ" [ref=e726] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e727]:
+              - paragraph [ref=e728]: ユーザー向け共有URL
+              - generic [ref=e729]:
+                - code [ref=e730]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e731] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e732] [cursor=pointer]: QRコード
+          - generic [ref=e733]:
+            - generic [ref=e734]:
+              - generic [ref=e735]:
+                - heading "E2Eテストイベント" [level=3] [ref=e736]
+                - paragraph [ref=e737]: 2026-12-31
+                - paragraph [ref=e738]:
+                  - text: "パスワード:"
+                  - code [ref=e739]: E2ETEST1
+              - generic [ref=e740]:
+                - generic [ref=e741]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e742] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e743] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e744] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e745] [cursor=pointer]: 削除
+            - generic [ref=e746]:
+              - generic [ref=e747]: "CM企業:"
+              - generic [ref=e748]: 全企業
+            - generic [ref=e749]:
+              - generic [ref=e750]: "フレーム:"
+              - generic [ref=e751]: デフォルトフレーム
+              - generic [ref=e752]: 既定
+            - generic [ref=e753]:
+              - generic [ref=e754]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e755] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e756]
+              - button "E2Eテストイベントをアーカイブ" [ref=e757] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e758]:
+              - paragraph [ref=e759]: ユーザー向け共有URL
+              - generic [ref=e760]:
+                - code [ref=e761]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e762] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e763] [cursor=pointer]: QRコード
+          - generic [ref=e764]:
+            - generic [ref=e765]:
+              - generic [ref=e766]:
+                - heading "E2Eテストイベント" [level=3] [ref=e767]
+                - paragraph [ref=e768]: 2026-12-31
+                - paragraph [ref=e769]:
+                  - text: "パスワード:"
+                  - code [ref=e770]: E2ETEST1
+              - generic [ref=e771]:
+                - generic [ref=e772]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e773] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e774] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e775] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e776] [cursor=pointer]: 削除
+            - generic [ref=e777]:
+              - generic [ref=e778]: "CM企業:"
+              - generic [ref=e779]: 全企業
+            - generic [ref=e780]:
+              - generic [ref=e781]: "フレーム:"
+              - generic [ref=e782]: デフォルトフレーム
+              - generic [ref=e783]: 既定
+            - generic [ref=e784]:
+              - generic [ref=e785]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e786] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e787]
+              - button "E2Eテストイベントをアーカイブ" [ref=e788] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e789]:
+              - paragraph [ref=e790]: ユーザー向け共有URL
+              - generic [ref=e791]:
+                - code [ref=e792]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e793] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e794] [cursor=pointer]: QRコード
+          - generic [ref=e795]:
+            - generic [ref=e796]:
+              - generic [ref=e797]:
+                - heading "テストイベント" [level=3] [ref=e798]
+                - paragraph [ref=e799]: 2026-12-25
+                - paragraph [ref=e800]:
+                  - text: "パスワード:"
+                  - code [ref=e801]: TEST1234
+              - generic [ref=e802]:
+                - generic [ref=e803]: 0枚
+                - button "テストイベントをクローン" [ref=e804] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e805] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e806] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e807] [cursor=pointer]: 削除
+            - generic [ref=e808]:
+              - generic [ref=e809]: "CM企業:"
+              - generic [ref=e810]: 全企業
+            - generic [ref=e811]:
+              - generic [ref=e812]: "フレーム:"
+              - generic [ref=e813]: デフォルトフレーム
+              - generic [ref=e814]: 既定
+            - generic [ref=e815]:
+              - generic [ref=e816]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e817] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e818]
+              - button "テストイベントをアーカイブ" [ref=e819] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e820]:
+              - paragraph [ref=e821]: ユーザー向け共有URL
+              - generic [ref=e822]:
+                - code [ref=e823]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e824] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e825] [cursor=pointer]: QRコード
+          - generic [ref=e826]:
+            - generic [ref=e827]:
+              - generic [ref=e828]:
+                - heading "E2Eテストイベント" [level=3] [ref=e829]
+                - paragraph [ref=e830]: 2026-12-31
+                - paragraph [ref=e831]:
+                  - text: "パスワード:"
+                  - code [ref=e832]: E2ETEST1
+              - generic [ref=e833]:
+                - generic [ref=e834]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e835] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e836] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e837] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e838] [cursor=pointer]: 削除
+            - generic [ref=e839]:
+              - generic [ref=e840]: "CM企業:"
+              - generic [ref=e841]: 全企業
+            - generic [ref=e842]:
+              - generic [ref=e843]: "フレーム:"
+              - generic [ref=e844]: デフォルトフレーム
+              - generic [ref=e845]: 既定
+            - generic [ref=e846]:
+              - generic [ref=e847]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e848] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e849]
+              - button "E2Eテストイベントをアーカイブ" [ref=e850] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e851]:
+              - paragraph [ref=e852]: ユーザー向け共有URL
+              - generic [ref=e853]:
+                - code [ref=e854]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e855] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e856] [cursor=pointer]: QRコード
+          - generic [ref=e857]:
+            - generic [ref=e858]:
+              - generic [ref=e859]:
+                - heading "テストイベント" [level=3] [ref=e860]
+                - paragraph [ref=e861]: 2026-12-25
+                - paragraph [ref=e862]:
+                  - text: "パスワード:"
+                  - code [ref=e863]: TEST1234
+              - generic [ref=e864]:
+                - generic [ref=e865]: 0枚
+                - button "テストイベントをクローン" [ref=e866] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e867] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e868] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e869] [cursor=pointer]: 削除
+            - generic [ref=e870]:
+              - generic [ref=e871]: "CM企業:"
+              - generic [ref=e872]: 全企業
+            - generic [ref=e873]:
+              - generic [ref=e874]: "フレーム:"
+              - generic [ref=e875]: デフォルトフレーム
+              - generic [ref=e876]: 既定
+            - generic [ref=e877]:
+              - generic [ref=e878]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e879] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e880]
+              - button "テストイベントをアーカイブ" [ref=e881] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e882]:
+              - paragraph [ref=e883]: ユーザー向け共有URL
+              - generic [ref=e884]:
+                - code [ref=e885]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e886] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e887] [cursor=pointer]: QRコード
+          - generic [ref=e888]:
+            - generic [ref=e889]:
+              - generic [ref=e890]:
+                - heading "E2Eテストイベント" [level=3] [ref=e891]
+                - paragraph [ref=e892]: 2026-12-31
+                - paragraph [ref=e893]:
+                  - text: "パスワード:"
+                  - code [ref=e894]: E2ETEST1
+              - generic [ref=e895]:
+                - generic [ref=e896]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e897] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e898] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e899] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e900] [cursor=pointer]: 削除
+            - generic [ref=e901]:
+              - generic [ref=e902]: "CM企業:"
+              - generic [ref=e903]: 全企業
+            - generic [ref=e904]:
+              - generic [ref=e905]: "フレーム:"
+              - generic [ref=e906]: デフォルトフレーム
+              - generic [ref=e907]: 既定
+            - generic [ref=e908]:
+              - generic [ref=e909]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e910] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e911]
+              - button "E2Eテストイベントをアーカイブ" [ref=e912] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e913]:
+              - paragraph [ref=e914]: ユーザー向け共有URL
+              - generic [ref=e915]:
+                - code [ref=e916]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e917] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e918] [cursor=pointer]: QRコード
+          - generic [ref=e919]:
+            - generic [ref=e920]:
+              - generic [ref=e921]:
+                - heading "テストイベント" [level=3] [ref=e922]
+                - paragraph [ref=e923]: 2026-12-25
+                - paragraph [ref=e924]:
+                  - text: "パスワード:"
+                  - code [ref=e925]: TEST1234
+              - generic [ref=e926]:
+                - generic [ref=e927]: 0枚
+                - button "テストイベントをクローン" [ref=e928] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e929] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e930] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e931] [cursor=pointer]: 削除
+            - generic [ref=e932]:
+              - generic [ref=e933]: "CM企業:"
+              - generic [ref=e934]: 全企業
+            - generic [ref=e935]:
+              - generic [ref=e936]: "フレーム:"
+              - generic [ref=e937]: デフォルトフレーム
+              - generic [ref=e938]: 既定
+            - generic [ref=e939]:
+              - generic [ref=e940]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e941] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e942]
+              - button "テストイベントをアーカイブ" [ref=e943] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e944]:
+              - paragraph [ref=e945]: ユーザー向け共有URL
+              - generic [ref=e946]:
+                - code [ref=e947]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e948] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e949] [cursor=pointer]: QRコード
+          - generic [ref=e950]:
+            - generic [ref=e951]:
+              - generic [ref=e952]:
+                - heading "テストイベント" [level=3] [ref=e953]
+                - paragraph [ref=e954]: 2026-12-25
+                - paragraph [ref=e955]:
+                  - text: "パスワード:"
+                  - code [ref=e956]: TEST1234
+              - generic [ref=e957]:
+                - generic [ref=e958]: 0枚
+                - button "テストイベントをクローン" [ref=e959] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e960] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e961] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e962] [cursor=pointer]: 削除
+            - generic [ref=e963]:
+              - generic [ref=e964]: "CM企業:"
+              - generic [ref=e965]: 全企業
+            - generic [ref=e966]:
+              - generic [ref=e967]: "フレーム:"
+              - generic [ref=e968]: デフォルトフレーム
+              - generic [ref=e969]: 既定
+            - generic [ref=e970]:
+              - generic [ref=e971]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e972] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e973]
+              - button "テストイベントをアーカイブ" [ref=e974] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e975]:
+              - paragraph [ref=e976]: ユーザー向け共有URL
+              - generic [ref=e977]:
+                - code [ref=e978]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e979] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e980] [cursor=pointer]: QRコード
+          - generic [ref=e981]:
+            - generic [ref=e982]:
+              - generic [ref=e983]:
+                - heading "E2Eテストイベント" [level=3] [ref=e984]
+                - paragraph [ref=e985]: 2026-12-31
+                - paragraph [ref=e986]:
+                  - text: "パスワード:"
+                  - code [ref=e987]: E2ETEST1
+              - generic [ref=e988]:
+                - generic [ref=e989]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e990] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e991] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e992] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e993] [cursor=pointer]: 削除
+            - generic [ref=e994]:
+              - generic [ref=e995]: "CM企業:"
+              - generic [ref=e996]: 全企業
+            - generic [ref=e997]:
+              - generic [ref=e998]: "フレーム:"
+              - generic [ref=e999]: デフォルトフレーム
+              - generic [ref=e1000]: 既定
+            - generic [ref=e1001]:
+              - generic [ref=e1002]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e1003] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e1004]
+              - button "E2Eテストイベントをアーカイブ" [ref=e1005] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1006]:
+              - paragraph [ref=e1007]: ユーザー向け共有URL
+              - generic [ref=e1008]:
+                - code [ref=e1009]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e1010] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e1011] [cursor=pointer]: QRコード
+          - generic [ref=e1012]:
+            - generic [ref=e1013]:
+              - generic [ref=e1014]:
+                - heading "テストイベント" [level=3] [ref=e1015]
+                - paragraph [ref=e1016]: 2026-12-25
+                - paragraph [ref=e1017]:
+                  - text: "パスワード:"
+                  - code [ref=e1018]: TEST1234
+              - generic [ref=e1019]:
+                - generic [ref=e1020]: 0枚
+                - button "テストイベントをクローン" [ref=e1021] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e1022] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e1023] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e1024] [cursor=pointer]: 削除
+            - generic [ref=e1025]:
+              - generic [ref=e1026]: "CM企業:"
+              - generic [ref=e1027]: 全企業
+            - generic [ref=e1028]:
+              - generic [ref=e1029]: "フレーム:"
+              - generic [ref=e1030]: デフォルトフレーム
+              - generic [ref=e1031]: 既定
+            - generic [ref=e1032]:
+              - generic [ref=e1033]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e1034] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e1035]
+              - button "テストイベントをアーカイブ" [ref=e1036] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1037]:
+              - paragraph [ref=e1038]: ユーザー向け共有URL
+              - generic [ref=e1039]:
+                - code [ref=e1040]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e1041] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e1042] [cursor=pointer]: QRコード
+          - generic [ref=e1043]:
+            - generic [ref=e1044]:
+              - generic [ref=e1045]:
+                - heading "E2Eテストイベント" [level=3] [ref=e1046]
+                - paragraph [ref=e1047]: 2026-12-31
+                - paragraph [ref=e1048]:
+                  - text: "パスワード:"
+                  - code [ref=e1049]: E2ETEST1
+              - generic [ref=e1050]:
+                - generic [ref=e1051]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e1052] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e1053] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e1054] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e1055] [cursor=pointer]: 削除
+            - generic [ref=e1056]:
+              - generic [ref=e1057]: "CM企業:"
+              - generic [ref=e1058]: 全企業
+            - generic [ref=e1059]:
+              - generic [ref=e1060]: "フレーム:"
+              - generic [ref=e1061]: デフォルトフレーム
+              - generic [ref=e1062]: 既定
+            - generic [ref=e1063]:
+              - generic [ref=e1064]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e1065] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e1066]
+              - button "E2Eテストイベントをアーカイブ" [ref=e1067] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1068]:
+              - paragraph [ref=e1069]: ユーザー向け共有URL
+              - generic [ref=e1070]:
+                - code [ref=e1071]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e1072] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e1073] [cursor=pointer]: QRコード
+          - generic [ref=e1074]:
+            - generic [ref=e1075]:
+              - generic [ref=e1076]:
+                - heading "テストイベント" [level=3] [ref=e1077]
+                - paragraph [ref=e1078]: 2026-12-25
+                - paragraph [ref=e1079]:
+                  - text: "パスワード:"
+                  - code [ref=e1080]: TEST1234
+              - generic [ref=e1081]:
+                - generic [ref=e1082]: 0枚
+                - button "テストイベントをクローン" [ref=e1083] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e1084] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e1085] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e1086] [cursor=pointer]: 削除
+            - generic [ref=e1087]:
+              - generic [ref=e1088]: "CM企業:"
+              - generic [ref=e1089]: 全企業
+            - generic [ref=e1090]:
+              - generic [ref=e1091]: "フレーム:"
+              - generic [ref=e1092]: デフォルトフレーム
+              - generic [ref=e1093]: 既定
+            - generic [ref=e1094]:
+              - generic [ref=e1095]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e1096] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e1097]
+              - button "テストイベントをアーカイブ" [ref=e1098] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1099]:
+              - paragraph [ref=e1100]: ユーザー向け共有URL
+              - generic [ref=e1101]:
+                - code [ref=e1102]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e1103] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e1104] [cursor=pointer]: QRコード
+          - generic [ref=e1105]:
+            - generic [ref=e1106]:
+              - generic [ref=e1107]:
+                - heading "テストイベント" [level=3] [ref=e1108]
+                - paragraph [ref=e1109]: 2026-12-25
+                - paragraph [ref=e1110]:
+                  - text: "パスワード:"
+                  - code [ref=e1111]: TEST1234
+              - generic [ref=e1112]:
+                - generic [ref=e1113]: 0枚
+                - button "テストイベントをクローン" [ref=e1114] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e1115] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e1116] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e1117] [cursor=pointer]: 削除
+            - generic [ref=e1118]:
+              - generic [ref=e1119]: "CM企業:"
+              - generic [ref=e1120]: 全企業
+            - generic [ref=e1121]:
+              - generic [ref=e1122]: "フレーム:"
+              - generic [ref=e1123]: デフォルトフレーム
+              - generic [ref=e1124]: 既定
+            - generic [ref=e1125]:
+              - generic [ref=e1126]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e1127] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e1128]
+              - button "テストイベントをアーカイブ" [ref=e1129] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1130]:
+              - paragraph [ref=e1131]: ユーザー向け共有URL
+              - generic [ref=e1132]:
+                - code [ref=e1133]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e1134] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e1135] [cursor=pointer]: QRコード
+          - generic [ref=e1136]:
+            - generic [ref=e1137]:
+              - generic [ref=e1138]:
+                - heading "E2Eテストイベント" [level=3] [ref=e1139]
+                - paragraph [ref=e1140]: 2026-12-31
+                - paragraph [ref=e1141]:
+                  - text: "パスワード:"
+                  - code [ref=e1142]: E2ETEST1
+              - generic [ref=e1143]:
+                - generic [ref=e1144]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e1145] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e1146] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e1147] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e1148] [cursor=pointer]: 削除
+            - generic [ref=e1149]:
+              - generic [ref=e1150]: "CM企業:"
+              - generic [ref=e1151]: 全企業
+            - generic [ref=e1152]:
+              - generic [ref=e1153]: "フレーム:"
+              - generic [ref=e1154]: デフォルトフレーム
+              - generic [ref=e1155]: 既定
+            - generic [ref=e1156]:
+              - generic [ref=e1157]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e1158] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e1159]
+              - button "E2Eテストイベントをアーカイブ" [ref=e1160] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1161]:
+              - paragraph [ref=e1162]: ユーザー向け共有URL
+              - generic [ref=e1163]:
+                - code [ref=e1164]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e1165] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e1166] [cursor=pointer]: QRコード
+          - generic [ref=e1167]:
+            - generic [ref=e1168]:
+              - generic [ref=e1169]:
+                - heading "E2Eテストイベント" [level=3] [ref=e1170]
+                - paragraph [ref=e1171]: 2026-12-31
+                - paragraph [ref=e1172]:
+                  - text: "パスワード:"
+                  - code [ref=e1173]: E2ETEST1
+              - generic [ref=e1174]:
+                - generic [ref=e1175]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e1176] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e1177] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e1178] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e1179] [cursor=pointer]: 削除
+            - generic [ref=e1180]:
+              - generic [ref=e1181]: "CM企業:"
+              - generic [ref=e1182]: 全企業
+            - generic [ref=e1183]:
+              - generic [ref=e1184]: "フレーム:"
+              - generic [ref=e1185]: デフォルトフレーム
+              - generic [ref=e1186]: 既定
+            - generic [ref=e1187]:
+              - generic [ref=e1188]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e1189] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e1190]
+              - button "E2Eテストイベントをアーカイブ" [ref=e1191] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1192]:
+              - paragraph [ref=e1193]: ユーザー向け共有URL
+              - generic [ref=e1194]:
+                - code [ref=e1195]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e1196] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e1197] [cursor=pointer]: QRコード
+          - generic [ref=e1198]:
+            - generic [ref=e1199]:
+              - generic [ref=e1200]:
+                - heading "テストイベント" [level=3] [ref=e1201]
+                - paragraph [ref=e1202]: 2026-12-25
+                - paragraph [ref=e1203]:
+                  - text: "パスワード:"
+                  - code [ref=e1204]: TEST1234
+              - generic [ref=e1205]:
+                - generic [ref=e1206]: 0枚
+                - button "テストイベントをクローン" [ref=e1207] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e1208] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e1209] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e1210] [cursor=pointer]: 削除
+            - generic [ref=e1211]:
+              - generic [ref=e1212]: "CM企業:"
+              - generic [ref=e1213]: 全企業
+            - generic [ref=e1214]:
+              - generic [ref=e1215]: "フレーム:"
+              - generic [ref=e1216]: デフォルトフレーム
+              - generic [ref=e1217]: 既定
+            - generic [ref=e1218]:
+              - generic [ref=e1219]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e1220] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e1221]
+              - button "テストイベントをアーカイブ" [ref=e1222] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1223]:
+              - paragraph [ref=e1224]: ユーザー向け共有URL
+              - generic [ref=e1225]:
+                - code [ref=e1226]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e1227] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e1228] [cursor=pointer]: QRコード
+          - generic [ref=e1229]:
+            - generic [ref=e1230]:
+              - generic [ref=e1231]:
+                - heading "テストイベント" [level=3] [ref=e1232]
+                - paragraph [ref=e1233]: 2026-12-25
+                - paragraph [ref=e1234]:
+                  - text: "パスワード:"
+                  - code [ref=e1235]: TEST1234
+              - generic [ref=e1236]:
+                - generic [ref=e1237]: 0枚
+                - button "テストイベントをクローン" [ref=e1238] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e1239] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e1240] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e1241] [cursor=pointer]: 削除
+            - generic [ref=e1242]:
+              - generic [ref=e1243]: "CM企業:"
+              - generic [ref=e1244]: 全企業
+            - generic [ref=e1245]:
+              - generic [ref=e1246]: "フレーム:"
+              - generic [ref=e1247]: デフォルトフレーム
+              - generic [ref=e1248]: 既定
+            - generic [ref=e1249]:
+              - generic [ref=e1250]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e1251] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e1252]
+              - button "テストイベントをアーカイブ" [ref=e1253] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1254]:
+              - paragraph [ref=e1255]: ユーザー向け共有URL
+              - generic [ref=e1256]:
+                - code [ref=e1257]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e1258] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e1259] [cursor=pointer]: QRコード
+          - generic [ref=e1260]:
+            - generic [ref=e1261]:
+              - generic [ref=e1262]:
+                - heading "E2Eテストイベント" [level=3] [ref=e1263]
+                - paragraph [ref=e1264]: 2026-12-31
+                - paragraph [ref=e1265]:
+                  - text: "パスワード:"
+                  - code [ref=e1266]: E2ETEST1
+              - generic [ref=e1267]:
+                - generic [ref=e1268]: 0枚
+                - button "E2Eテストイベントをクローン" [ref=e1269] [cursor=pointer]: クローン
+                - button "E2Eテストイベントをテンプレート保存" [ref=e1270] [cursor=pointer]: テンプレ保存
+                - button "E2Eテストイベントを編集" [ref=e1271] [cursor=pointer]: 編集
+                - button "E2Eテストイベントを削除" [ref=e1272] [cursor=pointer]: 削除
+            - generic [ref=e1273]:
+              - generic [ref=e1274]: "CM企業:"
+              - generic [ref=e1275]: 全企業
+            - generic [ref=e1276]:
+              - generic [ref=e1277]: "フレーム:"
+              - generic [ref=e1278]: デフォルトフレーム
+              - generic [ref=e1279]: 既定
+            - generic [ref=e1280]:
+              - generic [ref=e1281]: 🟢 公開中
+              - button "E2Eテストイベントの期限を7日延長" [ref=e1282] [cursor=pointer]: +7日
+              - textbox "E2Eテストイベントの公開期限を設定" [ref=e1283]
+              - button "E2Eテストイベントをアーカイブ" [ref=e1284] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1285]:
+              - paragraph [ref=e1286]: ユーザー向け共有URL
+              - generic [ref=e1287]:
+                - code [ref=e1288]: https://vls-system.vercel.app/?pw=E2ETEST1
+                - button "E2EテストイベントのURLをコピー" [ref=e1289] [cursor=pointer]: URLコピー
+                - button "E2EテストイベントのQRコードを表示" [ref=e1290] [cursor=pointer]: QRコード
+          - generic [ref=e1291]:
+            - generic [ref=e1292]:
+              - generic [ref=e1293]:
+                - heading "テストイベント" [level=3] [ref=e1294]
+                - paragraph [ref=e1295]: 2026-12-25
+                - paragraph [ref=e1296]:
+                  - text: "パスワード:"
+                  - code [ref=e1297]: TEST1234
+              - generic [ref=e1298]:
+                - generic [ref=e1299]: 0枚
+                - button "テストイベントをクローン" [ref=e1300] [cursor=pointer]: クローン
+                - button "テストイベントをテンプレート保存" [ref=e1301] [cursor=pointer]: テンプレ保存
+                - button "テストイベントを編集" [ref=e1302] [cursor=pointer]: 編集
+                - button "テストイベントを削除" [ref=e1303] [cursor=pointer]: 削除
+            - generic [ref=e1304]:
+              - generic [ref=e1305]: "CM企業:"
+              - generic [ref=e1306]: 全企業
+            - generic [ref=e1307]:
+              - generic [ref=e1308]: "フレーム:"
+              - generic [ref=e1309]: デフォルトフレーム
+              - generic [ref=e1310]: 既定
+            - generic [ref=e1311]:
+              - generic [ref=e1312]: 🟢 公開中
+              - button "テストイベントの期限を7日延長" [ref=e1313] [cursor=pointer]: +7日
+              - textbox "テストイベントの公開期限を設定" [ref=e1314]
+              - button "テストイベントをアーカイブ" [ref=e1315] [cursor=pointer]: 📦 アーカイブ
+            - generic [ref=e1316]:
+              - paragraph [ref=e1317]: ユーザー向け共有URL
+              - generic [ref=e1318]:
+                - code [ref=e1319]: https://vls-system.vercel.app/?pw=TEST1234
+                - button "テストイベントのURLをコピー" [ref=e1320] [cursor=pointer]: URLコピー
+                - button "テストイベントのQRコードを表示" [ref=e1321] [cursor=pointer]: QRコード
+```

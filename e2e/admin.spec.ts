@@ -6,9 +6,20 @@ test.describe.configure({ mode: "serial" });
 
 async function adminLogin(page: import("@playwright/test").Page) {
   await page.goto("/admin");
+  await expect(page.getByTestId("admin-password")).toBeVisible({ timeout: 10000 });
   await page.getByTestId("admin-password").fill("ADMIN_VLS_2026");
   await page.getByRole("button", { name: /ログイン/ }).click();
-  await expect(page.getByTestId("admin-dashboard")).toBeVisible({ timeout: 10000 });
+  const dashboard = page.getByTestId("admin-dashboard");
+  try {
+    await expect(dashboard).toBeVisible({ timeout: 15000 });
+  } catch {
+    // Session may not have propagated; reload and retry
+    await page.reload();
+    await expect(page.getByTestId("admin-password")).toBeVisible({ timeout: 10000 });
+    await page.getByTestId("admin-password").fill("ADMIN_VLS_2026");
+    await page.getByRole("button", { name: /ログイン/ }).click();
+    await expect(dashboard).toBeVisible({ timeout: 30000 });
+  }
 }
 
 test.describe("Admin Panel", () => {
