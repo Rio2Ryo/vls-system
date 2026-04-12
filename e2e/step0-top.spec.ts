@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.use({ locale: "ja-JP" });
+
 test.describe("STEP 0 – Password Auth (Top Page)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");

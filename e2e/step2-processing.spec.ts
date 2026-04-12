@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.use({ locale: "ja-JP" });
+
 test.describe("STEP 2 – Processing (45s forced CM wait)", () => {
   test.beforeEach(async ({ page }) => {
     // Set session data directly and navigate

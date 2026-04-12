@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.use({ locale: "ja-JP" });
+
 test.describe("STEP 3 – Photos (Multi-Select Gallery)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");

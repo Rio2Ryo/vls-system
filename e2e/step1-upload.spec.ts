@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.use({ locale: "ja-JP" });
+
 test.describe("STEP 1 – Survey (Tag Selection)", () => {
   test.beforeEach(async ({ page }) => {
     // Login first

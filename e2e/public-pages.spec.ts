@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.use({ locale: "ja-JP" });
+
 /**
  * E2E tests for public pages added in Phase 3–14.
  * These pages don't require admin authentication.

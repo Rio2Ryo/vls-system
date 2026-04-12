@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.use({ locale: "ja-JP" });
+
 test.describe("Full Flow – STEP 0 → STEP 5", () => {
   test("STEP 0 → 1 → 2 (UI check) → 3 (multi-select) → 4 (UI check) → 5", async ({ page }) => {
     // ===== STEP 0: Password Auth =====

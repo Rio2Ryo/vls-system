@@ -1,5 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 
+test.use({ locale: "ja-JP" });
+
 async function adminLogin(page: Page) {
   await page.goto("/admin");
   await page.getByTestId("admin-password").fill("ADMIN_VLS_2026", { timeout: 10000 });
