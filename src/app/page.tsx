@@ -48,7 +48,7 @@ function TopPageInner() {
     }
 
     // Check event status
-    const eventStatus = event.status || "active";
+    const eventStatus = event.status || "preparing";
     if (eventStatus === "archived") {
       setError(t("errorArchived"));
       return;

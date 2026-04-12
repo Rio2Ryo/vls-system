@@ -153,7 +153,7 @@ export function getEventBySlug(slug: string): EventData | null {
 }
 
 export function getEventsByStatus(status: EventData["status"]): EventData[] {
-  return getStoredEvents().filter((e) => (e.status || "active") === status);
+  return getStoredEvents().filter((e) => (e.status || "preparing") === status);
 }
 
 // --- Companies ---

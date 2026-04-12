@@ -22,7 +22,7 @@ export default function SlugRedirectPage() {
     }
 
     // Check event status — block archived and preparing
-    const eventStatus = event.status || "active";
+    const eventStatus = event.status || "preparing";
     if (eventStatus === "archived" || eventStatus === "preparing") {
       router.replace("/?error=event-unavailable");
       return;
