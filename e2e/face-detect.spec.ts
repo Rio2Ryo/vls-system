@@ -3,15 +3,22 @@ import { test, expect } from "@playwright/test";
 /**
  * E2E tests for Face Recognition infrastructure (A1).
  * Tests the /api/face/detect endpoint and client model loading.
+ *
+ * Admin-protected routes require x-admin-password header.
+ * CSRF-protected routes require matching csrf_token cookie + x-csrf-token header.
  */
+
+const ADMIN_HEADERS = {
+  "x-csrf-token": "e2e-test-csrf-token",
+  "x-admin-password": "ADMIN_VLS_2026",
+  "Content-Type": "application/json",
+  Cookie: "csrf_token=e2e-test-csrf-token",
+};
 
 test.describe("Face Detection API (/api/face/detect)", () => {
   test("returns error for missing action", async ({ request }) => {
     const res = await request.post("/api/face/detect", {
-      headers: {
-        "x-csrf-token": "e2e-test-csrf-token",
-        "Content-Type": "application/json",
-      },
+      headers: ADMIN_HEADERS,
       data: {},
     });
     expect(res.status()).toBe(400);
@@ -21,10 +28,7 @@ test.describe("Face Detection API (/api/face/detect)", () => {
 
   test("store action validates required fields", async ({ request }) => {
     const res = await request.post("/api/face/detect", {
-      headers: {
-        "x-csrf-token": "e2e-test-csrf-token",
-        "Content-Type": "application/json",
-      },
+      headers: ADMIN_HEADERS,
       data: { action: "store" },
     });
     expect(res.status()).toBe(400);
@@ -34,10 +38,7 @@ test.describe("Face Detection API (/api/face/detect)", () => {
 
   test("search action validates required fields", async ({ request }) => {
     const res = await request.post("/api/face/detect", {
-      headers: {
-        "x-csrf-token": "e2e-test-csrf-token",
-        "Content-Type": "application/json",
-      },
+      headers: ADMIN_HEADERS,
       data: { action: "search", eventId: "evt1" },
     });
     expect(res.status()).toBe(400);
@@ -47,10 +48,7 @@ test.describe("Face Detection API (/api/face/detect)", () => {
 
   test("detect action requires imageUrl", async ({ request }) => {
     const res = await request.post("/api/face/detect", {
-      headers: {
-        "x-csrf-token": "e2e-test-csrf-token",
-        "Content-Type": "application/json",
-      },
+      headers: ADMIN_HEADERS,
       data: { action: "detect" },
     });
     expect(res.status()).toBe(400);
@@ -60,10 +58,7 @@ test.describe("Face Detection API (/api/face/detect)", () => {
 
   test("get action requires eventId or photoId", async ({ request }) => {
     const res = await request.post("/api/face/detect", {
-      headers: {
-        "x-csrf-token": "e2e-test-csrf-token",
-        "Content-Type": "application/json",
-      },
+      headers: ADMIN_HEADERS,
       data: { action: "get" },
     });
     expect(res.status()).toBe(400);
@@ -78,10 +73,7 @@ test.describe("Face Detection API (/api/face/detect)", () => {
 test.describe("Face Search API (/api/face/search)", () => {
   test("validates eventId required", async ({ request }) => {
     const res = await request.post("/api/face/search", {
-      headers: {
-        "x-csrf-token": "e2e-test-csrf-token",
-        "Content-Type": "application/json",
-      },
+      headers: ADMIN_HEADERS,
       data: { queryEmbedding: [0.1, 0.2] },
     });
     expect(res.status()).toBe(400);
@@ -91,10 +83,7 @@ test.describe("Face Search API (/api/face/search)", () => {
 
   test("validates queryEmbedding required", async ({ request }) => {
     const res = await request.post("/api/face/search", {
-      headers: {
-        "x-csrf-token": "e2e-test-csrf-token",
-        "Content-Type": "application/json",
-      },
+      headers: ADMIN_HEADERS,
       data: { eventId: "evt1" },
     });
     expect(res.status()).toBe(400);
@@ -109,10 +98,7 @@ test.describe("Face Search API (/api/face/search)", () => {
 test.describe("Face Index API (/api/face/index)", () => {
   test("validates eventId and photoId required", async ({ request }) => {
     const res = await request.post("/api/face/index", {
-      headers: {
-        "x-csrf-token": "e2e-test-csrf-token",
-        "Content-Type": "application/json",
-      },
+      headers: ADMIN_HEADERS,
       data: {},
     });
     expect(res.status()).toBe(400);
@@ -122,10 +108,7 @@ test.describe("Face Index API (/api/face/index)", () => {
 
   test("returns ok with empty faces array", async ({ request }) => {
     const res = await request.post("/api/face/index", {
-      headers: {
-        "x-csrf-token": "e2e-test-csrf-token",
-        "Content-Type": "application/json",
-      },
+      headers: ADMIN_HEADERS,
       data: { eventId: "evt1", photoId: "photo1", faces: [] },
     });
     expect(res.status()).toBe(200);
