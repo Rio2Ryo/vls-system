@@ -805,3 +805,13 @@
   .search-controls { flex-direction: column; }
   .card { padding: 20px; }
 }
+
+/* Photo grid checkbox — show on hover, always show when checked */
+.photo-checkbox {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+*:hover > .photo-checkbox,
+.photo-checkbox:hover {
+  opacity: 1;
+}

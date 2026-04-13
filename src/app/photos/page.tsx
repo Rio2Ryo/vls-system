@@ -494,6 +494,7 @@ export default function PhotosPage() {
                         return next;
                       });
                     }}
+                    className="photo-checkbox"
                     style={{
                       position: "absolute",
                       top: 6,
@@ -502,13 +503,14 @@ export default function PhotosPage() {
                       height: 26,
                       borderRadius: 6,
                       border: isChecked ? "none" : "2px solid rgba(255,255,255,0.8)",
-                      background: isChecked ? "#3B82F6" : "rgba(0,0,0,0.3)",
+                      background: isChecked ? "#3B82F6" : "rgba(0,0,0,0.2)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       cursor: "pointer",
                       transition: "all 0.15s",
                       boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                      opacity: isChecked ? 1 : 0,
                     }}
                   >
                     {isChecked && (
