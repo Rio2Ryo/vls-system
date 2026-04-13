@@ -59,10 +59,18 @@ export default function PhotosPage() {
   }, []);
 
   // Displayed images: filtered if search active, otherwise all
+  // When search is active, sort by highest similarity score
   const displayedImages = useMemo(() => {
-    if (!matchedImageNames) return allImages;
-    return allImages.filter((name) => matchedImageNames.has(name));
-  }, [allImages, matchedImageNames]);
+    if (!matchedImageNames || !searchResult) return allImages;
+    const filtered = allImages.filter((name) => matchedImageNames.has(name));
+    // Sort by best similarity score descending
+    filtered.sort((a, b) => {
+      const scoreA = Math.max(...searchResult.results.filter(r => r.image_name === a).map(r => r.similarity), 0);
+      const scoreB = Math.max(...searchResult.results.filter(r => r.image_name === b).map(r => r.similarity), 0);
+      return scoreB - scoreA;
+    });
+    return filtered;
+  }, [allImages, matchedImageNames, searchResult]);
 
   // File selection handler
   const handleFiles = useCallback((files: FileList | File[]) => {
@@ -94,6 +102,15 @@ export default function PhotosPage() {
       for (const r of result.results) {
         matched.add(r.image_name);
       }
+
+      console.log('[FaceSearch] HF response:', {
+        total_results: result.total_results,
+        total_matched: result.total_matched,
+        duplicates_removed: result.duplicates_removed,
+        unique_images: matched.size,
+        image_names: Array.from(matched).slice(0, 5),
+      });
+
       setMatchedImageNames(matched.size > 0 ? matched : null);
 
       const noFace = result.query_faces.filter((f) => f.status === "no_face");
@@ -357,7 +374,7 @@ export default function PhotosPage() {
           )}
 
           {/* Search results summary */}
-          {searchResult && (
+          {searchResult && matchedImageNames && (
             <div style={{
               marginTop: 12,
               padding: "10px 14px",
@@ -367,12 +384,10 @@ export default function PhotosPage() {
               color: "#166534",
               border: "1px solid #bbf7d0",
             }}>
-              ✅ {searchResult.total_matched}件マッチ
-              {searchResult.duplicates_removed > 0 && (
-                <span style={{ color: "#888", marginLeft: 8 }}>
-                  (重複除去: {searchResult.duplicates_removed}件)
-                </span>
-              )}
+              ✅ {matchedImageNames.size}枚の写真に一致
+              <span style={{ color: "#888", marginLeft: 8 }}>
+                （{searchResult.total_matched}箇所の顔を検出）
+              </span>
             </div>
           )}
         </motion.div>
@@ -388,7 +403,7 @@ export default function PhotosPage() {
               padding: "4px 12px",
               borderRadius: 20,
             }}>
-              🔍 {displayedImages.length}枚一致
+              🔍 {matchedImageNames.size}枚一致
             </span>
             <button
               onClick={() => {
@@ -518,7 +533,7 @@ export default function PhotosPage() {
                         padding: "2px 6px",
                         borderRadius: 6,
                       }}>
-                        {(match.similarity * 100).toFixed(0)}%
+                        {match.similarity.toFixed(2)}
                       </div>
                     );
                   })()}
