@@ -284,14 +284,14 @@ export default function PhotosPage() {
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div style={{ display: "flex", gap: 10 }}>
+          {/* Action buttons - PC: 横並び, SP: 縦並び */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             <button
               onClick={handleSearch}
               disabled={selectedFiles.length === 0 || searching}
               style={{
-                flex: 1,
-                padding: "10px 16px",
+                flex: "1 1 200px",
+                padding: "12px 16px",
                 borderRadius: 10,
                 border: "none",
                 background: selectedFiles.length > 0 && !searching
@@ -306,51 +306,48 @@ export default function PhotosPage() {
             >
               {searching ? "🔍 検索中..." : "🔍 顔検索"}
             </button>
-            {(selectedFiles.length > 0 || searchResult) && (
+            <button
+              onClick={() => {
+                if (checkedImages.size === 0) return;
+                sessionStorage.setItem("selectedPhotoIds", JSON.stringify(Array.from(checkedImages)));
+                router.push("/downloading");
+              }}
+              disabled={checkedImages.size === 0}
+              style={{
+                flex: "1 1 200px",
+                padding: "12px 16px",
+                borderRadius: 10,
+                border: "none",
+                background: checkedImages.size > 0
+                  ? "linear-gradient(135deg, #3B82F6, #06B6D4)"
+                  : "#e5e7eb",
+                color: checkedImages.size > 0 ? "#fff" : "#999",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: checkedImages.size > 0 ? "pointer" : "not-allowed",
+                transition: "all 0.2s",
+              }}
+            >
+              📥 ダウンロード{checkedImages.size > 0 ? `（${checkedImages.size}枚）` : ""}
+            </button>
+          </div>
+          {(selectedFiles.length > 0 || searchResult) && (
+            <div style={{ textAlign: "right", marginTop: 6 }}>
               <button
                 onClick={handleReset}
                 style={{
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  color: "#666",
-                  fontWeight: 500,
-                  fontSize: 14,
+                  background: "none",
+                  border: "none",
+                  color: "#888",
+                  fontSize: 13,
                   cursor: "pointer",
+                  textDecoration: "underline",
                 }}
               >
                 やり直す
               </button>
-            )}
-
-          {/* Download button */}
-          <button
-            onClick={() => {
-              if (checkedImages.size === 0) return;
-              sessionStorage.setItem("selectedPhotoIds", JSON.stringify(Array.from(checkedImages)));
-              router.push("/downloading");
-            }}
-            disabled={checkedImages.size === 0}
-            style={{
-              width: "100%",
-              marginTop: 10,
-              padding: "10px 16px",
-              borderRadius: 10,
-              border: "none",
-              background: checkedImages.size > 0
-                ? "linear-gradient(135deg, #3B82F6, #06B6D4)"
-                : "#e5e7eb",
-              color: checkedImages.size > 0 ? "#fff" : "#999",
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: checkedImages.size > 0 ? "pointer" : "not-allowed",
-              transition: "all 0.2s",
-            }}
-          >
-            📥 チェックした画像をダウンロード{checkedImages.size > 0 ? `（${checkedImages.size}枚）` : ""}
-          </button>
-          </div>
+            </div>
+          )}
 
           {/* Error message */}
           {errorMsg && (
