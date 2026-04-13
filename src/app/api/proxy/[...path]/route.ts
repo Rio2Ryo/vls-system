@@ -15,9 +15,12 @@ export async function GET(
 ) {
   const { path } = await params;
   const targetPath = path.join('/');
+  const { searchParams } = new URL(request.url);
+  const qs = searchParams.toString();
+  const targetUrl = `${HF_API_URL}/${targetPath}${qs ? `?${qs}` : ''}`;
 
   try {
-    const res = await fetch(`${HF_API_URL}/${targetPath}`, {
+    const res = await fetch(targetUrl, {
       headers: {
         'Authorization': `Bearer ${HF_TOKEN}`,
       },

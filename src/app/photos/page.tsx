@@ -211,8 +211,8 @@ export default function PhotosPage() {
               <div
                 key={i}
                 style={{
-                  width: 100,
-                  height: 100,
+                  flex: 1,
+                  aspectRatio: "1",
                   borderRadius: 10,
                   border: previews[i] ? "2px solid #6EC6FF" : "2px dashed #ddd",
                   background: previews[i] ? "#000" : "#f9f9f9",
@@ -221,7 +221,6 @@ export default function PhotosPage() {
                   justifyContent: "center",
                   position: "relative",
                   overflow: "hidden",
-                  flexShrink: 0,
                 }}
               >
                 {previews[i] ? (

@@ -1,10 +1,14 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useServiceWorker } from "@/components/providers/ServiceWorkerProvider";
 
 export default function OfflineIndicator() {
   const { isOffline, pendingSyncs } = useServiceWorker();
+  const pathname = usePathname();
 
+  // /photos ページでは表示しない
+  if (pathname === "/photos") return null;
   if (!isOffline && pendingSyncs === 0) return null;
 
   return (
