@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { searchFaces, getAllImageNames, getImageUrl } from "@/lib/face-api-client";
+import { searchFaces, getAllImageNames, getImageUrl, getAnnotatedImageUrl } from "@/lib/face-api-client";
 import type { SearchResponse } from "@/lib/face-api-client";
 import "@/app/face-search.css";
 
@@ -510,7 +510,6 @@ export default function PhotosPage() {
                       cursor: "pointer",
                       transition: "all 0.15s",
                       boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                      opacity: isChecked ? 1 : 0,
                     }}
                   >
                     {isChecked && (
@@ -576,7 +575,16 @@ export default function PhotosPage() {
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.9 }}
-                src={getImageUrl(previewImage)}
+                src={(() => {
+                  // If search is active, show annotated image with face bounding boxes
+                  if (searchResult && matchedImageNames?.has(previewImage)) {
+                    const match = searchResult.results.find((r) => r.image_name === previewImage);
+                    if (match) {
+                      return getAnnotatedImageUrl(previewImage, match.face_index);
+                    }
+                  }
+                  return getImageUrl(previewImage);
+                })()}
                 alt={previewImage}
                 onClick={(e) => e.stopPropagation()}
                 style={{
