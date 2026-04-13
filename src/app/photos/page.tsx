@@ -533,7 +533,7 @@ export default function PhotosPage() {
                         padding: "2px 6px",
                         borderRadius: 6,
                       }}>
-                        {match.similarity.toFixed(2)}
+                        スコア {Math.round(match.similarity * 100)}
                       </div>
                     );
                   })()}
