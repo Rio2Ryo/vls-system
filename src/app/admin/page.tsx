@@ -196,18 +196,7 @@ export default function AdminPage() {
       <AdminHeader
         title={IS_DEMO_MODE ? "VLS Admin (Demo)" : adminTenantName ? `VLS Admin — ${adminTenantName}` : "VLS Admin"}
         onLogout={handleLogout}
-        actions={
-          IS_DEMO_MODE ? undefined : (
-            <button
-              onClick={() => { resetToDefaults(); showToast("デフォルトに戻しました"); refreshEvents(); }}
-              aria-label="データをデフォルトにリセット"
-              className="text-xs text-gray-400 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
-              data-testid="admin-reset"
-            >
-              リセット
-            </button>
-          )
-        }
+        actions={undefined}
       />
 
       {/* Active event context bar */}
