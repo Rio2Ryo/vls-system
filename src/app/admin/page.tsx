@@ -10,7 +10,6 @@ import { EventData } from "@/lib/types";
 import AdminHeader from "@/components/admin/AdminHeader";
 import {
   getStoredEvents,
-  resetToDefaults,
 } from "@/lib/store";
 import { IS_DEMO_MODE } from "@/lib/demo";
 
