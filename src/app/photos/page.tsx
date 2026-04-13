@@ -1,16 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { searchFaces, getAllImageNames, getImageUrl } from "@/lib/face-api-client";
 import type { SearchResponse } from "@/lib/face-api-client";
 import "@/app/face-search.css";
 
 export default function PhotosPage() {
+  const router = useRouter();
+
   // --- Image list from HF Space ---
   const [allImages, setAllImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+
+  // --- Selection state ---
+  const [checkedImages, setCheckedImages] = useState<Set<string>>(new Set());
 
   // --- Search state ---
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -317,6 +323,33 @@ export default function PhotosPage() {
                 やり直す
               </button>
             )}
+
+          {/* Download button */}
+          <button
+            onClick={() => {
+              if (checkedImages.size === 0) return;
+              sessionStorage.setItem("selectedPhotoIds", JSON.stringify(Array.from(checkedImages)));
+              router.push("/downloading");
+            }}
+            disabled={checkedImages.size === 0}
+            style={{
+              width: "100%",
+              marginTop: 10,
+              padding: "10px 16px",
+              borderRadius: 10,
+              border: "none",
+              background: checkedImages.size > 0
+                ? "linear-gradient(135deg, #3B82F6, #06B6D4)"
+                : "#e5e7eb",
+              color: checkedImages.size > 0 ? "#fff" : "#999",
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: checkedImages.size > 0 ? "pointer" : "not-allowed",
+              transition: "all 0.2s",
+            }}
+          >
+            📥 チェックした画像をダウンロード{checkedImages.size > 0 ? `（${checkedImages.size}枚）` : ""}
+          </button>
           </div>
 
           {/* Error message */}
@@ -402,57 +435,99 @@ export default function PhotosPage() {
             gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
             gap: 10,
           }}>
-            {displayedImages.map((imageName) => (
-              <motion.div
-                key={imageName}
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                style={{
-                  borderRadius: 10,
-                  overflow: "hidden",
-                  background: "#eee",
-                  position: "relative",
-                  cursor: "pointer",
-                  aspectRatio: "4/3",
-                }}
-                onClick={() => setPreviewImage(imageName)}
-              >
-                <img
-                  src={getImageUrl(imageName)}
-                  alt={imageName}
-                  loading="lazy"
+            {displayedImages.map((imageName) => {
+              const isChecked = checkedImages.has(imageName);
+              return (
+                <motion.div
+                  key={imageName}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
                   style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    display: "block",
+                    borderRadius: 10,
+                    overflow: "hidden",
+                    background: "#eee",
+                    position: "relative",
+                    cursor: "pointer",
+                    aspectRatio: "4/3",
+                    outline: isChecked ? "3px solid #3B82F6" : "none",
+                    outlineOffset: -3,
                   }}
-                />
-                {/* Show similarity score if search is active */}
-                {matchedImageNames && searchResult && (() => {
-                  const match = searchResult.results.find((r) => r.image_name === imageName);
-                  if (!match) return null;
-                  return (
-                    <div style={{
+                >
+                  <img
+                    src={getImageUrl(imageName)}
+                    alt={imageName}
+                    loading="lazy"
+                    onClick={() => setPreviewImage(imageName)}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                  {/* Checkbox */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCheckedImages((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(imageName)) {
+                          next.delete(imageName);
+                        } else {
+                          next.add(imageName);
+                        }
+                        return next;
+                      });
+                    }}
+                    style={{
                       position: "absolute",
                       top: 6,
-                      right: 6,
-                      background: "rgba(0,0,0,0.7)",
-                      color: "#4ade80",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      padding: "2px 6px",
+                      left: 6,
+                      width: 26,
+                      height: 26,
                       borderRadius: 6,
-                    }}>
-                      {(match.similarity * 100).toFixed(0)}%
-                    </div>
-                  );
-                })()}
-              </motion.div>
-            ))}
+                      border: isChecked ? "none" : "2px solid rgba(255,255,255,0.8)",
+                      background: isChecked ? "#3B82F6" : "rgba(0,0,0,0.3)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                    }}
+                  >
+                    {isChecked && (
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 7L5.5 10.5L12 3.5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  {/* Show similarity score if search is active */}
+                  {matchedImageNames && searchResult && (() => {
+                    const match = searchResult.results.find((r) => r.image_name === imageName);
+                    if (!match) return null;
+                    return (
+                      <div style={{
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                        background: "rgba(0,0,0,0.7)",
+                        color: "#4ade80",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "2px 6px",
+                        borderRadius: 6,
+                      }}>
+                        {(match.similarity * 100).toFixed(0)}%
+                      </div>
+                    );
+                  })()}
+                </motion.div>
+              );
+            })}
           </div>
         )}
 
