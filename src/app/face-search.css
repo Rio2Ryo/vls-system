@@ -414,21 +414,38 @@
   flex: 1;
   -webkit-appearance: none;
   appearance: none;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+  height: 6px;
+  background: linear-gradient(90deg, #e0e0e0 0%, #b0b0b0 100%);
+  border-radius: 3px;
   outline: none;
+  cursor: pointer;
 }
 
 .threshold-control input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: var(--accent-primary);
+  background: var(--accent-primary, #6366F1);
   cursor: pointer;
-  border: 2px solid var(--bg-primary);
-  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.threshold-control input[type="range"]::-moz-range-track {
+  height: 6px;
+  background: linear-gradient(90deg, #e0e0e0 0%, #b0b0b0 100%);
+  border-radius: 3px;
+}
+
+.threshold-control input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-primary, #6366F1);
+  cursor: pointer;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
 .threshold-value {

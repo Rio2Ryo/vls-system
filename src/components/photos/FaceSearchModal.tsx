@@ -108,25 +108,51 @@ export default function FaceSearchModal({
 
       // Map image_name → VLS photoId for gallery filtering
       if (onResults && allPhotos.length > 0) {
+        // Build multiple lookup maps for robust matching
         const suffixToPhotoId = new Map<string, string>();
+        const fnToPhotoId = new Map<string, string>();
         for (const p of allPhotos) {
           const url = p.originalUrl || p.thumbnailUrl || "";
           const fn = url.split("/").pop() || "";
+          if (fn) fnToPhotoId.set(fn.toLowerCase(), p.id);
+          // Suffix: everything after the last "-"
           const hi = fn.lastIndexOf("-");
           const suffix = hi >= 0 ? fn.slice(hi + 1) : fn;
-          if (suffix) suffixToPhotoId.set(suffix, p.id);
+          if (suffix) suffixToPhotoId.set(suffix.toLowerCase(), p.id);
         }
 
-        const matchedPhotoIds: string[] = [];
+        const matchedIds = new Set<string>();
         for (const r of result.results) {
-          const hi = r.image_name.lastIndexOf("-");
-          const suffix = hi >= 0 ? r.image_name.slice(hi + 1) : r.image_name;
-          const photoId = suffixToPhotoId.get(suffix);
-          if (photoId && !matchedPhotoIds.includes(photoId)) {
-            matchedPhotoIds.push(photoId);
+          const name = r.image_name;
+          const hi = name.lastIndexOf("-");
+          const suffix = hi >= 0 ? name.slice(hi + 1) : name;
+
+          // Strategy 1: exact suffix match (e.g. "gym_001.jpg")
+          let photoId = suffixToPhotoId.get(suffix.toLowerCase());
+
+          // Strategy 2: VLS filename contains HF suffix or vice versa
+          if (!photoId) {
+            const sLower = suffix.toLowerCase();
+            const entries = Array.from(fnToPhotoId.entries());
+            const found = entries.find(([fn]) => fn.includes(sLower) || fn.endsWith(sLower));
+            if (found) photoId = found[1];
           }
+
+          // Strategy 3: HF image_name contains VLS filename
+          if (!photoId) {
+            const nameLower = name.toLowerCase();
+            const entries = Array.from(fnToPhotoId.entries());
+            const found = entries.find(([fn]) => {
+              const vlsSuffix = fn.split("-").pop() || "";
+              return vlsSuffix && nameLower.includes(vlsSuffix);
+            });
+            if (found) photoId = found[1];
+          }
+
+          if (photoId) matchedIds.add(photoId);
         }
-        onResults(matchedPhotoIds);
+        console.log(`[FaceSearch] results: ${result.results.length}, mapped to ${matchedIds.size} unique photos (allPhotos: ${allPhotos.length})`);
+        onResults(Array.from(matchedIds));
       }
 
       const noFace = result.query_faces.filter((f) => f.status === "no_face");
