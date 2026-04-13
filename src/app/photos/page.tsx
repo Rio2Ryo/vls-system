@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { searchFaces, getAllImageNames, getImageUrl, getFaceCropUrl } from "@/lib/face-api-client";
-import type { SearchResponse, FaceResult } from "@/lib/face-api-client";
+import { searchFaces, getAllImageNames, getImageUrl } from "@/lib/face-api-client";
+import type { SearchResponse } from "@/lib/face-api-client";
 import "@/app/face-search.css";
 
 export default function PhotosPage() {
