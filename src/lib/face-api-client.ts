@@ -149,3 +149,38 @@ export function getFaceCropUrl(imageName: string, faceIndex: number): string {
 export function getAnnotatedImageUrl(imageName: string, faceIndex: number): string {
   return `${PROXY_BASE}/image-annotated/${encodeURIComponent(imageName)}/${faceIndex}`;
 }
+
+/**
+ * Get original image URL from HF Space (via proxy)
+ */
+export function getImageUrl(imageName: string): string {
+  return `${PROXY_BASE}/images/${encodeURIComponent(imageName)}`;
+}
+
+/**
+ * Get all unique image names from HF Space database
+ */
+export async function getAllImageNames(): Promise<string[]> {
+  const names = new Set<string>();
+  let offset = 0;
+  const limit = 500;
+
+  // Paginate through /export-db to get all image names
+  while (true) {
+    const res = await fetch(`${PROXY_BASE}/export-db?offset=${offset}&limit=${limit}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`export-db failed: ${res.status}`);
+    const data = await res.json();
+
+    for (const face of data.faces) {
+      names.add(face.image_name);
+    }
+
+    if (!data.hasMore) break;
+    offset += limit;
+  }
+
+  // Sort by image name for consistent ordering
+  return Array.from(names).sort();
+}
