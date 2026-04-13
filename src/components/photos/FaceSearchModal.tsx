@@ -107,51 +107,45 @@ export default function FaceSearchModal({
       setSearchResult(result);
 
       // Map image_name → VLS photoId for gallery filtering
+      // Both VLS URLs and HF image_names contain the original filename after a timestamp prefix
+      // VLS: "1773571007297-gym_001.jpg" → "gym_001.jpg"
+      // HF:  "imgi_33_1773751174225-gym_001.jpg" → "gym_001.jpg"
       if (onResults && allPhotos.length > 0) {
-        // Build multiple lookup maps for robust matching
-        const suffixToPhotoId = new Map<string, string>();
-        const fnToPhotoId = new Map<string, string>();
+        // Extract original filename: strip timestamp prefix (10+ digits followed by -)
+        const extractOriginal = (name: string): string => {
+          const match = name.match(/\d{10,}-(.+)$/);
+          if (match) return match[1].toLowerCase();
+          // fallback: return as-is
+          return name.toLowerCase();
+        };
+
+        // Build lookup: original filename → photoId
+        const origToPhotoId = new Map<string, string>();
         for (const p of allPhotos) {
           const url = p.originalUrl || p.thumbnailUrl || "";
           const fn = url.split("/").pop() || "";
-          if (fn) fnToPhotoId.set(fn.toLowerCase(), p.id);
-          // Suffix: everything after the last "-"
-          const hi = fn.lastIndexOf("-");
-          const suffix = hi >= 0 ? fn.slice(hi + 1) : fn;
-          if (suffix) suffixToPhotoId.set(suffix.toLowerCase(), p.id);
+          if (fn) {
+            origToPhotoId.set(extractOriginal(fn), p.id);
+          }
         }
 
+        // Match FaceNet results to VLS photos
         const matchedIds = new Set<string>();
+        const unmapped: string[] = [];
         for (const r of result.results) {
-          const name = r.image_name;
-          const hi = name.lastIndexOf("-");
-          const suffix = hi >= 0 ? name.slice(hi + 1) : name;
-
-          // Strategy 1: exact suffix match (e.g. "gym_001.jpg")
-          let photoId = suffixToPhotoId.get(suffix.toLowerCase());
-
-          // Strategy 2: VLS filename contains HF suffix or vice versa
-          if (!photoId) {
-            const sLower = suffix.toLowerCase();
-            const entries = Array.from(fnToPhotoId.entries());
-            const found = entries.find(([fn]) => fn.includes(sLower) || fn.endsWith(sLower));
-            if (found) photoId = found[1];
+          const orig = extractOriginal(r.image_name);
+          const photoId = origToPhotoId.get(orig);
+          if (photoId) {
+            matchedIds.add(photoId);
+          } else {
+            unmapped.push(r.image_name);
           }
-
-          // Strategy 3: HF image_name contains VLS filename
-          if (!photoId) {
-            const nameLower = name.toLowerCase();
-            const entries = Array.from(fnToPhotoId.entries());
-            const found = entries.find(([fn]) => {
-              const vlsSuffix = fn.split("-").pop() || "";
-              return vlsSuffix && nameLower.includes(vlsSuffix);
-            });
-            if (found) photoId = found[1];
-          }
-
-          if (photoId) matchedIds.add(photoId);
         }
-        console.log(`[FaceSearch] results: ${result.results.length}, mapped to ${matchedIds.size} unique photos (allPhotos: ${allPhotos.length})`);
+
+        console.log(`[FaceSearch] ${result.results.length} results → ${matchedIds.size} mapped, ${unmapped.length} unmapped`);
+        if (unmapped.length > 0) {
+          console.log(`[FaceSearch] unmapped examples:`, unmapped.slice(0, 5));
+        }
         onResults(Array.from(matchedIds));
       }
 
