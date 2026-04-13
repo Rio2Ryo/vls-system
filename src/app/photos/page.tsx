@@ -328,7 +328,7 @@ export default function PhotosPage() {
                 transition: "all 0.2s",
               }}
             >
-              📥 ダウンロード{checkedImages.size > 0 ? `（${checkedImages.size}枚）` : ""}
+              📥 チェックした画像をダウンロード{checkedImages.size > 0 ? `（${checkedImages.size}枚）` : ""}
             </button>
           </div>
           {(selectedFiles.length > 0 || searchResult) && (
