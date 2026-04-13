@@ -258,7 +258,7 @@ export default function FaceSearchModal({
               検索したい人物の画像（最大3枚）
             </div>
             <p style={{ fontSize: "12px", color: "#888", margin: "4px 0 12px", lineHeight: 1.5 }}>
-              💡 異なる角度の画像を複数枚アップすると検索精度が上がります
+              💡 複数枚アップすると検索精度が上がります
             </p>
 
             {selectedFiles.length < 3 && (
