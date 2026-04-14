@@ -389,37 +389,8 @@ export default function PhotosPage() {
           )}
         </motion.div>
 
-        {/* Clear filter badge */}
-        {matchedImageNames && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <span style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#7C3AED",
-              background: "#f3e8ff",
-              padding: "4px 12px",
-              borderRadius: 20,
-            }}>
-              🔍 {matchedImageNames.size}枚の類似顔を検出
-            </span>
-            <button
-              onClick={() => {
-                setMatchedImageNames(null);
-                setSearchResult(null);
-              }}
-              style={{
-                fontSize: 12,
-                color: "#888",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                textDecoration: "underline",
-              }}
-            >
-              全て表示
-            </button>
-          </div>
-        )}
+
+
 
         {/* Loading state */}
         {loading && (
