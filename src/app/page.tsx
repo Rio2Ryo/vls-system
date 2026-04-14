@@ -24,6 +24,14 @@ function TopPageInner() {
     return () => trackPageLeave("/", enterTime);
   }, []);
 
+  // Pre-warm HF Space immediately on first page load
+  // User spends time entering password + survey + watching CM = plenty of time for cold start
+  useEffect(() => {
+    fetch('/api/proxy/health', { cache: 'no-store' })
+      .then(() => console.log('[PreWarm] HF Space awake'))
+      .catch(() => {});
+  }, []);
+
   // Auto-fill password from ?pw= query parameter
   useEffect(() => {
     const pw = searchParams.get("pw");
