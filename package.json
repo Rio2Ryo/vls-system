@@ -37,7 +37,7 @@
     "react-dom": "^18",
     "react-grid-layout": "^2.2.2",
     "recharts": "^3.7.0",
-    "resend": "^6.9.2",
+    "resend": "^6.11.0",
     "stripe": "^20.4.0",
     "swr": "^2.4.1",
     "web-push": "^3.6.7",
