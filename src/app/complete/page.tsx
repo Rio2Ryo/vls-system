@@ -266,15 +266,30 @@ export default function CompletePage() {
       const ids: string[] = JSON.parse(sessionStorage.getItem("selectedPhotoIds") || "[]");
       setPhotoCount(ids.length);
 
-      // Resolve actual photo data for downloads
-      const eventId = sessionStorage.getItem("eventId");
-      if (eventId && ids.length > 0) {
+      // Try to resolve from VLS event data first
+      const evtId = sessionStorage.getItem("eventId");
+      if (evtId && ids.length > 0) {
         const events = getStoredEvents();
-        const event = events.find((e) => e.id === eventId);
+        const event = events.find((e) => e.id === evtId);
         if (event) {
           const photos = event.photos.filter((p) => ids.includes(p.id));
-          setSelectedPhotos(photos);
+          if (photos.length > 0) {
+            setSelectedPhotos(photos);
+            return;
+          }
         }
+      }
+
+      // Fallback: ids are HF Space image_names — create synthetic PhotoData
+      if (ids.length > 0) {
+        const hfPhotos: PhotoData[] = ids.map((name) => ({
+          id: name,
+          originalUrl: `/api/proxy/images/${name}`,
+          thumbnailUrl: `/api/proxy/images/${name}`,
+          timestamp: Date.now(),
+          watermarked: false,
+        }));
+        setSelectedPhotos(hfPhotos);
       }
     } catch {
       setPhotoCount(0);
@@ -282,42 +297,34 @@ export default function CompletePage() {
   }, []);
 
   const handleDownloadPhotos = async () => {
-    if (downloading) return;
+    if (downloading || selectedPhotos.length === 0) return;
     trackTap("/complete", "download-button");
     setDownloading(true);
 
-    let didDownload = false;
-    if (selectedPhotos.length > 0) {
-      didDownload = true;
-      for (let i = 0; i < selectedPhotos.length; i++) {
-        const photo = selectedPhotos[i];
-        const ext = photo.originalUrl.includes(".png") ? "png" : "jpg";
-        const filename = `${eventName}_photo_${i + 1}.${ext}`;
-        await downloadImage(photo.originalUrl, filename, eventId);
-        if (i < selectedPhotos.length - 1) {
-          await new Promise((r) => setTimeout(r, 500));
-        }
+    for (let i = 0; i < selectedPhotos.length; i++) {
+      const photo = selectedPhotos[i];
+      const filename = `${eventName}_photo_${i + 1}.jpg`;
+      await downloadImage(photo.originalUrl, filename, eventId);
+      if (i < selectedPhotos.length - 1) {
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
 
     setPhotosDownloaded(true);
     setDownloading(false);
 
-    // Only record download if files were actually downloaded
-    if (didDownload) {
-      const analyticsId = sessionStorage.getItem("analyticsId");
-      if (analyticsId) {
-        updateAnalyticsRecord(analyticsId, {
-          stepsCompleted: { downloaded: true },
-        });
-      }
-      fireWebhook("download_complete", {
-        eventId: sessionStorage.getItem("eventId") || undefined,
-        eventName,
-        participantName: sessionStorage.getItem("respondentName") || undefined,
-        photoCount: selectedPhotos.length,
+    const analyticsId = sessionStorage.getItem("analyticsId");
+    if (analyticsId) {
+      updateAnalyticsRecord(analyticsId, {
+        stepsCompleted: { downloaded: true },
       });
     }
+    fireWebhook("download_complete", {
+      eventId: sessionStorage.getItem("eventId") || undefined,
+      eventName,
+      participantName: sessionStorage.getItem("respondentName") || undefined,
+      photoCount: selectedPhotos.length,
+    });
   };
 
   return (
