@@ -147,14 +147,14 @@ export function getFaceCropUrl(imageName: string, faceIndex: number): string {
  * Get annotated image URL (via proxy)
  */
 export function getAnnotatedImageUrl(imageName: string, faceIndex: number): string {
-  return `${PROXY_BASE}/image-annotated/${encodeURIComponent(imageName)}/${faceIndex}`;
+  return `${PROXY_BASE}/image-annotated/${imageName}/${faceIndex}`;
 }
 
 /**
  * Get original image URL from HF Space (via proxy)
  */
 export function getImageUrl(imageName: string): string {
-  return `${PROXY_BASE}/images/${encodeURIComponent(imageName)}`;
+  return `${PROXY_BASE}/images/${imageName}`;
 }
 
 /**

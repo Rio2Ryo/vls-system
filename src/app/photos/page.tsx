@@ -161,7 +161,7 @@ export default function PhotosPage() {
           </h1>
           <p style={{ color: "#888", fontSize: 14, marginTop: 4 }}>
             {matchedImageNames
-              ? `🔍 ${displayedImages.length}枚一致 / ${allImages.length}枚の写真`
+              ? `🔍 ${displayedImages.length}枚の類似顔を検出 / ${allImages.length}枚の写真`
               : loading
                 ? "読み込み中..."
                 : `${allImages.length}枚の写真が見つかりました`}
@@ -384,10 +384,7 @@ export default function PhotosPage() {
               color: "#166534",
               border: "1px solid #bbf7d0",
             }}>
-              ✅ {matchedImageNames.size}枚の写真に一致
-              <span style={{ color: "#888", marginLeft: 8 }}>
-                （{searchResult.total_matched}箇所の顔を検出）
-              </span>
+              ✅ {matchedImageNames.size}枚の類似顔を検出
             </div>
           )}
         </motion.div>
@@ -403,7 +400,7 @@ export default function PhotosPage() {
               padding: "4px 12px",
               borderRadius: 20,
             }}>
-              🔍 {matchedImageNames.size}枚一致
+              🔍 {matchedImageNames.size}枚の類似顔を検出
             </span>
             <button
               onClick={() => {
