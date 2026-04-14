@@ -470,7 +470,7 @@ export default function PhotosPage() {
                       width: 26,
                       height: 26,
                       borderRadius: 6,
-                      border: isChecked ? "none" : "none",
+                      border: isChecked ? "none" : "2px solid #333",
                       background: isChecked ? "#3B82F6" : "#fff",
                       display: "flex",
                       alignItems: "center",
