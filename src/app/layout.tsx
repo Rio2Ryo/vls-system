@@ -73,7 +73,6 @@ export default async function RootLayout({
                 <DarkModeProvider>
                   <TenantBrandingProvider>
                     <div id="main-content">{children}</div>
-                    <OfflineIndicator />
                     <WebVitals />
                   </TenantBrandingProvider>
                 </DarkModeProvider>
