@@ -7,7 +7,6 @@ import ServiceWorkerProvider from "@/components/providers/ServiceWorkerProvider"
 import TenantBrandingProvider from "@/components/providers/TenantBrandingProvider";
 import DarkModeProvider from "@/components/providers/DarkModeProvider";
 import SkipToContent from "@/components/ui/SkipToContent";
-import OfflineIndicator from "@/components/ui/OfflineIndicator";
 import WebVitals from "@/components/ui/WebVitals";
 import "./globals.css";
 
