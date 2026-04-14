@@ -27,7 +27,7 @@ const ADMIN_PAGES = [
 const CSRF_METHODS = new Set(["POST", "PUT", "DELETE"]);
 
 /** API routes exempt from CSRF (handled externally). */
-const CSRF_EXEMPT = ["/api/auth/", "/api/webhook/stripe", "/api/face/import-embeddings", "/api/face/reindex-insightface", "/api/proxy/"];
+const CSRF_EXEMPT = ["/api/auth/", "/api/webhook/stripe", "/api/face/import-embeddings", "/api/face/reindex-insightface", "/api/proxy/", "/api/send-download-link"];
 
 /**
  * API routes + methods that require admin auth (session or x-admin-password).
