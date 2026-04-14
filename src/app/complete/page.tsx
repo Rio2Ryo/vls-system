@@ -13,6 +13,7 @@ import { fireWebhook } from "@/lib/webhook";
 import { trackPageView, trackPageLeave, trackTap } from "@/lib/tracker";
 import { trackOfferView, trackOfferClick, trackCouponView, trackCouponCopy } from "@/lib/offerTracker";
 
+/* EmailDownloadSection — API未実装のため一時無効化
 function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string; selectedPhotos: PhotoData[] }) {
   const t = useTranslations("Complete");
   const [emailName, setEmailName] = useState("");
@@ -83,6 +84,7 @@ function EmailDownloadSection({ eventName, selectedPhotos }: { eventName: string
     </Card>
   );
 }
+*/
 
 function FrameCanvasPreview({ photo, companyName, eventId }: { photo: PhotoData | null; companyName: string; eventId?: string | null }) {
   const t = useTranslations("Complete");
