@@ -388,8 +388,9 @@ export default function CompletePage() {
           </Button>
         </Card>
 
-        {/* Email download link */}
-        <EmailDownloadSection eventName={eventName} selectedPhotos={selectedPhotos} />
+
+        {/* Email download link — API未実装のため一時非表示 */}
+        {/* <EmailDownloadSection eventName={eventName} selectedPhotos={selectedPhotos} /> */}
 
         {/* Offer cards */}
         {matchedCompany && (
