@@ -11,10 +11,6 @@ interface DownloadRequest {
   eventName?: string;
 }
 
-/**
- * Store download request in localStorage-backed D1 KV store
- * and send email with download link via Resend.
- */
 export async function POST(req: NextRequest) {
   let body: DownloadRequest;
   try {
@@ -23,61 +19,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { name, email, selectedPhotoIds, eventId, eventName } = body;
-  if (!name || !email || !eventId || !selectedPhotoIds?.length) {
-    return NextResponse.json({ error: "name, email, eventId, selectedPhotoIds required" }, { status: 400 });
+  const { name, email, selectedPhotoIds, eventName } = body;
+  if (!name || !email || !selectedPhotoIds?.length) {
+    return NextResponse.json({ error: "name, email, selectedPhotoIds required" }, { status: 400 });
   }
 
-  // Simple email validation
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "Invalid email" }, { status: 400 });
   }
 
-  // Generate token and expiry (7 days)
-  const token = crypto.randomUUID();
-  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
-
-  // Store in D1 via /api/db
-  const record = {
-    id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    eventId,
-    photoIds: selectedPhotoIds,
-    name,
-    email,
-    token,
-    expiresAt,
-    sentAt: Date.now(),
-    createdAt: Date.now(),
-  };
-
-  // Save to D1 KV (download_requests key)
-  try {
-    const existingRes = await fetch(new URL("/api/db?key=vls_download_requests", req.url));
-    let requests: typeof record[] = [];
-    if (existingRes.ok) {
-      const data = await existingRes.json();
-      if (data.value) {
-        requests = JSON.parse(data.value);
-      }
-    }
-    requests.push(record);
-
-    await fetch(new URL("/api/db", req.url), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "vls_download_requests", value: JSON.stringify(requests) }),
-    });
-  } catch {
-    // D1 save failed — continue with email anyway
-  }
-
-  // Send email via Resend
-  const dlUrl = `${APP_URL}/dl/${token}`;
   const evtLabel = eventName || "イベント";
+
+  // Build individual download links for each photo
+  const photoLinks = selectedPhotoIds.map((id: string, i: number) => {
+    const url = `${APP_URL}/api/proxy/images/${encodeURIComponent(id)}`;
+    return `
+      <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+          <a href="${url}" style="color: #6366f1; text-decoration: none; font-size: 14px;">
+            📷 写真 ${i + 1}
+          </a>
+        </td>
+        <td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0; text-align: right;">
+          <a href="${url}" download style="display: inline-block; padding: 6px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-size: 12px;">
+            ダウンロード
+          </a>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
 
   if (RESEND_API_KEY && !RESEND_API_KEY.startsWith("re_placeholder")) {
     try {
-      await fetch("https://api.resend.com/emails", {
+      const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -88,26 +64,41 @@ export async function POST(req: NextRequest) {
           to: [email],
           subject: `${name}様の写真ダウンロードリンクをお届けします｜未来開発ラボ`,
           html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h2 style="color: #333;">${name}様</h2>
-              <p>先日の${evtLabel}にご参加いただきありがとうございました。</p>
-              <p>以下のリンクから<strong>7日以内</strong>に写真をダウンロードしてください。</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${dlUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #6EC6FF, #a78bfa); color: white; text-decoration: none; border-radius: 12px; font-weight: bold;">
-                  写真をダウンロード
-                </a>
+            <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 24px;">
+                <h2 style="color: #1a1a2e; margin-bottom: 4px;">${name}様</h2>
               </div>
-              <p style="color: #999; font-size: 12px;">このリンクの有効期限: ${new Date(expiresAt).toLocaleDateString("ja-JP")}</p>
+              <p style="color: #333; font-size: 14px;">先日の<strong>${evtLabel}</strong>にご参加いただきありがとうございました。</p>
+              <p style="color: #333; font-size: 14px;">以下のリンクから写真をダウンロードしてください。</p>
+              
+              <div style="background: #fafafa; border-radius: 12px; padding: 16px; margin: 24px 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  ${photoLinks}
+                </table>
+              </div>
+
+              <p style="color: #999; font-size: 12px; text-align: center;">
+                ※ 各リンクをクリックすると写真が開きます。右クリック→「名前を付けて保存」でダウンロードできます。
+              </p>
               <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-              <p style="color: #bbb; font-size: 11px;">未来開発ラボ — イベント写真サービス</p>
+              <p style="color: #bbb; font-size: 11px; text-align: center;">未来開発ラボ — イベント写真サービス</p>
             </div>
           `,
         }),
       });
-    } catch {
-      // Email send failed — link still works via token
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error("Resend API error:", res.status, errBody);
+        return NextResponse.json({ error: "Email send failed" }, { status: 500 });
+      }
+    } catch (e) {
+      console.error("Email send error:", e);
+      return NextResponse.json({ error: "Email send failed" }, { status: 500 });
     }
+  } else {
+    return NextResponse.json({ error: "Email service not configured" }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, token, expiresAt });
+  return NextResponse.json({ success: true, expiresAt });
 }
