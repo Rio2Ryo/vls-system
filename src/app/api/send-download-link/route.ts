@@ -30,24 +30,9 @@ export async function POST(req: NextRequest) {
 
   const evtLabel = eventName || "イベント";
 
-  // Build individual download links for each photo
-  const photoLinks = selectedPhotoIds.map((id: string, i: number) => {
-    const url = `${APP_URL}/api/proxy/images/${encodeURIComponent(id)}`;
-    return `
-      <tr>
-        <td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
-          <a href="${url}" style="color: #6366f1; text-decoration: none; font-size: 14px;">
-            📷 写真 ${i + 1}
-          </a>
-        </td>
-        <td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0; text-align: right;">
-          <a href="${url}" download style="display: inline-block; padding: 6px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-size: 12px;">
-            ダウンロード
-          </a>
-        </td>
-      </tr>
-    `;
-  }).join("");
+  // Build download page URL with all photo IDs
+  const photosParam = selectedPhotoIds.map(id => encodeURIComponent(id)).join(",");
+  const dlPageUrl = `${APP_URL}/dl?photos=${photosParam}${body.eventId ? `&event=${encodeURIComponent(body.eventId)}` : ""}`;
 
   const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
 
@@ -69,16 +54,16 @@ export async function POST(req: NextRequest) {
                 <h2 style="color: #1a1a2e; margin-bottom: 4px;">${name}様</h2>
               </div>
               <p style="color: #333; font-size: 14px;">先日の<strong>${evtLabel}</strong>にご参加いただきありがとうございました。</p>
-              <p style="color: #333; font-size: 14px;">以下のリンクから写真をダウンロードしてください。</p>
+              <p style="color: #333; font-size: 14px;">以下のボタンから${selectedPhotoIds.length}枚の写真をフレーム付きでダウンロードできます。</p>
               
-              <div style="background: #fafafa; border-radius: 12px; padding: 16px; margin: 24px 0;">
-                <table style="width: 100%; border-collapse: collapse;">
-                  ${photoLinks}
-                </table>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${dlPageUrl}" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #6EC6FF, #a78bfa); color: white; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px;">
+                  📸 写真をダウンロード（${selectedPhotoIds.length}枚）
+                </a>
               </div>
 
               <p style="color: #999; font-size: 12px; text-align: center;">
-                ※ 各リンクをクリックすると写真が開きます。右クリック→「名前を付けて保存」でダウンロードできます。
+                ※ ボタンをクリックするとダウンロードページが開きます。スポンサー提供のフレーム付きで写真がダウンロードされます。
               </p>
               <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
               <p style="color: #bbb; font-size: 11px; text-align: center;">未来開発ラボ — イベント写真サービス</p>
