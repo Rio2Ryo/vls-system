@@ -144,11 +144,30 @@ function FrameCanvasPreview({ photo, companyName, eventId }: { photo: PhotoData 
   );
 }
 
-/** Load an image as HTMLImageElement (with CORS) */
-function loadImage(src: string): Promise<HTMLImageElement> {
+/** Load an image as HTMLImageElement from a blob URL (avoids CORS tainted canvas) */
+async function loadImageFromUrl(src: string): Promise<HTMLImageElement> {
+  // Fetch as blob first to avoid CORS issues with canvas
+  const res = await fetch(src);
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      URL.revokeObjectURL(blobUrl);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      reject(new Error(`Failed to load image: ${src}`));
+    };
+    img.src = blobUrl;
+  });
+}
+
+/** Load a local image (same-origin, no CORS issues) */
+function loadLocalImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = src;
@@ -159,7 +178,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 async function downloadImage(url: string, filename: string, eventId?: string | null): Promise<void> {
   const frameUrl = getFrameTemplateForEvent(eventId).url || "/frame-template.svg";
   try {
-    const photoImg = await loadImage(url);
+    const photoImg = await loadImageFromUrl(url);
 
     const canvas = document.createElement("canvas");
     canvas.width = photoImg.naturalWidth;
@@ -172,10 +191,10 @@ async function downloadImage(url: string, filename: string, eventId?: string | n
 
     // Overlay active frame (best-effort — skip if loading fails)
     try {
-      const frameImg = await loadImage(frameUrl);
+      const frameImg = await loadLocalImage(frameUrl);
       ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-    } catch {
-      // Frame unavailable — download photo without frame
+    } catch (e) {
+      console.warn("[downloadImage] Frame load failed, downloading without frame:", e);
     }
 
     // Export as blob and download
@@ -190,7 +209,8 @@ async function downloadImage(url: string, filename: string, eventId?: string | n
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
-  } catch {
+  } catch (e) {
+    console.error("[downloadImage] Canvas composite failed, falling back:", e);
     // Fallback: open in new tab without frame
     window.open(url, "_blank");
   }
