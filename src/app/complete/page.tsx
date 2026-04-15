@@ -144,32 +144,13 @@ function FrameCanvasPreview({ photo, companyName, eventId }: { photo: PhotoData 
   );
 }
 
-/** Load an image as HTMLImageElement from a blob URL (avoids CORS tainted canvas) */
-async function loadImageFromUrl(src: string): Promise<HTMLImageElement> {
-  // Fetch as blob first to avoid CORS issues with canvas
-  const res = await fetch(src);
-  const blob = await res.blob();
-  const blobUrl = URL.createObjectURL(blob);
+/** Load an image as HTMLImageElement */
+function loadImage(src: string, useCors = false): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(blobUrl);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(blobUrl);
-      reject(new Error(`Failed to load image: ${src}`));
-    };
-    img.src = blobUrl;
-  });
-}
-
-/** Load a local image (same-origin, no CORS issues) */
-function loadLocalImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
+    if (useCors) img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
-    img.onerror = reject;
+    img.onerror = () => reject(new Error(`Failed to load: ${src}`));
     img.src = src;
   });
 }
@@ -178,7 +159,8 @@ function loadLocalImage(src: string): Promise<HTMLImageElement> {
 async function downloadImage(url: string, filename: string, eventId?: string | null): Promise<void> {
   const frameUrl = getFrameTemplateForEvent(eventId).url || "/frame-template.svg";
   try {
-    const photoImg = await loadImageFromUrl(url);
+    // Load photo with CORS (proxy has Access-Control-Allow-Origin header)
+    const photoImg = await loadImage(url, true);
 
     const canvas = document.createElement("canvas");
     canvas.width = photoImg.naturalWidth;
@@ -189,12 +171,13 @@ async function downloadImage(url: string, filename: string, eventId?: string | n
     // Draw photo first
     ctx.drawImage(photoImg, 0, 0);
 
-    // Overlay active frame (best-effort — skip if loading fails)
+    // Overlay frame (local SVG, no CORS needed)
     try {
-      const frameImg = await loadLocalImage(frameUrl);
+      const frameImg = await loadImage(frameUrl, false);
       ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+      console.log("[downloadImage] Frame composited OK");
     } catch (e) {
-      console.warn("[downloadImage] Frame load failed, downloading without frame:", e);
+      console.warn("[downloadImage] Frame load failed:", e);
     }
 
     // Export as blob and download
@@ -204,15 +187,29 @@ async function downloadImage(url: string, filename: string, eventId?: string | n
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = blobUrl;
-    a.download = filename.replace(/\.\w+$/, ".png"); // always PNG after composite
+    a.download = filename.replace(/\.\w+$/, ".png");
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
+    console.log("[downloadImage] Download triggered:", filename);
   } catch (e) {
-    console.error("[downloadImage] Canvas composite failed, falling back:", e);
-    // Fallback: open in new tab without frame
-    window.open(url, "_blank");
+    console.error("[downloadImage] Failed, falling back to direct download:", e);
+    // Fallback: download without frame via fetch+blob
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(url, "_blank");
+    }
   }
 }
 
