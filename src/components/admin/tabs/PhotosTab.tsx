@@ -12,7 +12,8 @@ interface Props {
   tenantId?: string | null;
 }
 
-export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function PhotosTab({ onSave: _onSave, activeEventId, tenantId }: Props) {
   const [events, setEvts] = useState<EventData[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [hfPhotoCount, setHfPhotoCount] = useState<number | null>(null);
