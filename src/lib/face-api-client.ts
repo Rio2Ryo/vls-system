@@ -161,7 +161,8 @@ const IMAGE_NAMES_CACHE_KEY = '__hf_image_names_cache';
 
 /**
  * Get all unique image names from HF Space database.
- * Uses sessionStorage cache if available (populated by prefetch on /processing).
+ * Uses /api/image-names (server-side aggregation) for speed.
+ * Caches in sessionStorage for instant reuse on /photos.
  */
 export async function getAllImageNames(): Promise<string[]> {
   // Check sessionStorage cache first
@@ -173,53 +174,37 @@ export async function getAllImageNames(): Promise<string[]> {
     }
   }
 
-  const names = new Set<string>();
-  let offset = 0;
-  const limit = 500;
+  // Use server-side API (much faster than client-side pagination)
+  const res = await fetch('/api/image-names', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`image-names failed: ${res.status}`);
+  const data = await res.json();
+  const names: string[] = data.names;
 
-  // Paginate through /export-db to get all image names
-  while (true) {
-    const res = await fetch(`${PROXY_BASE}/export-db?offset=${offset}&limit=${limit}`, {
-      cache: 'no-store',
-    });
-    if (!res.ok) throw new Error(`export-db failed: ${res.status}`);
-    const data = await res.json();
-
-    for (const face of data.faces) {
-      names.add(face.image_name);
-    }
-
-    if (!data.hasMore) break;
-    offset += limit;
-  }
-
-  // Sort by image name for consistent ordering
-  const sorted = Array.from(names).sort();
-
-  // Cache in sessionStorage for reuse on /photos
+  // Cache in sessionStorage
   if (typeof window !== 'undefined') {
     try {
-      sessionStorage.setItem(IMAGE_NAMES_CACHE_KEY, JSON.stringify(sorted));
-      console.log(`[getAllImageNames] Cached ${sorted.length} image names`);
+      sessionStorage.setItem(IMAGE_NAMES_CACHE_KEY, JSON.stringify(names));
+      console.log(`[getAllImageNames] Cached ${names.length} image names`);
     } catch {
-      // sessionStorage full — ignore
+      // sessionStorage full
     }
   }
 
-  return sorted;
+  return names;
 }
 
 /**
  * Prefetch all image names in the background.
- * Call this on /processing page during CM playback so /photos loads instantly.
+ * Call on /survey and /processing so /photos loads instantly.
  */
 export async function prefetchAllImageNames(): Promise<void> {
-  try {
-    // First wake up the Space
-    await fetch(`${PROXY_BASE}/health`, { cache: 'no-store' });
-    console.log('[prefetch] HF Space is awake');
+  // Skip if already cached
+  if (typeof window !== 'undefined' && sessionStorage.getItem(IMAGE_NAMES_CACHE_KEY)) {
+    console.log('[prefetch] Already cached, skipping');
+    return;
+  }
 
-    // Then fetch all image names (will be cached in sessionStorage)
+  try {
     const names = await getAllImageNames();
     console.log(`[prefetch] Prefetched ${names.length} image names`);
   } catch (e) {
