@@ -159,56 +159,49 @@ export function getImageUrl(imageName: string): string {
 
 const IMAGE_NAMES_CACHE_KEY = '__hf_image_names_cache';
 
-/**
- * Get all unique image names from HF Space database.
- * Uses /api/image-names (server-side aggregation) for speed.
- * Caches in sessionStorage for instant reuse on /photos.
- */
 export async function getAllImageNames(): Promise<string[]> {
-  // Check sessionStorage cache first
   if (typeof window !== 'undefined') {
     const cached = sessionStorage.getItem(IMAGE_NAMES_CACHE_KEY);
     if (cached) {
-      console.log('[getAllImageNames] Using cached image names');
       return JSON.parse(cached);
     }
   }
 
-  // Use server-side API (much faster than client-side pagination)
-  const res = await fetch('/api/image-names', { cache: 'no-store' });
-  if (!res.ok) throw new Error(`image-names failed: ${res.status}`);
-  const data = await res.json();
-  const names: string[] = data.names;
+  const names = new Set<string>();
+  let offset = 0;
+  const limit = 500;
 
-  // Cache in sessionStorage
+  while (true) {
+    const res = await fetch(`${PROXY_BASE}/export-db?offset=${offset}&limit=${limit}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`export-db failed: ${res.status}`);
+    const data = await res.json();
+
+    for (const face of data.faces) {
+      names.add(face.image_name);
+    }
+
+    if (!data.hasMore) break;
+    offset += limit;
+  }
+
+  const sorted = Array.from(names).sort();
+
   if (typeof window !== 'undefined') {
     try {
-      sessionStorage.setItem(IMAGE_NAMES_CACHE_KEY, JSON.stringify(names));
-      console.log(`[getAllImageNames] Cached ${names.length} image names`);
-    } catch {
-      // sessionStorage full
-    }
+      sessionStorage.setItem(IMAGE_NAMES_CACHE_KEY, JSON.stringify(sorted));
+    } catch {}
   }
 
-  return names;
+  return sorted;
 }
 
-/**
- * Prefetch all image names in the background.
- * Call on /survey and /processing so /photos loads instantly.
- */
 export async function prefetchAllImageNames(): Promise<void> {
-  // Skip if already cached
   if (typeof window !== 'undefined' && sessionStorage.getItem(IMAGE_NAMES_CACHE_KEY)) {
-    console.log('[prefetch] Already cached, skipping');
     return;
   }
-
   try {
-    const names = await getAllImageNames();
-    console.log(`[prefetch] Prefetched ${names.length} image names`);
-  } catch (e) {
-    console.warn('[prefetch] Pre-fetch failed:', e);
-  }
+    await getAllImageNames();
+  } catch {}
 }
-
