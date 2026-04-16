@@ -10,44 +10,27 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
  * GET /api/image-names
- * Fetches all image names from HF Space server-side (sequential).
+ * Calls HF Space /image-names endpoint (returns only names, no embeddings).
+ * Single request, ~100ms instead of 17 requests × ~300ms = ~5s.
  */
 export async function GET() {
-  // Return cached if fresh
   if (cachedNames && (Date.now() - cacheTime) < CACHE_TTL) {
     return NextResponse.json({ names: cachedNames, cached: true });
   }
 
   try {
-    const names = new Set<string>();
-    let offset = 0;
-    const limit = 500;
+    const res = await fetch(`${HF_API_URL}/image-names`, {
+      headers: { 'Authorization': `Bearer ${HF_TOKEN}` },
+      cache: 'no-store',
+    });
 
-    while (true) {
-      const res = await fetch(
-        `${HF_API_URL}/export-db?offset=${offset}&limit=${limit}`,
-        {
-          headers: { 'Authorization': `Bearer ${HF_TOKEN}` },
-          cache: 'no-store',
-        }
-      );
+    if (!res.ok) throw new Error(`image-names failed: ${res.status}`);
+    const data = await res.json();
 
-      if (!res.ok) throw new Error(`export-db failed: ${res.status}`);
-      const data = await res.json();
-
-      for (const face of data.faces) {
-        names.add(face.image_name);
-      }
-
-      if (!data.hasMore) break;
-      offset += limit;
-    }
-
-    const sorted = Array.from(names).sort();
-    cachedNames = sorted;
+    cachedNames = data.names;
     cacheTime = Date.now();
 
-    return NextResponse.json({ names: sorted, cached: false });
+    return NextResponse.json({ names: data.names, cached: false });
   } catch (error) {
     console.error('[image-names] Error:', error);
     if (cachedNames) {
