@@ -13,6 +13,7 @@ import { InterestTag } from "@/lib/types";
 import { sendNotification } from "@/lib/notify";
 import { fireWebhook } from "@/lib/webhook";
 import { trackPageView, trackPageLeave, trackFormSubmit } from "@/lib/tracker";
+import { prefetchAllImageNames } from "@/lib/face-api-client";
 
 export default function SurveyPage() {
   const router = useRouter();
@@ -31,6 +32,12 @@ export default function SurveyPage() {
     trackPageView("/survey");
     const enterTime = Date.now();
     return () => trackPageLeave("/survey", enterTime);
+  }, []);
+
+  // Start prefetching HF Space image names immediately
+  // User spends time on survey + CM = plenty of time for cold start + data load
+  useEffect(() => {
+    prefetchAllImageNames();
   }, []);
 
   useEffect(() => {
