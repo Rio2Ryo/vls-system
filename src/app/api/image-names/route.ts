@@ -12,27 +12,6 @@ export async function GET() {
     return NextResponse.json({ names: cachedNames, cached: true });
   }
 
-  const headers = { 'Authorization': `Bearer ${HF_TOKEN}` };
-
-  try {
-    // Try new lightweight endpoint first
-    const fastRes = await fetch(`${HF_API_URL}/image-names`, {
-      headers,
-      cache: 'no-store',
-      signal: AbortSignal.timeout(3000),
-    });
-
-    if (fastRes.ok) {
-      const data = await fastRes.json();
-      cachedNames = data.names;
-      cacheTime = Date.now();
-      return NextResponse.json({ names: data.names, cached: false });
-    }
-  } catch {
-    // /image-names not available, fall back to export-db
-  }
-
-  // Fallback: sequential export-db pagination
   try {
     const names = new Set<string>();
     let offset = 0;
@@ -41,7 +20,10 @@ export async function GET() {
     while (true) {
       const res = await fetch(
         `${HF_API_URL}/export-db?offset=${offset}&limit=${limit}`,
-        { headers, cache: 'no-store' }
+        {
+          headers: { 'Authorization': `Bearer ${HF_TOKEN}` },
+          cache: 'no-store',
+        }
       );
       if (!res.ok) throw new Error(`export-db failed: ${res.status}`);
       const data = await res.json();
