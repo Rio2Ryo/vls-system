@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { getAllImageNames } from "@/lib/face-api-client";
 import dynamic from "next/dynamic";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -57,6 +58,7 @@ export default function AdminPage() {
   const [toast, setToast] = useState("");
   const [activeEventId, setActiveEventId] = useState<string>("");
   const [adminEvents, setAdminEvents] = useState<EventData[]>([]);
+  const [hfPhotoCount, setHfPhotoCount] = useState<number | null>(null);
 
   // Super admin tenant context switching (still via sessionStorage)
   const [contextTenantId, setContextTenantId] = useState<string | null>(null);
@@ -79,6 +81,16 @@ export default function AdminPage() {
     if (evts.length > 0 && !activeEventId) setActiveEventId(evts[0].id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed, adminTenantId]);
+
+  // Fetch real photo count from HF Space
+  useEffect(() => {
+    if (!authed) return;
+    let cancelled = false;
+    getAllImageNames()
+      .then((names) => { if (!cancelled) setHfPhotoCount(names.length); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [authed]);
 
   const refreshEvents = useCallback(() => {
     const allEvts = getStoredEvents();
@@ -218,7 +230,7 @@ export default function AdminPage() {
                 data-testid={`ctx-event-${evt.id}`}
               >
                 {evt.name}
-                <span className="ml-1 opacity-60">({evt.photos.length}枚)</span>
+                <span className="ml-1 opacity-60">({hfPhotoCount !== null ? hfPhotoCount : evt.photos.length}枚)</span>
               </button>
             ))}
           </div>
