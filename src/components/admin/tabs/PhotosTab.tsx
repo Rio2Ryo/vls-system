@@ -19,6 +19,9 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const [loading, setLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     const evts = tenantId ? getEventsForTenant(tenantId) : getStoredEvents();
@@ -34,6 +37,10 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const loadImages = useCallback(async () => {
     setLoading(true);
     try {
+      // Clear sessionStorage cache to get fresh data
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("__hf_image_names_cache");
+      }
       const names = await getAllImageNames();
       setImageNames(names);
     } catch {
@@ -55,18 +62,76 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   const photoCount = isSummerEvent ? imageNames.length : (selectedEvent?.photos?.length ?? 0);
 
+  // Upload photos to HF Space
+  const handleUpload = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter((f) =>
+      /\.(jpe?g|png|webp|bmp)$/i.test(f.name)
+    );
+    if (fileArray.length === 0) {
+      onSave("アップロード可能なファイルがありません");
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress({ current: 0, total: fileArray.length });
+
+    // Upload in batches of 5 to avoid timeout
+    const BATCH_SIZE = 5;
+    let totalUploaded = 0;
+    let totalFaces = 0;
+
+    for (let i = 0; i < fileArray.length; i += BATCH_SIZE) {
+      const batch = fileArray.slice(i, i + BATCH_SIZE);
+      const formData = new FormData();
+      batch.forEach((file) => formData.append("images", file));
+
+      try {
+        const res = await fetch("/api/proxy/upload-images", {
+          method: "POST",
+          body: formData,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          totalUploaded += data.uploaded ?? 0;
+          totalFaces += data.faces_found ?? 0;
+        }
+      } catch {
+        // continue with next batch
+      }
+      setUploadProgress({ current: Math.min(i + BATCH_SIZE, fileArray.length), total: fileArray.length });
+    }
+
+    setUploading(false);
+    setUploadProgress({ current: 0, total: 0 });
+    onSave(`${totalUploaded}枚アップロード完了（${totalFaces}件の顔を検出）`);
+
+    // Reload image list
+    await loadImages();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) handleUpload(e.target.files);
+  };
+
   // Delete a photo from HF Space
   const handleDelete = async (imageName: string) => {
     if (!window.confirm(`「${imageName}」を削除しますか？`)) return;
     setDeleting(imageName);
     try {
-      const res = await fetch(`/api/proxy/delete-image`, {
+      const res = await fetch("/api/proxy/delete-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image_name: imageName }),
       });
       if (res.ok) {
         setImageNames((prev) => prev.filter((n) => n !== imageName));
+        if (previewImage === imageName) setPreviewImage(null);
         onSave(`${imageName} を削除しました`);
       } else {
         onSave("削除に失敗しました");
@@ -97,6 +162,55 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
           ))}
         </select>
       </Card>
+
+      {/* Upload zone - summer event only */}
+      {isSummerEvent && (
+        <Card>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="写真をドラッグ＆ドロップまたはクリックして追加"
+            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+              dragging ? "border-[#6EC6FF] bg-blue-50" : "border-gray-200 hover:border-[#6EC6FF]"
+            } ${uploading ? "pointer-events-none opacity-60" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => !uploading && document.getElementById("admin-photo-upload")?.click()}
+            onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !uploading) { e.preventDefault(); document.getElementById("admin-photo-upload")?.click(); } }}
+          >
+            {uploading ? (
+              <>
+                <div className="text-3xl mb-2 animate-pulse">📤</div>
+                <p className="font-medium text-gray-600 text-sm">
+                  アップロード中... ({uploadProgress.current}/{uploadProgress.total})
+                </p>
+                <div className="w-48 mx-auto mt-2 bg-gray-200 rounded-full h-1.5">
+                  <div
+                    className="bg-[#6EC6FF] h-1.5 rounded-full transition-all"
+                    style={{ width: `${uploadProgress.total > 0 ? (uploadProgress.current / uploadProgress.total) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2">HF Spaceに直接アップロード＆顔検出を実行中</p>
+              </>
+            ) : (
+              <>
+                <div className="text-3xl mb-1">➕</div>
+                <p className="font-medium text-gray-600 text-sm">写真を追加</p>
+                <p className="text-[10px] text-gray-400 mt-1">ドラッグ＆ドロップ or クリック（JPEG, PNG, WebP）</p>
+              </>
+            )}
+            <input
+              id="admin-photo-upload"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/bmp"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+          </div>
+        </Card>
+      )}
 
       {/* Photo grid */}
       {isSummerEvent && (
@@ -188,7 +302,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
               {previewImage}
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); handleDelete(previewImage); setPreviewImage(null); }}
+              onClick={(e) => { e.stopPropagation(); handleDelete(previewImage); }}
               className="text-sm px-4 py-1.5 rounded-full bg-red-500 text-white font-medium hover:bg-red-600"
             >
               この写真を削除
