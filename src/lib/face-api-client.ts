@@ -157,10 +157,22 @@ export function getImageUrl(imageName: string): string {
   return `${PROXY_BASE}/images/${imageName}`;
 }
 
+const IMAGE_NAMES_CACHE_KEY = '__hf_image_names_cache';
+
 /**
- * Get all unique image names from HF Space database
+ * Get all unique image names from HF Space database.
+ * Uses sessionStorage cache if available (populated by prefetch on /processing).
  */
 export async function getAllImageNames(): Promise<string[]> {
+  // Check sessionStorage cache first
+  if (typeof window !== 'undefined') {
+    const cached = sessionStorage.getItem(IMAGE_NAMES_CACHE_KEY);
+    if (cached) {
+      console.log('[getAllImageNames] Using cached image names');
+      return JSON.parse(cached);
+    }
+  }
+
   const names = new Set<string>();
   let offset = 0;
   const limit = 500;
@@ -182,5 +194,36 @@ export async function getAllImageNames(): Promise<string[]> {
   }
 
   // Sort by image name for consistent ordering
-  return Array.from(names).sort();
+  const sorted = Array.from(names).sort();
+
+  // Cache in sessionStorage for reuse on /photos
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem(IMAGE_NAMES_CACHE_KEY, JSON.stringify(sorted));
+      console.log(`[getAllImageNames] Cached ${sorted.length} image names`);
+    } catch {
+      // sessionStorage full — ignore
+    }
+  }
+
+  return sorted;
 }
+
+/**
+ * Prefetch all image names in the background.
+ * Call this on /processing page during CM playback so /photos loads instantly.
+ */
+export async function prefetchAllImageNames(): Promise<void> {
+  try {
+    // First wake up the Space
+    await fetch(`${PROXY_BASE}/health`, { cache: 'no-store' });
+    console.log('[prefetch] HF Space is awake');
+
+    // Then fetch all image names (will be cached in sessionStorage)
+    const names = await getAllImageNames();
+    console.log(`[prefetch] Prefetched ${names.length} image names`);
+  } catch (e) {
+    console.warn('[prefetch] Pre-fetch failed:', e);
+  }
+}
+

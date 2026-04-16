@@ -10,6 +10,7 @@ import VideoPlayer from "@/components/cm/VideoPlayer";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import { prefetchAllImageNames } from "@/lib/face-api-client";
 import { getCMMatch } from "@/lib/matching";
 import { updateAnalyticsRecord } from "@/lib/store";
 import { InterestTag } from "@/lib/types";
@@ -138,20 +139,10 @@ export default function ProcessingPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Pre-warm HF Space while CM video is playing
-  // This wakes up the Space from cold sleep so /photos loads instantly
+  // Pre-warm HF Space and prefetch ALL image names while CM video is playing
+  // Results are cached in sessionStorage so /photos loads instantly
   useEffect(() => {
-    const warmUp = async () => {
-      try {
-        await fetch('/api/proxy/health', { cache: 'no-store' });
-        console.log('[PreWarm] HF Space is awake');
-        await fetch('/api/proxy/export-db?offset=0&limit=500', { cache: 'no-store' });
-        console.log('[PreWarm] Image list prefetched');
-      } catch (e) {
-        console.warn('[PreWarm] HF Space warm-up failed:', e);
-      }
-    };
-    warmUp();
+    prefetchAllImageNames();
   }, []);
 
   const progress = (elapsed / TOTAL_SECONDS) * 100;
