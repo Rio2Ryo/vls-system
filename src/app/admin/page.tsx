@@ -230,7 +230,7 @@ export default function AdminPage() {
                 data-testid={`ctx-event-${evt.id}`}
               >
                 {evt.name}
-                <span className="ml-1 opacity-60">({hfPhotoCount !== null ? hfPhotoCount : evt.photos.length}枚)</span>
+                <span className="ml-1 opacity-60">({evt.id === "evt-summer" && hfPhotoCount !== null ? hfPhotoCount : evt.photos.length}枚)</span>
               </button>
             ))}
           </div>

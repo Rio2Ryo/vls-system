@@ -47,7 +47,8 @@ export default function PhotosTab({ onSave: _onSave, activeEventId, tenantId }: 
   }, [selectedEventId]);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
-  const photoCount = hfPhotoCount ?? selectedEvent?.photos?.length ?? 0;
+  const isSummerEvent = selectedEventId === "evt-summer";
+  const photoCount = isSummerEvent && hfPhotoCount !== null ? hfPhotoCount : (selectedEvent?.photos?.length ?? 0);
 
   return (
     <div className="space-y-4" data-testid="admin-photos">
@@ -63,7 +64,7 @@ export default function PhotosTab({ onSave: _onSave, activeEventId, tenantId }: 
         >
           {events.map((evt) => (
             <option key={evt.id} value={evt.id}>
-              {evt.name} ({evt.id === selectedEventId && hfPhotoCount !== null ? hfPhotoCount : evt.photos.length}枚)
+              {evt.name} ({evt.id === "evt-summer" && hfPhotoCount !== null ? hfPhotoCount : evt.photos.length}枚)
             </option>
           ))}
         </select>
