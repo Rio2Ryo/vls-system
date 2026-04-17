@@ -34,17 +34,16 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   }, [activeEventId, tenantId]);
 
   // Fetch all image names from HF Space
-  const loadImages = useCallback(async () => {
+  const loadImages = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     try {
-      // Clear sessionStorage cache to get fresh data
-      if (typeof window !== "undefined") {
+      if (forceRefresh && typeof window !== "undefined") {
         sessionStorage.removeItem("__hf_image_names_cache");
       }
       const names = await getAllImageNames();
       setImageNames(names);
     } catch {
-      setImageNames([]);
+      // Keep existing images on error instead of clearing
     } finally {
       setLoading(false);
     }
@@ -105,8 +104,8 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     setUploadProgress({ current: 0, total: 0 });
     onSave(`${totalUploaded}枚アップロード完了（${totalFaces}件の顔を検出）`);
 
-    // Reload image list
-    await loadImages();
+    // Reload image list with fresh data
+    await loadImages(true);
   };
 
   const handleDrop = (e: React.DragEvent) => {
