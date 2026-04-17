@@ -131,6 +131,10 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
       if (res.ok) {
         setImageNames((prev) => prev.filter((n) => n !== imageName));
         if (previewImage === imageName) setPreviewImage(null);
+        // Clear cache so deleted image doesn't reappear on reload
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("__hf_image_names_cache");
+        }
         onSave(`${imageName} を削除しました`);
       } else {
         onSave("削除に失敗しました");
