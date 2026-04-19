@@ -294,10 +294,13 @@ export default function CompaniesTab({ onSave }: Props) {
                 &times;
               </button>
             </div>
-            <div className="space-y-3">
-              <input className={inputCls} placeholder="企業名" aria-label="企業名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="company-name-input" />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">企業名</label>
+                <input className={inputCls} placeholder="企業名を入力" aria-label="企業名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="company-name-input" />
+              </div>
               <div className="border border-gray-100 rounded-xl p-3 space-y-2">
-                <p className="text-xs font-bold text-gray-500">企業ロゴ</p>
+                <p className="text-xs font-bold text-gray-600">企業ロゴ</p>
                 <div className="flex items-center gap-3">
                   {logoPreview && (
                     <Image src={logoPreview} alt="ロゴプレビュー" width={64} height={64} className="rounded-full object-cover border border-gray-200" unoptimized />
@@ -316,23 +319,50 @@ export default function CompaniesTab({ onSave }: Props) {
                   </div>
                 </div>
               </div>
-              <select className={inputCls} aria-label="ティア選択" value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value as CompanyTier })} data-testid="company-tier-select">
-                <option value="platinum">Platinum</option>
-                <option value="gold">Gold</option>
-                <option value="silver">Silver</option>
-                <option value="bronze">Bronze</option>
-              </select>
-              <TagInput value={form.tags} onChange={(v) => setForm({ ...form, tags: v })} />
-              <div className="border border-gray-100 rounded-xl p-3 space-y-2">
-                <p className="text-xs font-bold text-gray-500">CM動画 YouTube ID</p>
-                <input className={inputCls + " font-mono"} placeholder="15秒CM（YouTube URLまたはID）" aria-label="15秒CM YouTube ID" value={form.cm15} onChange={(e) => setForm({ ...form, cm15: extractYouTubeId(e.target.value) })} data-testid="company-cm15-input" />
-                <input className={inputCls + " font-mono"} placeholder="30秒CM（YouTube URLまたはID）" aria-label="30秒CM YouTube ID" value={form.cm30} onChange={(e) => setForm({ ...form, cm30: extractYouTubeId(e.target.value) })} data-testid="company-cm30-input" />
-                <input className={inputCls + " font-mono"} placeholder="60秒CM（YouTube URLまたはID）" aria-label="60秒CM YouTube ID" value={form.cm60} onChange={(e) => setForm({ ...form, cm60: extractYouTubeId(e.target.value) })} data-testid="company-cm60-input" />
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">ティア</label>
+                <select className={inputCls} aria-label="ティア選択" value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value as CompanyTier })} data-testid="company-tier-select">
+                  <option value="platinum">Platinum</option>
+                  <option value="gold">Gold</option>
+                  <option value="silver">Silver</option>
+                  <option value="bronze">Bronze</option>
+                </select>
               </div>
-              <input className={inputCls} placeholder="オファーテキスト" aria-label="オファーテキスト" value={form.offerText} onChange={(e) => setForm({ ...form, offerText: e.target.value })} />
-              <input className={inputCls} placeholder="オファーURL" aria-label="オファーURL" value={form.offerUrl} onChange={(e) => setForm({ ...form, offerUrl: e.target.value })} />
-              <input className={inputCls + " font-mono"} placeholder="クーポンコード（任意）" aria-label="クーポンコード" value={form.couponCode} onChange={(e) => setForm({ ...form, couponCode: e.target.value })} />
-              <input className={inputCls + " font-mono"} placeholder="ポータルパスワード（任意）" aria-label="ポータルパスワード" value={form.portalPassword} onChange={(e) => setForm({ ...form, portalPassword: e.target.value })} />
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">タグ</label>
+                <TagInput value={form.tags} onChange={(v) => setForm({ ...form, tags: v })} />
+              </div>
+              <div className="border border-gray-100 rounded-xl p-3 space-y-2">
+                <p className="text-xs font-bold text-gray-600">CM動画 YouTube ID</p>
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-400 mb-0.5">15秒CM</label>
+                  <input className={inputCls + " font-mono"} placeholder="YouTube URLまたはID" aria-label="15秒CM YouTube ID" value={form.cm15} onChange={(e) => setForm({ ...form, cm15: extractYouTubeId(e.target.value) })} data-testid="company-cm15-input" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-400 mb-0.5">30秒CM</label>
+                  <input className={inputCls + " font-mono"} placeholder="YouTube URLまたはID" aria-label="30秒CM YouTube ID" value={form.cm30} onChange={(e) => setForm({ ...form, cm30: extractYouTubeId(e.target.value) })} data-testid="company-cm30-input" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-400 mb-0.5">60秒CM</label>
+                  <input className={inputCls + " font-mono"} placeholder="YouTube URLまたはID" aria-label="60秒CM YouTube ID" value={form.cm60} onChange={(e) => setForm({ ...form, cm60: extractYouTubeId(e.target.value) })} data-testid="company-cm60-input" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">オファーテキスト</label>
+                <input className={inputCls} placeholder="例: Mother Vegetable 48栄養素サプリ お試しセット送料無料" aria-label="オファーテキスト" value={form.offerText} onChange={(e) => setForm({ ...form, offerText: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">オファーURL</label>
+                <input className={inputCls} placeholder="https://example.com" aria-label="オファーURL" value={form.offerUrl} onChange={(e) => setForm({ ...form, offerUrl: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">クーポンコード <span className="text-gray-400 font-normal">（任意）</span></label>
+                <input className={inputCls + " font-mono"} placeholder="例: VLSMV2026" aria-label="クーポンコード" value={form.couponCode} onChange={(e) => setForm({ ...form, couponCode: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">ポータルパスワード <span className="text-gray-400 font-normal">（任意）</span></label>
+                <input className={inputCls + " font-mono"} placeholder="例: MOTHER2026" aria-label="ポータルパスワード" value={form.portalPassword} onChange={(e) => setForm({ ...form, portalPassword: e.target.value })} />
+              </div>
               <div className="flex gap-2 pt-2">
                 <Button size="sm" onClick={save} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
                 <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>キャンセル</Button>
