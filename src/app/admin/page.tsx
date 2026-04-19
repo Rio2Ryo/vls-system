@@ -43,12 +43,12 @@ const ErrorLogTab = dynamic(() => import("@/components/admin/tabs/ErrorLogTab"),
 const SponsorReportTab = dynamic(() => import("@/components/admin/tabs/SponsorReportTab"), { loading: TabSkeleton, ssr: false });
 const FramesTab = dynamic(() => import("@/components/admin/tabs/FramesTab"), { loading: TabSkeleton, ssr: false });
 const BulkImport = dynamic(() => import("@/components/admin/BulkImport"), { loading: TabSkeleton, ssr: false });
-const InvoiceGenerator = dynamic(() => import("@/components/admin/InvoiceGenerator"), { loading: TabSkeleton, ssr: false });
+// InvoiceGenerator removed per Yakon's request
 const ChartJsAnalytics = dynamic(() => import("@/components/admin/ChartJsAnalytics"), { loading: TabSkeleton, ssr: false });
 const LicenseBulkImport = dynamic(() => import("@/components/admin/LicenseBulkImport"), { loading: TabSkeleton, ssr: false });
 const TenantManager = dynamic(() => import("@/components/admin/TenantManager"), { loading: TabSkeleton, ssr: false });
 
-type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "invoices" | "reports" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings" | "frames";
+type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "reports" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings" | "frames";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -204,7 +204,6 @@ export default function AdminPage() {
         { key: "chartjs", label: "Chart.js分析", icon: "📈" },
         { key: "reports", label: "レポート", icon: "📑" },
         { key: "export", label: "CSVエクスポート", icon: "📤" },
-        { key: "invoices", label: "請求書", icon: "🧾" },
       ],
     },
     {
@@ -331,7 +330,7 @@ export default function AdminPage() {
             {tab === "frames" && <FramesTab />}
             {tab === "survey" && <SurveyTab onSave={showToast} activeEventId={activeEventId} activeEvent={activeEvent} tenantId={adminTenantId} />}
             {tab === "import" && <BulkImport onSave={showToast} tenantId={adminTenantId} />}
-            {tab === "invoices" && <InvoiceGenerator onSave={showToast} tenantId={adminTenantId} />}
+
             {tab === "reports" && <SponsorReportTab onSave={showToast} tenantId={adminTenantId} />}
             {tab === "funnel" && <FunnelAnalysisTab tenantId={adminTenantId} />}
             {tab === "qrAnalytics" && <QRAnalyticsTab tenantId={adminTenantId} />}

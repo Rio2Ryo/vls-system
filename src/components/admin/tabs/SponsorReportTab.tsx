@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { jsPDF } from "jspdf";
 import Card from "@/components/ui/Card";
 import { Company, VideoPlayRecord, AnalyticsRecord, EventData } from "@/lib/types";
 import {
@@ -300,26 +299,25 @@ function generateReportPdf(company: Company, stats: CompanyStats) {
     </div>
   `;
 
-  const container = document.createElement("div");
-  container.style.position = "absolute";
-  container.style.left = "-9999px";
-  container.style.top = "0";
-  container.style.width = "210mm";
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
-  doc.html(container, {
-    callback: (pdf) => {
-      document.body.removeChild(container);
-      pdf.save(`SponsorReport_${company.name}_${new Date().toISOString().slice(0, 10)}.pdf`);
-    },
-    x: 0,
-    y: 0,
-    width: 210,
-    windowWidth: 794,
-    html2canvas: { scale: 0.264 },
-  });
+  // Use browser print for reliable Japanese PDF rendering
+  const printWindow = window.open("", "_blank", "width=800,height=1000");
+  if (!printWindow) {
+    // Fallback: open as data URL
+    const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8"><title>スポンサーレポート - ${company.name}</title><style>@media print{body{margin:0;padding:0;}}</style></head><body>${html}</body></html>`], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    return;
+  }
+  printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>スポンサーレポート - ${company.name}</title><style>
+    @page { size: A4; margin: 10mm; }
+    body { margin: 0; padding: 0; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  </style></head><body>${html}</body></html>`);
+  printWindow.document.close();
+  // Wait for content to render, then trigger print
+  setTimeout(() => {
+    printWindow.print();
+  }, 500);
 }
 
 // ─── Component ────────────────────────────────────────────────────
