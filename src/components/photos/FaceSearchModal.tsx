@@ -259,6 +259,8 @@ export default function FaceSearchModal({
             </div>
             <p style={{ fontSize: "12px", color: "#888", margin: "4px 0 12px", lineHeight: 1.5 }}>
               💡 複数枚アップすると検索精度が上がります
+              <br />
+              📸 顔のアップ写真でアップロードすると精度が上がります
             </p>
 
             {selectedFiles.length < 3 && (

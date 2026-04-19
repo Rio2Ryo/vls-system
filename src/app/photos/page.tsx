@@ -187,6 +187,8 @@ export default function PhotosPage() {
           </div>
           <p style={{ fontSize: 12, color: "#888", margin: "4px 0 12px", lineHeight: 1.5 }}>
             💡 複数枚アップすると検索精度が上がります
+            <br />
+            📸 顔のアップ写真でアップロードすると精度が上がります
           </p>
 
           {/* Hidden file input */}
