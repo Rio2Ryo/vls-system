@@ -45,7 +45,7 @@ const FramesTab = dynamic(() => import("@/components/admin/tabs/FramesTab"), { l
 const BulkImport = dynamic(() => import("@/components/admin/BulkImport"), { loading: TabSkeleton, ssr: false });
 // InvoiceGenerator removed per Yakon's request
 const ChartJsAnalytics = dynamic(() => import("@/components/admin/ChartJsAnalytics"), { loading: TabSkeleton, ssr: false });
-const LicenseBulkImport = dynamic(() => import("@/components/admin/LicenseBulkImport"), { loading: TabSkeleton, ssr: false });
+// LicenseBulkImport removed per Yakon's request
 const TenantManager = dynamic(() => import("@/components/admin/TenantManager"), { loading: TabSkeleton, ssr: false });
 
 type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "reports" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings" | "frames";
@@ -210,7 +210,6 @@ export default function AdminPage() {
       group: "システム管理",
       items: [
         { key: "tenants", label: "テナント管理", icon: "🏫", superOnly: true },
-        { key: "licenses", label: "ライセンス管理", icon: "🔑", superOnly: true },
         { key: "storage", label: "R2ストレージ", icon: "☁️", demoHidden: true, superOnly: true },
         { key: "notifications", label: "通知ログ", icon: "🔔", superOnly: true },
         { key: "errorLog", label: "エラーログ", icon: "🐛", superOnly: true },
@@ -335,7 +334,7 @@ export default function AdminPage() {
             {tab === "funnel" && <FunnelAnalysisTab tenantId={adminTenantId} />}
             {tab === "qrAnalytics" && <QRAnalyticsTab tenantId={adminTenantId} />}
             {tab === "chartjs" && <ChartJsAnalytics tenantId={adminTenantId} />}
-            {tab === "licenses" && <LicenseBulkImport onSave={showToast} />}
+
             {tab === "tenants" && <TenantManager onSave={showToast} />}
             {tab === "notifications" && <NotificationLogTab />}
             {tab === "errorLog" && <ErrorLogTab onSave={showToast} />}
