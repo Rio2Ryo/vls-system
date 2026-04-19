@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
           Authorization: `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "未来発見ラボ <noreply@kataomoi.org>",
+          from: "未来発見ラボ <noreply@miraihakkenlab.com>",
           to: [email],
           subject: "マイページログインリンク｜未来発見ラボ",
           html: `
