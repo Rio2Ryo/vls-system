@@ -151,6 +151,7 @@ export default function CompaniesTab({ onSave }: Props) {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [tierFilter, setTierFilter] = useState<CompanyTier | null>(null);
 
   useEffect(() => { setCompanies(getStoredCompanies()); }, []);
 
@@ -324,16 +325,32 @@ export default function CompaniesTab({ onSave }: Props) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {(["platinum", "gold", "silver", "bronze"] as const).map((t) => {
           const count = companies.filter((c) => c.tier === t).length;
+          const isActive = tierFilter === t;
           return (
-            <div key={t} className={`text-center py-2 rounded-xl ${TIER_COLORS[t]} bg-opacity-50`}>
+            <button
+              key={t}
+              onClick={() => setTierFilter(isActive ? null : t)}
+              className={`text-center py-2 rounded-xl transition-all ${TIER_COLORS[t]} ${
+                isActive
+                  ? "ring-2 ring-offset-1 ring-current shadow-md scale-[1.02]"
+                  : "bg-opacity-50 hover:bg-opacity-80 hover:shadow-sm"
+              }`}
+            >
               <p className="text-lg font-bold">{count}</p>
               <p className="text-[10px] uppercase font-bold">{t}</p>
-            </div>
+            </button>
           );
         })}
       </div>
 
-      {companies.map((c) => (
+      {tierFilter && (
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span className="font-medium uppercase">{tierFilter}</span> で絞り込み中
+          <button onClick={() => setTierFilter(null)} className="text-xs text-blue-500 hover:underline">クリア</button>
+        </div>
+      )}
+
+      {companies.filter((c) => !tierFilter || c.tier === tierFilter).map((c) => (
         <Card key={c.id}>
           <div className="flex items-start gap-4">
             <Image src={c.logoUrl} alt={c.name} width={48} height={48} className="rounded-full" />
