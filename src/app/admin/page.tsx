@@ -173,34 +173,61 @@ export default function AdminPage() {
     );
   }
 
-  const ALL_TABS: { key: Tab; label: string; icon: string; demoHidden?: boolean; superOnly?: boolean }[] = [
-    { key: "dashboard", label: "ダッシュボード", icon: "📊" },
-    { key: "events", label: "イベント管理", icon: "🎪" },
-    { key: "photos", label: "写真管理", icon: "📷" },
-    { key: "companies", label: "企業管理", icon: "🏢" },
-    { key: "cmVideos", label: "CM動画管理", icon: "🎬" },
-    { key: "frames", label: "フレーム管理", icon: "🖼️" },
-    { key: "survey", label: "アンケート", icon: "📝" },
-    { key: "import", label: "参加者管理", icon: "👥" },
-    { key: "invoices", label: "請求書", icon: "🧾" },
-    { key: "reports", label: "レポート", icon: "📑" },
-    { key: "funnel", label: "完了率分析", icon: "📉" },
-    { key: "qrAnalytics", label: "QR分析", icon: "📱" },
-    { key: "chartjs", label: "Chart.js分析", icon: "📈" },
-    { key: "licenses", label: "ライセンス管理", icon: "🔑", superOnly: true },
-    { key: "tenants", label: "テナント管理", icon: "🏫", superOnly: true },
-    { key: "notifications", label: "通知ログ", icon: "🔔", superOnly: true },
-    { key: "errorLog", label: "エラーログ", icon: "🐛", superOnly: true },
-    { key: "storage", label: "R2ストレージ", icon: "☁️", demoHidden: true, superOnly: true },
-    { key: "matching", label: "マッチングテスト", icon: "🎯", demoHidden: true },
-    { key: "export", label: "CSVエクスポート", icon: "📤" },
-    { key: "settings", label: "設定", icon: "⚙️" },
+  type TabItem = { key: Tab; label: string; icon: string; demoHidden?: boolean; superOnly?: boolean };
+  type TabGroup = { group: string; items: TabItem[] };
+
+  const ALL_TAB_GROUPS: TabGroup[] = [
+    {
+      group: "イベント運営",
+      items: [
+        { key: "dashboard", label: "ダッシュボード", icon: "📊" },
+        { key: "events", label: "イベント管理", icon: "🎪" },
+        { key: "photos", label: "写真管理", icon: "📷" },
+        { key: "frames", label: "フレーム管理", icon: "🖼️" },
+        { key: "survey", label: "アンケート", icon: "📝" },
+        { key: "import", label: "参加者管理", icon: "👥" },
+      ],
+    },
+    {
+      group: "スポンサー",
+      items: [
+        { key: "companies", label: "企業管理", icon: "🏢" },
+        { key: "cmVideos", label: "CM動画管理", icon: "🎬" },
+        { key: "matching", label: "マッチングテスト", icon: "🎯", demoHidden: true },
+      ],
+    },
+    {
+      group: "分析・レポート",
+      items: [
+        { key: "funnel", label: "完了率分析", icon: "📉" },
+        { key: "qrAnalytics", label: "QR分析", icon: "📱" },
+        { key: "chartjs", label: "Chart.js分析", icon: "📈" },
+        { key: "reports", label: "レポート", icon: "📑" },
+        { key: "export", label: "CSVエクスポート", icon: "📤" },
+        { key: "invoices", label: "請求書", icon: "🧾" },
+      ],
+    },
+    {
+      group: "システム管理",
+      items: [
+        { key: "tenants", label: "テナント管理", icon: "🏫", superOnly: true },
+        { key: "licenses", label: "ライセンス管理", icon: "🔑", superOnly: true },
+        { key: "storage", label: "R2ストレージ", icon: "☁️", demoHidden: true, superOnly: true },
+        { key: "notifications", label: "通知ログ", icon: "🔔", superOnly: true },
+        { key: "errorLog", label: "エラーログ", icon: "🐛", superOnly: true },
+        { key: "settings", label: "設定", icon: "⚙️" },
+      ],
+    },
   ];
-  const TABS = ALL_TABS.filter((t) => {
-    if (IS_DEMO_MODE && t.demoHidden) return false;
-    if (adminTenantId && t.superOnly) return false;
-    return true;
-  });
+
+  const TAB_GROUPS = ALL_TAB_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((t) => {
+      if (IS_DEMO_MODE && t.demoHidden) return false;
+      if (adminTenantId && t.superOnly) return false;
+      return true;
+    }),
+  })).filter((g) => g.items.length > 0);
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900" data-testid="admin-dashboard">
@@ -238,25 +265,32 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-6xl mx-auto p-6">
-        {/* Tab navigation */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2" role="tablist" aria-label="管理タブ">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              aria-selected={tab === t.key}
-              aria-controls={`tabpanel-${t.key}`}
-              id={`tab-${t.key}`}
-              onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
-                tab === t.key
-                  ? "text-white shadow-sm"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
-              style={tab === t.key ? { backgroundColor: "var(--primary)" } : undefined}
-            >
-              <span aria-hidden="true">{t.icon}</span>
-              {t.label}
-            </button>
+        {/* Tab navigation — grouped by category */}
+        <div className="mb-6 space-y-3" role="tablist" aria-label="管理タブ">
+          {TAB_GROUPS.map((group) => (
+            <div key={group.group}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5 px-1">{group.group}</p>
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {group.items.map((t) => (
+                  <button
+                    key={t.key}
+                    aria-selected={tab === t.key}
+                    aria-controls={`tabpanel-${t.key}`}
+                    id={`tab-${t.key}`}
+                    onClick={() => setTab(t.key)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+                      tab === t.key
+                        ? "text-white shadow-sm"
+                        : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    }`}
+                    style={tab === t.key ? { backgroundColor: "var(--primary)" } : undefined}
+                  >
+                    <span aria-hidden="true">{t.icon}</span>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
 
