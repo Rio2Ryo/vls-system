@@ -288,7 +288,7 @@ export const EVENTS: EventData[] = [
     photos: generateDemoPhotos("summer", 12),
     slug: "summer2026",
     tenantId: "tenant-school-a",
-    status: "preparing",
+    status: "active",
     // All companies (undefined = no filter)
   },
   {

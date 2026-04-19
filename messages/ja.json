@@ -67,6 +67,8 @@
     "downloading": "ダウンロード中...",
     "downloaded": "✓ ダウンロード済み",
     "download": "写真をダウンロード",
+    "downloadZip": "{count}枚をZIPでダウンロード",
+    "zipping": "ZIP作成中...",
     "emailTitle": "後でメールで受け取る",
     "emailDesc": "ダウンロードリンクをメールでお送りします（7日間有効）",
     "emailNamePlaceholder": "お名前",

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
+import JSZip from "jszip";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
@@ -155,61 +156,56 @@ function loadImage(src: string, useCors = false): Promise<HTMLImageElement> {
   });
 }
 
-/** Composite photo + event frame template on a canvas and trigger download */
-async function downloadImage(url: string, filename: string, eventId?: string | null): Promise<void> {
+/** Composite photo + event frame template on a canvas and return as PNG Blob */
+async function compositeImageBlob(url: string, eventId?: string | null): Promise<Blob> {
   const frameUrl = getFrameTemplateForEvent(eventId).url || "/frame-template.svg";
+
+  // Load photo with CORS (proxy has Access-Control-Allow-Origin header)
+  const photoImg = await loadImage(url, true);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = photoImg.naturalWidth;
+  canvas.height = photoImg.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas context unavailable");
+
+  // Draw photo first
+  ctx.drawImage(photoImg, 0, 0);
+
+  // Overlay frame (local SVG, no CORS needed)
   try {
-    // Load photo with CORS (proxy has Access-Control-Allow-Origin header)
-    const photoImg = await loadImage(url, true);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = photoImg.naturalWidth;
-    canvas.height = photoImg.naturalHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("canvas context unavailable");
-
-    // Draw photo first
-    ctx.drawImage(photoImg, 0, 0);
-
-    // Overlay frame (local SVG, no CORS needed)
-    try {
-      const frameImg = await loadImage(frameUrl, false);
-      ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-      console.log("[downloadImage] Frame composited OK");
-    } catch (e) {
-      console.warn("[downloadImage] Frame load failed:", e);
-    }
-
-    // Export as blob and download
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
-    });
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = filename.replace(/\.\w+$/, ".png");
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
-    console.log("[downloadImage] Download triggered:", filename);
+    const frameImg = await loadImage(frameUrl, false);
+    ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
   } catch (e) {
-    console.error("[downloadImage] Failed, falling back to direct download:", e);
-    // Fallback: download without frame via fetch+blob
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      window.open(url, "_blank");
-    }
+    console.warn("[compositeImageBlob] Frame load failed:", e);
+  }
+
+  // Export as blob
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
+  });
+}
+
+/** Download a single blob as a file */
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
+}
+
+/** Fallback: download image without frame compositing */
+async function downloadImageFallback(url: string, filename: string): Promise<void> {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    triggerBlobDownload(blob, filename);
+  } catch {
+    window.open(url, "_blank");
   }
 }
 
@@ -218,6 +214,7 @@ export default function CompletePage() {
   const t = useTranslations("Complete");
   const [photosDownloaded, setPhotosDownloaded] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState("");
   const [eventName, setEventName] = useState("");
   const [photoCount, setPhotoCount] = useState(0);
   const [selectedPhotos, setSelectedPhotos] = useState<PhotoData[]>([]);
@@ -318,18 +315,53 @@ export default function CompletePage() {
     if (downloading || selectedPhotos.length === 0) return;
     trackTap("/complete", "download-button");
     setDownloading(true);
+    setDownloadProgress("");
 
-    for (let i = 0; i < selectedPhotos.length; i++) {
-      const photo = selectedPhotos[i];
-      const filename = `${eventName}_photo_${i + 1}.jpg`;
-      await downloadImage(photo.originalUrl, filename, eventId);
-      if (i < selectedPhotos.length - 1) {
-        await new Promise((r) => setTimeout(r, 500));
+    try {
+      if (selectedPhotos.length === 1) {
+        // Single photo: download as individual PNG
+        const photo = selectedPhotos[0];
+        const filename = `${eventName}_photo_1.png`;
+        try {
+          const blob = await compositeImageBlob(photo.originalUrl, eventId);
+          triggerBlobDownload(blob, filename);
+        } catch (e) {
+          console.error("[download] Single photo composite failed:", e);
+          await downloadImageFallback(photo.originalUrl, filename);
+        }
+      } else {
+        // Multiple photos: compress into a single ZIP file
+        const zip = new JSZip();
+        for (let i = 0; i < selectedPhotos.length; i++) {
+          const photo = selectedPhotos[i];
+          const filename = `${eventName}_photo_${i + 1}.png`;
+          setDownloadProgress(`${i + 1} / ${selectedPhotos.length}`);
+          try {
+            const blob = await compositeImageBlob(photo.originalUrl, eventId);
+            zip.file(filename, blob);
+          } catch (e) {
+            console.warn(`[download] Photo ${i + 1} composite failed, trying fallback:`, e);
+            try {
+              const res = await fetch(photo.originalUrl);
+              const fallbackBlob = await res.blob();
+              zip.file(filename, fallbackBlob);
+            } catch (e2) {
+              console.error(`[download] Photo ${i + 1} skipped:`, e2);
+            }
+          }
+        }
+        setDownloadProgress(t("zipping"));
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        triggerBlobDownload(zipBlob, `${eventName}_photos.zip`);
       }
-    }
 
-    setPhotosDownloaded(true);
-    setDownloading(false);
+      setPhotosDownloaded(true);
+    } catch (e) {
+      console.error("[download] Download failed:", e);
+    } finally {
+      setDownloading(false);
+      setDownloadProgress("");
+    }
 
     const analyticsId = sessionStorage.getItem("analyticsId");
     if (analyticsId) {
@@ -399,10 +431,14 @@ export default function CompletePage() {
             variant={photosDownloaded ? "secondary" : "primary"}
           >
             {downloading
-              ? t("downloading")
+              ? downloadProgress
+                ? `${t("downloading")} (${downloadProgress})`
+                : t("downloading")
               : photosDownloaded
                 ? t("downloaded")
-                : t("download")}
+                : photoCount > 1
+                  ? t("downloadZip", { count: photoCount })
+                  : t("download")}
           </Button>
         </Card>
 

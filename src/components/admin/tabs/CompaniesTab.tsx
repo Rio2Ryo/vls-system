@@ -273,53 +273,73 @@ export default function CompaniesTab({ onSave }: Props) {
       </div>
 
       {!IS_DEMO_MODE && editing && (
-        <Card>
-          <h3 className="font-bold text-gray-700 mb-3">{editing === "__new__" ? "新規企業" : "企業編集"}</h3>
-          <div className="space-y-3">
-            <input className={inputCls} placeholder="企業名" aria-label="企業名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="company-name-input" />
-            <div className="border border-gray-100 rounded-xl p-3 space-y-2">
-              <p className="text-xs font-bold text-gray-500">企業ロゴ</p>
-              <div className="flex items-center gap-3">
-                {logoPreview && (
-                  <Image src={logoPreview} alt="ロゴプレビュー" width={64} height={64} className="rounded-full object-cover border border-gray-200" unoptimized />
-                )}
-                <div className="flex-1 space-y-1">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoSelect}
-                    className="block w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100"
-                    data-testid="company-logo-input"
-                  />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditing(null); }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={editing === "__new__" ? "新規企業" : "企業編集"}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50" />
+          {/* Modal content */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[600px] max-h-[90vh] overflow-y-auto mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-700 text-lg">{editing === "__new__" ? "新規企業" : "企業編集"}</h3>
+              <button
+                onClick={() => setEditing(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none p-1 rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
+                aria-label="閉じる"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="space-y-3">
+              <input className={inputCls} placeholder="企業名" aria-label="企業名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="company-name-input" />
+              <div className="border border-gray-100 rounded-xl p-3 space-y-2">
+                <p className="text-xs font-bold text-gray-500">企業ロゴ</p>
+                <div className="flex items-center gap-3">
                   {logoPreview && (
-                    <button type="button" onClick={removeLogo} aria-label="ロゴを削除" className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">ロゴ削除</button>
+                    <Image src={logoPreview} alt="ロゴプレビュー" width={64} height={64} className="rounded-full object-cover border border-gray-200" unoptimized />
                   )}
+                  <div className="flex-1 space-y-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoSelect}
+                      className="block w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100"
+                      data-testid="company-logo-input"
+                    />
+                    {logoPreview && (
+                      <button type="button" onClick={removeLogo} aria-label="ロゴを削除" className="text-xs text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded">ロゴ削除</button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-            <select className={inputCls} aria-label="ティア選択" value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value as CompanyTier })} data-testid="company-tier-select">
-              <option value="platinum">Platinum</option>
-              <option value="gold">Gold</option>
-              <option value="silver">Silver</option>
-              <option value="bronze">Bronze</option>
-            </select>
-            <TagInput value={form.tags} onChange={(v) => setForm({ ...form, tags: v })} />
-            <div className="border border-gray-100 rounded-xl p-3 space-y-2">
-              <p className="text-xs font-bold text-gray-500">CM動画 YouTube ID</p>
-              <input className={inputCls + " font-mono"} placeholder="15秒CM（YouTube URLまたはID）" aria-label="15秒CM YouTube ID" value={form.cm15} onChange={(e) => setForm({ ...form, cm15: extractYouTubeId(e.target.value) })} data-testid="company-cm15-input" />
-              <input className={inputCls + " font-mono"} placeholder="30秒CM（YouTube URLまたはID）" aria-label="30秒CM YouTube ID" value={form.cm30} onChange={(e) => setForm({ ...form, cm30: extractYouTubeId(e.target.value) })} data-testid="company-cm30-input" />
-              <input className={inputCls + " font-mono"} placeholder="60秒CM（YouTube URLまたはID）" aria-label="60秒CM YouTube ID" value={form.cm60} onChange={(e) => setForm({ ...form, cm60: extractYouTubeId(e.target.value) })} data-testid="company-cm60-input" />
-            </div>
-            <input className={inputCls} placeholder="オファーテキスト" aria-label="オファーテキスト" value={form.offerText} onChange={(e) => setForm({ ...form, offerText: e.target.value })} />
-            <input className={inputCls} placeholder="オファーURL" aria-label="オファーURL" value={form.offerUrl} onChange={(e) => setForm({ ...form, offerUrl: e.target.value })} />
-            <input className={inputCls + " font-mono"} placeholder="クーポンコード（任意）" aria-label="クーポンコード" value={form.couponCode} onChange={(e) => setForm({ ...form, couponCode: e.target.value })} />
-            <input className={inputCls + " font-mono"} placeholder="ポータルパスワード（任意）" aria-label="ポータルパスワード" value={form.portalPassword} onChange={(e) => setForm({ ...form, portalPassword: e.target.value })} />
-            <div className="flex gap-2">
-              <Button size="sm" onClick={save} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
-              <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>キャンセル</Button>
+              <select className={inputCls} aria-label="ティア選択" value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value as CompanyTier })} data-testid="company-tier-select">
+                <option value="platinum">Platinum</option>
+                <option value="gold">Gold</option>
+                <option value="silver">Silver</option>
+                <option value="bronze">Bronze</option>
+              </select>
+              <TagInput value={form.tags} onChange={(v) => setForm({ ...form, tags: v })} />
+              <div className="border border-gray-100 rounded-xl p-3 space-y-2">
+                <p className="text-xs font-bold text-gray-500">CM動画 YouTube ID</p>
+                <input className={inputCls + " font-mono"} placeholder="15秒CM（YouTube URLまたはID）" aria-label="15秒CM YouTube ID" value={form.cm15} onChange={(e) => setForm({ ...form, cm15: extractYouTubeId(e.target.value) })} data-testid="company-cm15-input" />
+                <input className={inputCls + " font-mono"} placeholder="30秒CM（YouTube URLまたはID）" aria-label="30秒CM YouTube ID" value={form.cm30} onChange={(e) => setForm({ ...form, cm30: extractYouTubeId(e.target.value) })} data-testid="company-cm30-input" />
+                <input className={inputCls + " font-mono"} placeholder="60秒CM（YouTube URLまたはID）" aria-label="60秒CM YouTube ID" value={form.cm60} onChange={(e) => setForm({ ...form, cm60: extractYouTubeId(e.target.value) })} data-testid="company-cm60-input" />
+              </div>
+              <input className={inputCls} placeholder="オファーテキスト" aria-label="オファーテキスト" value={form.offerText} onChange={(e) => setForm({ ...form, offerText: e.target.value })} />
+              <input className={inputCls} placeholder="オファーURL" aria-label="オファーURL" value={form.offerUrl} onChange={(e) => setForm({ ...form, offerUrl: e.target.value })} />
+              <input className={inputCls + " font-mono"} placeholder="クーポンコード（任意）" aria-label="クーポンコード" value={form.couponCode} onChange={(e) => setForm({ ...form, couponCode: e.target.value })} />
+              <input className={inputCls + " font-mono"} placeholder="ポータルパスワード（任意）" aria-label="ポータルパスワード" value={form.portalPassword} onChange={(e) => setForm({ ...form, portalPassword: e.target.value })} />
+              <div className="flex gap-2 pt-2">
+                <Button size="sm" onClick={save} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
+                <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>キャンセル</Button>
+              </div>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

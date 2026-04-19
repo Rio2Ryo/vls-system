@@ -67,6 +67,8 @@
     "downloading": "Downloading...",
     "downloaded": "✓ Downloaded",
     "download": "Download Photos",
+    "downloadZip": "Download {count} Photos as ZIP",
+    "zipping": "Creating ZIP...",
     "emailTitle": "Receive via Email Later",
     "emailDesc": "We'll send you a download link by email (valid for 7 days)",
     "emailNamePlaceholder": "Your name",
