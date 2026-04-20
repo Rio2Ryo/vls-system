@@ -22,13 +22,14 @@ type EventSortKey = "default" | "date-desc" | "date-asc" | "name-asc" | "name-de
 interface Props {
   onSave: (msg: string) => void;
   tenantId?: string | null;
+  hfPhotoCount?: number | null;
   acquireLock?: (recordType: string, recordId: string) => Promise<{ ok: boolean; lockedBy?: string }>;
   releaseLock?: (recordType: string, recordId: string) => Promise<void>;
   locks?: EditLock[];
   currentUserId?: string;
 }
 
-export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, locks, currentUserId }: Props) {
+export default function EventsTab({ onSave, tenantId, hfPhotoCount, acquireLock, releaseLock, locks, currentUserId }: Props) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [frames, setFrames] = useState<FrameTemplate[]>([]);
@@ -712,7 +713,7 @@ export default function EventsTab({ onSave, tenantId, acquireLock, releaseLock, 
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-full">
-                {evt.photos.length}枚
+                {evt.id === "evt-summer" && hfPhotoCount != null ? hfPhotoCount : evt.photos.length}枚
               </span>
               {!IS_DEMO_MODE && <button onClick={() => cloneEvent(evt)} aria-label={`${evt.name}をクローン`} className="text-xs text-purple-500 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 rounded">クローン</button>}
               {!IS_DEMO_MODE && <button onClick={() => { setTemplateNameInput(evt.id); setTemplateName(`${evt.name}テンプレート`); }} aria-label={`${evt.name}をテンプレート保存`} className="text-xs text-green-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded">テンプレ保存</button>}

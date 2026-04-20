@@ -322,7 +322,7 @@ export default function AdminPage() {
             transition={{ duration: 0.2 }}
           >
             {tab === "dashboard" && <DashboardTab tenantId={adminTenantId} />}
-            {tab === "events" && <EventsTab onSave={(msg) => { showToast(msg); refreshEvents(); }} tenantId={adminTenantId} />}
+            {tab === "events" && <EventsTab onSave={(msg) => { showToast(msg); refreshEvents(); }} tenantId={adminTenantId} hfPhotoCount={hfPhotoCount} />}
             {tab === "photos" && <PhotosTab onSave={(msg) => { showToast(msg); refreshEvents(); }} activeEventId={activeEventId} tenantId={adminTenantId} />}
             {tab === "companies" && <CompaniesTab onSave={showToast} />}
             {tab === "cmVideos" && <CMVideosTab onSave={showToast} />}
