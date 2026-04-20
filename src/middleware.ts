@@ -137,6 +137,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/demo", request.url));
   }
 
+  // 0.3 Tenant slug redirect: /sakura → /t/sakura (single-segment paths that aren't known routes)
+  const KNOWN_ROOT_PATHS = new Set([
+    "", "admin", "survey", "processing", "photos", "complete", "demo", "scan", "dl", "e", "t",
+    "api", "_next", "favicon.ico", "logo-mirai.svg",
+  ]);
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 1 && !KNOWN_ROOT_PATHS.has(segments[0]) && !segments[0].includes(".")) {
+    return NextResponse.redirect(new URL(`/t/${segments[0]}`, request.url));
+  }
+
   // 0.5 Rate limiting (API routes) — skip for media serving (static files)
   let rlResult: RLResult | null = null;
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/media/")) {
