@@ -97,7 +97,8 @@ export default function TenantPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1 }}
                 >
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer"
+                  <div
+                    className="cursor-pointer"
                     onClick={() => {
                       if (evt.slug) {
                         router.push(`/e/${evt.slug}`);
@@ -106,6 +107,7 @@ export default function TenantPage() {
                       }
                     }}
                   >
+                  <Card className="hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-bold text-gray-800">{evt.name}</h3>
@@ -126,6 +128,7 @@ export default function TenantPage() {
                       <div className="text-2xl">📸</div>
                     </div>
                   </Card>
+                  </div>
                 </motion.div>
               ))}
             </div>
