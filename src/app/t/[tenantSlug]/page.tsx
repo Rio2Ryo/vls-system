@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { getTenantBySlug, getEventsForTenant } from "@/lib/store";
+import { getAllImageNames } from "@/lib/face-api-client";
 import type { Tenant, EventData } from "@/lib/types";
 
 export default function TenantPage() {
@@ -16,6 +17,7 @@ export default function TenantPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [events, setEvents] = useState<EventData[]>([]);
   const [notFound, setNotFound] = useState(false);
+  const [hfPhotoCount, setHfPhotoCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!slug) {
@@ -32,6 +34,11 @@ export default function TenantPage() {
       (e) => e.status === "active" || e.status === "ended"
     );
     setEvents(evts);
+
+    // Fetch real photo count from HF Space
+    getAllImageNames()
+      .then((names) => setHfPhotoCount(names.length))
+      .catch(() => {});
   }, [slug]);
 
   if (notFound) {
@@ -114,7 +121,7 @@ export default function TenantPage() {
                         <p className="text-xs text-gray-500 mt-0.5">{evt.date} — {evt.description}</p>
                         <div className="flex items-center gap-2 mt-2">
                           <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                            📷 {evt.photos.length}枚
+                            📷 {evt.id === "evt-summer" && hfPhotoCount != null ? hfPhotoCount : evt.photos.length}枚
                           </span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                             evt.status === "active"
