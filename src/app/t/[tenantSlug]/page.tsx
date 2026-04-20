@@ -147,17 +147,6 @@ export default function TenantPage() {
           </Card>
         )}
 
-        {/* Password entry fallback */}
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <p className="text-xs text-gray-400 text-center mb-3">
-            パスワードをお持ちの方はこちら
-          </p>
-          <div className="flex justify-center">
-            <Button size="sm" variant="secondary" onClick={() => router.push("/")}>
-              パスワードで入る
-            </Button>
-          </div>
-        </div>
       </div>
     </main>
   );
