@@ -139,7 +139,9 @@ export async function middleware(request: NextRequest) {
 
   // 0.3 Tenant slug redirect: /sakura → /t/sakura (single-segment paths that aren't known routes)
   const KNOWN_ROOT_PATHS = new Set([
-    "", "admin", "survey", "processing", "photos", "complete", "demo", "scan", "dl", "e", "t",
+    "", "admin", "survey", "survey-nps", "processing", "photos", "complete", "downloading",
+    "demo", "scan", "dl", "e", "t", "my", "login", "forgot-password", "reset-password",
+    "lp", "report", "sponsor", "fonts",
     "api", "_next", "favicon.ico", "logo-mirai.svg",
   ]);
   const segments = pathname.split("/").filter(Boolean);
