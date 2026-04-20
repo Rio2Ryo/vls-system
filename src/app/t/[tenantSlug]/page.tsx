@@ -107,6 +107,7 @@ export default function TenantPage() {
                   <div
                     className="cursor-pointer"
                     onClick={() => {
+                      sessionStorage.setItem("tenantSlug", slug);
                       if (evt.slug) {
                         router.push(`/e/${evt.slug}`);
                       } else {

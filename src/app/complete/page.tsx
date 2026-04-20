@@ -228,7 +228,10 @@ export default function CompletePage() {
   }, []);
 
   useEffect(() => {
-    if (!sessionStorage.getItem("eventId")) router.replace("/");
+    if (!sessionStorage.getItem("eventId")) {
+      const tenantSlug = sessionStorage.getItem("tenantSlug");
+      router.replace(tenantSlug ? `/t/${tenantSlug}` : "/");
+    }
   }, [router]);
 
   useEffect(() => {
@@ -518,7 +521,10 @@ export default function CompletePage() {
           className="text-center pb-8"
         >
           <button
-            onClick={() => (window.location.href = "/")}
+            onClick={() => {
+              const tenantSlug = sessionStorage.getItem("tenantSlug");
+              window.location.href = tenantSlug ? `/t/${tenantSlug}` : "/";
+            }}
             aria-label={t("backToTopAria")}
             className="text-sm text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] rounded"
           >
