@@ -16,24 +16,62 @@ interface ParsedRow {
   error?: string;
 }
 
+function parseCsvLine(line: string): string[] {
+  const cols: string[] = [];
+  let current = "";
+  let inQuote = false;
+  for (const ch of line) {
+    if (ch === '"') { inQuote = !inQuote; continue; }
+    if (ch === "," && !inQuote) { cols.push(current.trim()); current = ""; continue; }
+    current += ch;
+  }
+  cols.push(current.trim());
+  return cols;
+}
+
+// Auto-detect column indices by header names
+function detectColumns(headers: string[]): { nameIdx: number; emailIdx: number; tagsIdx: number } {
+  const lower = headers.map((h) => h.toLowerCase().replace(/[\s　]/g, ""));
+  let nameIdx = -1, emailIdx = -1, tagsIdx = -1;
+
+  for (let i = 0; i < lower.length; i++) {
+    const h = lower[i];
+    if (nameIdx < 0 && (h.includes("名前") || h.includes("氏名") || h.includes("name") || h === "お名前" || h.includes("フルネーム"))) {
+      nameIdx = i;
+    } else if (emailIdx < 0 && (h.includes("メール") || h.includes("email") || h.includes("mail") || h.includes("eメール"))) {
+      emailIdx = i;
+    } else if (tagsIdx < 0 && (h.includes("タグ") || h.includes("tag") || h.includes("興味") || h.includes("カテゴリ") || h.includes("interest"))) {
+      tagsIdx = i;
+    }
+  }
+
+  // Fallback: if no header matched, use positional (skip timestamp-like first col)
+  if (nameIdx < 0) {
+    // Check if first column looks like a timestamp
+    const firstHeader = lower[0] || "";
+    const startsWithTimestamp = firstHeader.includes("timestamp") || firstHeader.includes("タイムスタンプ") || firstHeader.includes("日時");
+    const offset = startsWithTimestamp ? 1 : 0;
+    nameIdx = offset;
+    emailIdx = offset + 1 < headers.length ? offset + 1 : -1;
+    tagsIdx = offset + 2 < headers.length ? offset + 2 : -1;
+  }
+
+  return { nameIdx, emailIdx, tagsIdx };
+}
+
 function parseCSV(text: string): ParsedRow[] {
   const lines = text.trim().split("\n");
   if (lines.length < 2) return [];
-  return lines.slice(1).map((line) => {
-    // Handle quoted CSV fields
-    const cols: string[] = [];
-    let current = "";
-    let inQuote = false;
-    for (const ch of line) {
-      if (ch === '"') { inQuote = !inQuote; continue; }
-      if (ch === "," && !inQuote) { cols.push(current.trim()); current = ""; continue; }
-      current += ch;
-    }
-    cols.push(current.trim());
 
-    const name = cols[0] || "";
-    const email = cols[1] || "";
-    const tags = cols[2] || "";
+  const headers = parseCsvLine(lines[0]);
+  const { nameIdx, emailIdx, tagsIdx } = detectColumns(headers);
+
+  return lines.slice(1).map((line) => {
+    const cols = parseCsvLine(line);
+
+    const name = nameIdx >= 0 ? (cols[nameIdx] || "") : "";
+    const email = emailIdx >= 0 ? (cols[emailIdx] || "") : "";
+    const tags = tagsIdx >= 0 ? (cols[tagsIdx] || "") : "";
     if (!name) return { name, email, tags, valid: false, error: "名前が空です" };
     if (email && !email.includes("@")) return { name, email, tags, valid: false, error: "メール形式が不正" };
     return { name, email, tags, valid: true };
