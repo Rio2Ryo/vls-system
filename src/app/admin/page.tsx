@@ -235,30 +235,46 @@ export default function AdminPage() {
         actions={undefined}
       />
 
-      {/* Active event context bar */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 border-b border-blue-100 dark:border-gray-700 px-6 py-2">
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium flex-shrink-0" id="event-context-label">操作対象:</span>
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5" role="radiogroup" aria-labelledby="event-context-label">
-            {adminEvents.map((evt) => (
-              <button
-                key={evt.id}
-                role="radio"
-                aria-checked={activeEventId === evt.id}
-                onClick={() => setActiveEventId(evt.id)}
-                className={`text-xs px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
-                  activeEventId === evt.id
-                    ? "text-white shadow-sm"
-                    : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
-                }`}
-                style={activeEventId === evt.id ? { backgroundColor: "var(--primary)" } : undefined}
-                data-testid={`ctx-event-${evt.id}`}
-              >
-                {evt.name}
-                <span className="ml-1 opacity-60">({evt.id === "evt-summer" && hfPhotoCount !== null ? hfPhotoCount : evt.photos.length}枚)</span>
-              </button>
-            ))}
-          </div>
+      {/* Active event context bar — grouped by status */}
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 border-b border-blue-100 dark:border-gray-700 px-6 py-3">
+        <div className="max-w-6xl mx-auto space-y-2">
+          {([
+            { status: "active", label: "開催中", color: "text-green-600", dotColor: "bg-green-500" },
+            { status: "preparing", label: "準備中", color: "text-yellow-600", dotColor: "bg-yellow-500" },
+            { status: "ended", label: "終了", color: "text-gray-500", dotColor: "bg-gray-400" },
+            { status: "archived", label: "アーカイブ", color: "text-gray-400", dotColor: "bg-gray-300" },
+          ] as const).map(({ status, label, color, dotColor }) => {
+            const evts = adminEvents.filter((e) => (e.status || "preparing") === status);
+            if (evts.length === 0) return null;
+            return (
+              <div key={status} className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-shrink-0 w-20">
+                  <div className={`size-2 rounded-full ${dotColor}`} />
+                  <span className={`text-[10px] font-bold ${color}`}>{label}</span>
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5" role="radiogroup" aria-label={`${label}イベント`}>
+                  {evts.map((evt) => (
+                    <button
+                      key={evt.id}
+                      role="radio"
+                      aria-checked={activeEventId === evt.id}
+                      onClick={() => setActiveEventId(evt.id)}
+                      className={`text-xs px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+                        activeEventId === evt.id
+                          ? "text-white shadow-sm"
+                          : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
+                      }`}
+                      style={activeEventId === evt.id ? { backgroundColor: "var(--primary)" } : undefined}
+                      data-testid={`ctx-event-${evt.id}`}
+                    >
+                      {evt.name}
+                      <span className="ml-1 opacity-60">({evt.id === "evt-summer" && hfPhotoCount !== null ? hfPhotoCount : evt.photos.length}枚)</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

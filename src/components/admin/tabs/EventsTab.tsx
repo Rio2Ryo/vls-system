@@ -702,6 +702,27 @@ export default function EventsTab({ onSave, tenantId, hfPhotoCount, acquireLock,
                   const b = STATUS_BADGE[st];
                   return <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${b.cls}`}>{b.label}</span>;
                 })()}
+                {!IS_DEMO_MODE && (
+                  <select
+                    value={getEventStatus(evt)}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as EventStatus;
+                      const updated = events.map((ev) =>
+                        ev.id === evt.id ? { ...ev, status: newStatus } : ev
+                      );
+                      setStoredEvents(updated);
+                      setEvents(updated);
+                      onSave(`${evt.name} → ${newStatus === "active" ? "開催中" : newStatus === "preparing" ? "準備中" : newStatus === "ended" ? "終了" : "アーカイブ"}`);
+                    }}
+                    className="text-[10px] px-1.5 py-0.5 rounded-lg border border-gray-200 bg-white text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF]"
+                    aria-label={`${evt.name}のステータス変更`}
+                  >
+                    <option value="active">▶ 開催中</option>
+                    <option value="preparing">⏳ 準備中</option>
+                    <option value="ended">⏹ 終了</option>
+                    <option value="archived">📦 アーカイブ</option>
+                  </select>
+                )}
               </div>
               <p className="text-sm text-gray-400">
                 {evt.date}{evt.venue ? ` · ${evt.venue}` : ""}{evt.description ? ` · ${evt.description}` : ""}
