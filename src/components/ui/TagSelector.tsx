@@ -38,7 +38,7 @@ export default function TagSelector({
   maxSelections,
 }: TagSelectorProps) {
   return (
-    <div className="flex flex-wrap gap-2" data-testid="tag-selector" role="group" aria-label="タグ選択">
+    <div className="flex flex-wrap gap-2 justify-center" data-testid="tag-selector" role="group" aria-label="タグ選択">
       {options.map((opt, i) => {
         const isSelected = selected.includes(opt.value);
         const isDisabled = !isSelected && selected.length >= maxSelections;
@@ -56,13 +56,13 @@ export default function TagSelector({
             whileTap={{ scale: isDisabled ? 1 : 0.95 }}
             onClick={() => !isDisabled && onToggle(opt.value)}
             className={`
-              px-4 py-2 rounded-full text-sm font-medium border-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] focus-visible:ring-offset-2
+              px-4 py-2 rounded-full text-sm font-medium border-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] focus-visible:ring-offset-2 min-w-[80px] text-center
               ${isSelected ? SELECTED_COLORS[colorIdx] : TAG_COLORS[colorIdx]}
               ${isDisabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}
             `}
             data-testid={`tag-${opt.value}`}
           >
-            {isSelected && "✓ "}{opt.label}
+            <span className={`inline-block w-4 ${isSelected ? "" : "invisible"}`}>✓</span>{opt.label}
           </motion.button>
         );
       })}
