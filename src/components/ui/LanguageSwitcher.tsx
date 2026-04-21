@@ -21,11 +21,14 @@ export default function LanguageSwitcher() {
     router.refresh();
   };
 
+  // English temporarily hidden — set SHOW_ENGLISH=true to restore
+  const showEnglish = false;
+
   return (
     <div className="flex items-center gap-1" role="group" aria-label={t("label")}>
       <button
         onClick={() => handleSwitch("ja")}
-        className={`px-2 py-1 text-xs rounded-l-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+        className={`px-2 py-1 text-xs ${showEnglish ? "rounded-l-full" : "rounded-full"} border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
           current === "ja"
             ? "bg-[#6EC6FF] text-white border-[#6EC6FF]"
             : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
@@ -34,17 +37,19 @@ export default function LanguageSwitcher() {
       >
         日本語
       </button>
-      <button
-        onClick={() => handleSwitch("en")}
-        className={`px-2 py-1 text-xs rounded-r-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
-          current === "en"
-            ? "bg-[#6EC6FF] text-white border-[#6EC6FF]"
-            : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
-        }`}
-        aria-pressed={current === "en"}
-      >
-        English
-      </button>
+      {showEnglish && (
+        <button
+          onClick={() => handleSwitch("en")}
+          className={`px-2 py-1 text-xs rounded-r-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
+            current === "en"
+              ? "bg-[#6EC6FF] text-white border-[#6EC6FF]"
+              : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+          }`}
+          aria-pressed={current === "en"}
+        >
+          English
+        </button>
+      )}
     </div>
   );
 }
