@@ -147,6 +147,7 @@ export default function CompaniesTab({ onSave }: Props) {
     name: "", tier: "gold" as CompanyTier, tags: "" as string,
     cm15: "", cm30: "", cm60: "",
     offerText: "", offerUrl: "", couponCode: "", portalPassword: "",
+    contractStart: "", contractEnd: "",
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
@@ -157,7 +158,7 @@ export default function CompaniesTab({ onSave }: Props) {
 
   const startNew = () => {
     setEditing("__new__");
-    setForm({ name: "", tier: "gold", tags: "", cm15: "", cm30: "", cm60: "", offerText: "", offerUrl: "", couponCode: "", portalPassword: "" });
+    setForm({ name: "", tier: "gold", tags: "", cm15: "", cm30: "", cm60: "", offerText: "", offerUrl: "", couponCode: "", portalPassword: "", contractStart: "", contractEnd: "" });
     setLogoFile(null);
     setLogoPreview("");
   };
@@ -169,6 +170,7 @@ export default function CompaniesTab({ onSave }: Props) {
       cm15: c.videos.cm15, cm30: c.videos.cm30, cm60: c.videos.cm60,
       offerText: c.offerText, offerUrl: c.offerUrl, couponCode: c.couponCode || "",
       portalPassword: c.portalPassword || "",
+      contractStart: c.contractStart || "", contractEnd: c.contractEnd || "",
     });
     setLogoFile(null);
     setLogoPreview(c.logoUrl);
@@ -218,6 +220,8 @@ export default function CompaniesTab({ onSave }: Props) {
           offerUrl: form.offerUrl,
           couponCode: form.couponCode || undefined,
           portalPassword: form.portalPassword || undefined,
+          contractStart: form.contractStart || undefined,
+          contractEnd: form.contractEnd || undefined,
         };
         updated = [...companies, newCo];
       } else {
@@ -237,6 +241,8 @@ export default function CompaniesTab({ onSave }: Props) {
             offerText: form.offerText, offerUrl: form.offerUrl,
             couponCode: form.couponCode || undefined,
             portalPassword: form.portalPassword || undefined,
+            contractStart: form.contractStart || undefined,
+            contractEnd: form.contractEnd || undefined,
           };
         });
       }
@@ -327,6 +333,19 @@ export default function CompaniesTab({ onSave }: Props) {
                   <option value="silver">Silver</option>
                   <option value="bronze">Bronze</option>
                 </select>
+              </div>
+              <div className="border border-gray-100 rounded-xl p-3 space-y-2">
+                <p className="text-xs font-bold text-gray-600">契約期間</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-400 mb-0.5">開始日</label>
+                    <input type="date" className={inputCls} aria-label="契約開始日" value={form.contractStart} onChange={(e) => setForm({ ...form, contractStart: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-400 mb-0.5">終了日</label>
+                    <input type="date" className={inputCls} aria-label="契約終了日" value={form.contractEnd} onChange={(e) => setForm({ ...form, contractEnd: e.target.value })} />
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-600 mb-1">タグ</label>
@@ -426,6 +445,40 @@ export default function CompaniesTab({ onSave }: Props) {
               {c.videos.cm15 && (
                 <p className="text-[10px] text-gray-400 mt-1 font-mono">ID: {c.videos.cm15}</p>
               )}
+              {/* Contract period display */}
+              {(c.contractStart || c.contractEnd) && (() => {
+                const now = new Date();
+                const end = c.contractEnd ? new Date(c.contractEnd + "T23:59:59") : null;
+                const start = c.contractStart ? new Date(c.contractStart) : null;
+                const daysLeft = end ? Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                const isExpired = daysLeft !== null && daysLeft < 0;
+                const isNearExpiry = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+                const isActive = start && start <= now && !isExpired;
+
+                const badgeCls = isExpired
+                  ? "bg-red-50 border-red-200 text-red-600"
+                  : isNearExpiry
+                    ? "bg-yellow-50 border-yellow-200 text-yellow-700"
+                    : "bg-green-50 border-green-200 text-green-600";
+                const label = isExpired
+                  ? "契約終了"
+                  : isNearExpiry
+                    ? `残り${daysLeft}日`
+                    : isActive
+                      ? "契約中"
+                      : "契約前";
+
+                return (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${badgeCls}`}>
+                      {label}
+                    </span>
+                    <span className="text-[10px] text-gray-400">
+                      {c.contractStart || "?"} 〜 {c.contractEnd || "?"}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
             {!IS_DEMO_MODE && (
               <div className="flex gap-2">

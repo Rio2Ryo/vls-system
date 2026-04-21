@@ -24,6 +24,8 @@ export interface Company {
   offerUrl: string;
   couponCode?: string;
   portalPassword?: string;  // スポンサーポータルログイン用
+  contractStart?: string;   // 契約開始日 ISO "2026-01-01"
+  contractEnd?: string;     // 契約終了日 ISO "2026-12-31"
 }
 
 export type EventStatus = "preparing" | "active" | "ended" | "archived";
