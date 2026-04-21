@@ -38,11 +38,6 @@ export default function FaceSearchAdminPage() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
 
-  // Reindex state
-  const [reindexStatus, setReindexStatus] = useState<"idle" | "running" | "done" | "error">("idle");
-  const [reindexProgress, setReindexProgress] = useState("");
-  const [reindexDetail, setReindexDetail] = useState("");
-
   // HF Import state
   const [importStatus, setImportStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [importProgress, setImportProgress] = useState("");
@@ -94,7 +89,7 @@ export default function FaceSearchAdminPage() {
       });
 
       const csrfToken2 = getCsrfToken();
-      const res = await fetch("/api/face/search-insightface", {
+      const res = await fetch("/api/face/search", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -123,57 +118,7 @@ export default function FaceSearchAdminPage() {
   };
 
   // ---- Reindex ----
-  const handleReindex = async () => {
-
-    setReindexStatus("running");
-    setReindexProgress("開始中...");
-    setReindexDetail("");
-
-    const BATCH = 10;
-    let offset = 0;
-    let totalFaces = 0;
-    let batchNum = 0;
-
-    try {
-      while (true) {
-        batchNum++;
-        const csrfToken = getCsrfToken();
-        const body: Record<string, unknown> = { eventId, offset, batchSize: BATCH };
-
-        setReindexProgress(`バッチ ${batchNum} 処理中... (offset=${offset})`);
-
-        const res = await fetch("/api/face/reindex-insightface", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `HTTP ${res.status}`);
-        }
-
-        const data = await res.json();
-        const faces = data.indexedFaces || 0;
-        totalFaces += faces;
-        const hasMore = data.hasMore || false;
-
-        setReindexDetail(`バッチ ${batchNum}: ${faces}顔検出 | 合計: ${totalFaces}顔`);
-
-        if (!hasMore) break;
-        offset += BATCH;
-      }
-
-      setReindexStatus("done");
-      setReindexProgress(`完了！ 合計 ${totalFaces} 顔をインデックス済み`);
-    } catch (e) {
-      setReindexStatus("error");
-      setReindexProgress(`エラー: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
+  // Note: Legacy reindex functionality removed. Use HF Space import (recommended) or the main /api/face/reindex endpoint.
 
   // ---- Import from HF ----
   const handleImportFromHF = async () => {
@@ -419,44 +364,7 @@ export default function FaceSearchAdminPage() {
               )}
             </div>
 
-            {/* Original reindex (fallback) */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-              <h2 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
-                FaceNet 再インデックス（個別処理）
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                R2の画像を1枚ずつHF Spaceに送信してembeddingを生成します。上のインポートが使えない場合のみ使用してください。
-              </p>
-
-              <button
-                onClick={handleReindex}
-                disabled={reindexStatus === "running"}
-                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-semibold hover:from-red-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {reindexStatus === "running" ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    インデックス中...
-                  </span>
-                ) : "再インデックス実行"}
-              </button>
-
-              {reindexProgress && (
-                <p className={`mt-4 text-sm font-medium ${
-                  reindexStatus === "error" ? "text-red-500" :
-                  reindexStatus === "done" ? "text-green-600" :
-                  "text-blue-500"
-                }`}>
-                  {reindexProgress}
-                </p>
-              )}
-
-              {reindexDetail && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {reindexDetail}
-                </p>
-              )}
-            </div>
+            {/* Note: Legacy reindex removed. Use HF Space import or the main /api/face/reindex endpoint. */}
           </div>
         )}
       </div>
