@@ -149,7 +149,6 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     }
 
     // Update event photos
-    const allEvents = tenantId ? getEventsForTenant(tenantId) : getStoredEvents();
     const fullEvents = getStoredEvents();
     const updated = fullEvents.map((ev) => {
       if (ev.id !== selectedEventId) return ev;
@@ -327,7 +326,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3">
             <span className="text-white/70 text-sm bg-black/50 px-3 py-1 rounded-full">{previewImage}</span>
             <button
-              onClick={(e) => { e.stopPropagation(); previewIsHf ? handleHfDelete(previewImage) : handleLocalDelete(previewImage); }}
+              onClick={(e) => { e.stopPropagation(); if (previewIsHf) { handleHfDelete(previewImage); } else { handleLocalDelete(previewImage); } }}
               className="text-sm px-4 py-1.5 rounded-full bg-red-500 text-white font-medium hover:bg-red-600"
             >
               この写真を削除
