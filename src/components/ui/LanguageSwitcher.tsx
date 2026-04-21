@@ -11,18 +11,24 @@ export default function LanguageSwitcher() {
   const router = useRouter();
   const t = useTranslations("LanguageSwitcher");
 
+  // English temporarily hidden — set SHOW_ENGLISH=true to restore
+  const showEnglish = false;
+
   const current =
     typeof document !== "undefined"
       ? (document.cookie.match(/(?:^|; )locale=(\w+)/)?.[1] || "ja")
       : "ja";
 
+  // Force Japanese when English is hidden and cookie is still set to 'en'
+  if (!showEnglish && typeof document !== "undefined" && current === "en") {
+    setLocaleCookie("ja");
+    if (typeof window !== "undefined") window.location.reload();
+  }
+
   const handleSwitch = (locale: string) => {
     setLocaleCookie(locale);
     router.refresh();
   };
-
-  // English temporarily hidden — set SHOW_ENGLISH=true to restore
-  const showEnglish = false;
 
   return (
     <div className="flex items-center gap-1" role="group" aria-label={t("label")}>
