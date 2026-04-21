@@ -189,7 +189,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     });
     try {
       setStoredEvents(updated);
-    } catch (err) {
+    } catch {
       onSave("保存容量を超えました。写真の枚数を減らしてください。");
       setUploading(false);
       return;
