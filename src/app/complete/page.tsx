@@ -198,16 +198,6 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
   URL.revokeObjectURL(blobUrl);
 }
 
-/** Fallback: download image without frame compositing */
-async function downloadImageFallback(url: string, filename: string): Promise<void> {
-  try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    triggerBlobDownload(blob, filename);
-  } catch {
-    window.open(url, "_blank");
-  }
-}
 
 export default function CompletePage() {
   const router = useRouter();
