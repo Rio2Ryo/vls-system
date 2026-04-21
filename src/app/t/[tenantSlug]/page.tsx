@@ -34,7 +34,6 @@ export default function TenantPage() {
     }
     setTenant(t);
 
-    // Skip password gate if no userPassword set, or already authed in session
     if (!t.userPassword || sessionStorage.getItem("tenantAuthed_" + slug) === "true") {
       setAuthed(true);
     }
@@ -44,7 +43,6 @@ export default function TenantPage() {
     );
     setEvents(evts);
 
-    // Fetch real photo count from HF Space
     getAllImageNames()
       .then((names) => setHfPhotoCount(names.length))
       .catch(() => {});
@@ -68,7 +66,7 @@ export default function TenantPage() {
 
   if (notFound) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-b from-gray-50 to-white">
+      <main className="min-h-screen flex items-center justify-center p-6">
         <Card className="w-full max-w-md text-center">
           <div className="text-4xl mb-3">🔍</div>
           <h1 className="text-xl font-bold text-gray-800 mb-2">ページが見つかりません</h1>
@@ -90,131 +88,174 @@ export default function TenantPage() {
     );
   }
 
-  const primaryColor = tenant.primaryColor || "#6EC6FF";
-
-  return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Header */}
-      <div
-        className="py-8 px-6 text-center text-white"
-        style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
-      >
-        {tenant.logoUrl && (
-          <img
-            src={tenant.logoUrl}
-            alt={`${tenant.name} ロゴ`}
-            className="w-16 h-16 mx-auto mb-3 rounded-full bg-white/20 p-1 object-contain"
-          />
-        )}
-        <motion.h1
-          initial={{ opacity: 0, y: -10 }}
+  // Password screen — matches top page layout
+  if (!authed) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center p-6">
+        {/* Logo + Title */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-2xl md:text-3xl font-bold"
+          className="text-center mb-8"
         >
-          {tenant.name}
-        </motion.h1>
-        <p className="text-sm mt-2 opacity-80">イベント写真ダウンロードサービス</p>
-      </div>
+          <motion.div
+            animate={{ y: [0, -6, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            className="mb-3"
+          >
+            {tenant.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={tenant.logoUrl} alt={`${tenant.name} ロゴ`} className="w-20 h-20 mx-auto rounded-full object-contain" />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/logo-mirai.svg" alt="ロゴ" className="w-20 h-20 mx-auto" />
+            )}
+          </motion.div>
+          <h1 className="text-3xl md:text-4xl font-black text-[#1a237e]">
+            {tenant.name}
+          </h1>
+          <p className="text-gray-500 mt-1 text-sm">
+            イベント写真ダウンロードサービス
+          </p>
+        </motion.div>
 
-      {/* Password Gate or Events */}
-      {!authed ? (
-        <div className="max-w-md mx-auto px-6 py-8">
-          <Card className="w-full">
-            <form onSubmit={handlePasswordSubmit} className="space-y-5">
-              <div>
-                <label
-                  htmlFor="tenant-password"
-                  className="block text-sm font-bold text-gray-600 mb-2"
+        {/* Password Form */}
+        <Card className="w-full max-w-md">
+          <form onSubmit={handlePasswordSubmit} className="space-y-5">
+            <div>
+              <label
+                htmlFor="tenant-password"
+                className="block text-sm font-bold text-gray-600 mb-2"
+              >
+                アクセスパスワード
+              </label>
+              <input
+                id="tenant-password"
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="例：SAKURA2026"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200
+                           focus:border-[#6EC6FF] focus:ring-2 focus:ring-blue-100
+                           focus:outline-none text-center text-lg font-mono
+                           tracking-wider bg-gray-50/50"
+              />
+              {pwError && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-red-400 text-sm mt-2 text-center"
+                  role="alert"
+                  aria-live="assertive"
                 >
-                  パスワードを入力してください
-                </label>
-                <input
-                  id="tenant-password"
-                  type="text"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="イベントパスワード"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200
-                             focus:border-[#6EC6FF] focus:ring-2 focus:ring-blue-100
-                             focus:outline-none text-center text-lg font-mono
-                             tracking-wider bg-gray-50/50"
-                />
-                {pwError && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-red-400 text-sm mt-2 text-center"
-                    role="alert"
-                    aria-live="assertive"
-                  >
-                    {pwError}
-                  </motion.p>
-                )}
-              </div>
-              <Button type="submit" className="w-full">
-                ログイン
+                  {pwError}
+                </motion.p>
+              )}
+            </div>
+
+            <div className="text-center">
+              <Button type="submit" size="lg">
+                写真を見る →
               </Button>
-            </form>
-          </Card>
-        </div>
-      ) : (
-        <div className="max-w-2xl mx-auto px-6 py-8">
-          {events.length > 0 ? (
-            <>
-              <h2 className="text-lg font-bold text-gray-800 mb-4">イベント一覧</h2>
-              <div className="space-y-3">
-                {events.map((evt, i) => (
-                  <motion.div
-                    key={evt.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                  >
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => {
-                        sessionStorage.setItem("tenantSlug", slug);
-                        if (evt.slug) {
-                          router.push(`/e/${evt.slug}`);
-                        } else {
-                          router.push(`/?pw=${evt.password}`);
-                        }
-                      }}
-                    >
-                    <Card className="hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-bold text-gray-800">{evt.name}</h3>
-                          <p className="text-xs text-gray-500 mt-0.5">{evt.date} — {evt.description}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                              📷 {evt.id === "evt-summer" && hfPhotoCount != null ? hfPhotoCount : evt.photos.length}枚
-                            </span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                              evt.status === "active"
-                                ? "bg-green-50 text-green-600"
-                                : "bg-gray-100 text-gray-500"
-                            }`}>
-                              {evt.status === "active" ? "公開中" : "終了"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-2xl">📸</div>
-                      </div>
-                    </Card>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </>
+            </div>
+          </form>
+        </Card>
+
+        {/* Hint */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="text-xs text-gray-300 mt-6"
+        >
+          イベント主催者からお知らせされたパスワードを入力してください
+        </motion.p>
+      </main>
+    );
+  }
+
+  // Events screen — centered layout
+  return (
+    <main className="min-h-screen flex flex-col items-center justify-center p-6">
+      {/* Logo + Title */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center mb-8"
+      >
+        <motion.div
+          animate={{ y: [0, -6, 0] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="mb-3"
+        >
+          {tenant.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={tenant.logoUrl} alt={`${tenant.name} ロゴ`} className="w-20 h-20 mx-auto rounded-full object-contain" />
           ) : (
-            <Card className="text-center py-12">
-              <div className="text-4xl mb-3">📷</div>
-              <p className="text-gray-500">現在公開中のイベントはありません</p>
-            </Card>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/logo-mirai.svg" alt="ロゴ" className="w-20 h-20 mx-auto" />
           )}
-        </div>
-      )}
+        </motion.div>
+        <h1 className="text-3xl md:text-4xl font-black text-[#1a237e]">
+          {tenant.name}
+        </h1>
+        <p className="text-gray-500 mt-1 text-sm">
+          イベントを選択してください
+        </p>
+      </motion.div>
+
+      {/* Event Cards */}
+      <div className="w-full max-w-md space-y-3">
+        {events.length > 0 ? (
+          events.map((evt, i) => (
+            <motion.div
+              key={evt.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+            >
+              <div
+                className="cursor-pointer"
+                onClick={() => {
+                  sessionStorage.setItem("tenantSlug", slug);
+                  if (evt.slug) {
+                    router.push(`/e/${evt.slug}`);
+                  } else {
+                    router.push(`/?pw=${evt.password}`);
+                  }
+                }}
+              >
+                <Card className="hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-gray-800">{evt.name}</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">{evt.date}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                          📷 {evt.id === "evt-summer" && hfPhotoCount != null ? hfPhotoCount : evt.photos.length}枚
+                        </span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                          evt.status === "active"
+                            ? "bg-green-50 text-green-600"
+                            : "bg-gray-100 text-gray-500"
+                        }`}>
+                          {evt.status === "active" ? "公開中" : "終了"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-2xl">📸</div>
+                  </div>
+                </Card>
+              </div>
+            </motion.div>
+          ))
+        ) : (
+          <Card className="text-center py-12">
+            <div className="text-4xl mb-3">📷</div>
+            <p className="text-gray-500">現在公開中のイベントはありません</p>
+          </Card>
+        )}
+      </div>
     </main>
   );
 }
