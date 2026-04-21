@@ -67,9 +67,9 @@ export async function POST(req: NextRequest) {
           Authorization: `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "未来発見ラボ <noreply@miraihakkenlab.com>",
+          from: "みらい発見ラボ <noreply@miraihakkenlab.com>",
           to: [email],
-          subject: "マイページログインリンク｜未来発見ラボ",
+          subject: "マイページログインリンク｜みらい発見ラボ",
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <h2 style="color: #333;">マイページへようこそ</h2>
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
               </div>
               <p style="color: #999; font-size: 12px;">このリンクの有効期限: ${new Date(session.expiresAt).toLocaleDateString("ja-JP")}（7日間）</p>
               <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-              <p style="color: #bbb; font-size: 11px;">未来発見ラボ — イベント写真サービス</p>
+              <p style="color: #bbb; font-size: 11px;">みらい発見ラボ — イベント写真サービス</p>
             </div>
           `,
         }),

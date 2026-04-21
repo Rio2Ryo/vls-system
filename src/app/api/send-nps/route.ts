@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
             Authorization: `Bearer ${RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            from: "未来発見ラボ <noreply@miraihakkenlab.com>",
+            from: "みらい発見ラボ <noreply@miraihakkenlab.com>",
             to: [p.email],
             subject: `${p.name || "参加者"}様へ — ${eventName}のご感想をお聞かせください`,
             html: `
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
                 </div>
                 <p style="color: #999; font-size: 12px;">回答期限: ${new Date(record.expiresAt).toLocaleDateString("ja-JP")}</p>
                 <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-                <p style="color: #bbb; font-size: 11px;">未来発見ラボ — イベント写真サービス</p>
+                <p style="color: #bbb; font-size: 11px;">みらい発見ラボ — イベント写真サービス</p>
               </div>
             `,
           }),
