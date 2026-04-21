@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import JSZip from "jszip";
 import { getFrameTemplateForEvent } from "@/lib/store";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -17,44 +18,31 @@ function loadImage(src: string, useCors = false): Promise<HTMLImageElement> {
   });
 }
 
-async function compositeAndDownload(photoUrl: string, filename: string, frameUrl: string): Promise<boolean> {
+async function compositeToBlob(photoUrl: string, frameUrl: string): Promise<Blob> {
+  const photoImg = await loadImage(photoUrl, true);
+  const canvas = document.createElement("canvas");
+  canvas.width = photoImg.naturalWidth;
+  canvas.height = photoImg.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No canvas context");
+
+  ctx.drawImage(photoImg, 0, 0);
+
   try {
-    const photoImg = await loadImage(photoUrl, true);
-    const canvas = document.createElement("canvas");
-    canvas.width = photoImg.naturalWidth;
-    canvas.height = photoImg.naturalHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return false;
-
-    ctx.drawImage(photoImg, 0, 0);
-
-    try {
-      const frameImg = await loadImage(frameUrl, false);
-      ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-    } catch {
-      // Frame load failed, continue without frame
-    }
-
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject()), "image/png");
-    });
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
-    return true;
+    const frameImg = await loadImage(frameUrl, false);
+    ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
   } catch {
-    return false;
+    // Frame load failed, continue without frame
   }
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
+  });
 }
 
 function DownloadPageInner() {
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "ready" | "downloading" | "done" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "downloading" | "zipping" | "done" | "error">("loading");
   const [photos, setPhotos] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
   const [eventId, setEventId] = useState<string | null>(null);
@@ -77,17 +65,40 @@ function DownloadPageInner() {
     setStatus("downloading");
     const frameUrl = getFrameTemplateForEvent(eventId).url || "/frame-template.svg";
 
+    const zip = new JSZip();
     let completed = 0;
+
     for (const name of photos) {
       const url = `/api/proxy/images/${name}`;
       const filename = `photo_${completed + 1}.png`;
-      await compositeAndDownload(url, filename, frameUrl);
+      try {
+        const blob = await compositeToBlob(url, frameUrl);
+        zip.file(filename, blob);
+      } catch {
+        // Fallback: try raw image
+        try {
+          const res = await fetch(url);
+          const fallbackBlob = await res.blob();
+          zip.file(filename, fallbackBlob);
+        } catch {
+          // Skip this photo
+        }
+      }
       completed++;
       setProgress(completed);
-      if (completed < photos.length) {
-        await new Promise((r) => setTimeout(r, 800));
-      }
     }
+
+    setStatus("zipping");
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const blobUrl = URL.createObjectURL(zipBlob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = "photos.zip";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+
     setStatus("done");
   }, [photos, eventId]);
 
@@ -111,10 +122,10 @@ function DownloadPageInner() {
             <p className="text-4xl mb-3">📸</p>
             <p className="font-bold text-gray-700 text-lg mb-1">写真ダウンロード</p>
             <p className="text-sm text-gray-400 mb-4">
-              {photos.length}枚の写真をフレーム付きでダウンロードします
+              {photos.length}枚の写真をZIPでダウンロードします
             </p>
             <Button onClick={handleDownload} size="lg">
-              ダウンロード開始
+              ZIPダウンロード開始
             </Button>
           </div>
         )}
@@ -122,7 +133,7 @@ function DownloadPageInner() {
         {status === "downloading" && (
           <div>
             <p className="text-4xl mb-3">⏳</p>
-            <p className="font-bold text-gray-700">ダウンロード中...</p>
+            <p className="font-bold text-gray-700">写真を準備中...</p>
             <p className="text-sm text-gray-400 mt-1">
               {progress} / {photos.length} 枚完了
             </p>
@@ -138,12 +149,19 @@ function DownloadPageInner() {
           </div>
         )}
 
+        {status === "zipping" && (
+          <div>
+            <p className="text-4xl mb-3 animate-pulse">📦</p>
+            <p className="font-bold text-gray-700">ZIP作成中...</p>
+          </div>
+        )}
+
         {status === "done" && (
           <div>
             <p className="text-4xl mb-3">✅</p>
             <p className="font-bold text-gray-700">ダウンロード完了！</p>
             <p className="text-sm text-gray-400 mt-1">
-              {photos.length}枚の写真がダウンロードされました
+              {photos.length}枚の写真がZIPでダウンロードされました
             </p>
           </div>
         )}
