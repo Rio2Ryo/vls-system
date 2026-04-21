@@ -175,29 +175,7 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
             </button>
           </div>
         </div>
-        {/* Navigation */}
-        <nav aria-label="管理画面ナビゲーション">
-          <div className="flex gap-1 mt-2 overflow-x-auto pb-0.5 -mx-1 px-1">
-            {visibleNavItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`text-xs px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6EC6FF] ${
-                    isActive
-                      ? "text-white"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-                  }`}
-                  style={isActive ? { backgroundColor: "var(--primary)" } : undefined}
-                >
-                  {item.label}
-                </a>
-              );
-            })}
-          </div>
-        </nav>
+        {/* Navigation removed — grouped tabs in admin page handle navigation */}
       </div>
     </div>
   );
