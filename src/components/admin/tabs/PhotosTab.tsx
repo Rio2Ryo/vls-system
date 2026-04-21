@@ -115,11 +115,44 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   };
 
   // ─── Local upload (non-summer events) ───
-  const readFileAsDataUrl = (file: File): Promise<string> =>
+  // Resize image to max 800px and compress as JPEG to stay within localStorage limits
+  const resizeImage = (file: File, maxSize = 800): Promise<{ full: string; thumb: string }> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          // Full size (max 800px)
+          const fullCanvas = document.createElement("canvas");
+          let w = img.width, h = img.height;
+          if (w > maxSize || h > maxSize) {
+            if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+            else { w = Math.round(w * maxSize / h); h = maxSize; }
+          }
+          fullCanvas.width = w;
+          fullCanvas.height = h;
+          fullCanvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          const full = fullCanvas.toDataURL("image/jpeg", 0.7);
+
+          // Thumbnail (max 200px)
+          const thumbCanvas = document.createElement("canvas");
+          let tw = img.width, th = img.height;
+          const thumbMax = 200;
+          if (tw > thumbMax || th > thumbMax) {
+            if (tw > th) { th = Math.round(th * thumbMax / tw); tw = thumbMax; }
+            else { tw = Math.round(tw * thumbMax / th); th = thumbMax; }
+          }
+          thumbCanvas.width = tw;
+          thumbCanvas.height = th;
+          thumbCanvas.getContext("2d")!.drawImage(img, 0, 0, tw, th);
+          const thumb = thumbCanvas.toDataURL("image/jpeg", 0.5);
+
+          resolve({ full, thumb });
+        };
+        img.src = reader.result as string;
+      };
       reader.readAsDataURL(file);
     });
 
@@ -134,12 +167,12 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     const newPhotos: PhotoData[] = [];
     for (let i = 0; i < fileArray.length; i++) {
       try {
-        const dataUrl = await readFileAsDataUrl(fileArray[i]);
+        const { full, thumb } = await resizeImage(fileArray[i]);
         const photoId = `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         newPhotos.push({
           id: photoId,
-          originalUrl: dataUrl,
-          thumbnailUrl: dataUrl,
+          originalUrl: full,
+          thumbnailUrl: thumb,
           watermarked: false,
           uploadedAt: Date.now(),
           originalSize: fileArray[i].size,
@@ -154,7 +187,13 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
       if (ev.id !== selectedEventId) return ev;
       return { ...ev, photos: [...ev.photos, ...newPhotos] };
     });
-    setStoredEvents(updated);
+    try {
+      setStoredEvents(updated);
+    } catch (err) {
+      onSave("保存容量を超えました。写真の枚数を減らしてください。");
+      setUploading(false);
+      return;
+    }
     setEvts(tenantId ? updated.filter((e) => e.tenantId === tenantId) : updated);
 
     setUploading(false);
