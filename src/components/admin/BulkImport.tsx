@@ -45,26 +45,43 @@ function detectColumns(headers: string[]): { nameIdx: number; emailIdx: number; 
     }
   }
 
-  // Fallback: if no header matched, use positional (skip timestamp-like first col)
+  // Also try to detect email by finding a column where values contain '@'
+  // (helps when header says "メールアドレス" which includes "メール")
+
+  // Fallback: if no name column matched, use positional (skip timestamp-like first col)
   if (nameIdx < 0) {
     // Check if first column looks like a timestamp
     const firstHeader = lower[0] || "";
-    const startsWithTimestamp = firstHeader.includes("timestamp") || firstHeader.includes("タイムスタンプ") || firstHeader.includes("日時");
+    const startsWithTimestamp = firstHeader.includes("timestamp") || firstHeader.includes("タイムスタンプ") || firstHeader.includes("日時") || firstHeader.includes("送信日");
     const offset = startsWithTimestamp ? 1 : 0;
     nameIdx = offset;
-    emailIdx = offset + 1 < headers.length ? offset + 1 : -1;
-    tagsIdx = offset + 2 < headers.length ? offset + 2 : -1;
+    if (emailIdx < 0) emailIdx = offset + 1 < headers.length ? offset + 1 : -1;
+    if (tagsIdx < 0) tagsIdx = offset + 2 < headers.length ? offset + 2 : -1;
+  }
+  // If email wasn't found but name was, try to find email in remaining columns
+  if (emailIdx < 0) {
+    for (let i = 0; i < lower.length; i++) {
+      if (i === nameIdx || i === tagsIdx) continue;
+      if (lower[i].includes("アドレス") || lower[i].includes("address")) {
+        emailIdx = i;
+        break;
+      }
+    }
   }
 
   return { nameIdx, emailIdx, tagsIdx };
 }
 
 function parseCSV(text: string): ParsedRow[] {
-  const lines = text.trim().split("\n");
+  // Strip BOM if present
+  const cleaned = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+  const lines = cleaned.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
 
   const headers = parseCsvLine(lines[0]);
   const { nameIdx, emailIdx, tagsIdx } = detectColumns(headers);
+  // eslint-disable-next-line no-console
+  console.log("[CSV Import] Headers:", headers, "→ name:", nameIdx, "email:", emailIdx, "tags:", tagsIdx);
 
   return lines.slice(1).map((line) => {
     const cols = parseCsvLine(line);
