@@ -6,6 +6,51 @@ import { EventData } from "@/lib/types";
 import { getStoredEvents, getEventsForTenant } from "@/lib/store";
 import { getAllImageNames, getImageUrl } from "@/lib/face-api-client";
 
+// Event-to-image mapping stored in localStorage
+const EVENT_IMAGES_KEY = "vls_event_images_map";
+
+function getEventImageMap(): Record<string, string[]> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(EVENT_IMAGES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function setEventImageMap(map: Record<string, string[]>) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(EVENT_IMAGES_KEY, JSON.stringify(map)); } catch {}
+}
+
+function getImagesForEvent(eventId: string, allImages: string[]): string[] {
+  const map = getEventImageMap();
+  // evt-summer: legacy — show all images that aren't assigned to other events
+  if (eventId === "evt-summer") {
+    const assignedToOthers = new Set<string>();
+    for (const [eid, names] of Object.entries(map)) {
+      if (eid !== "evt-summer") {
+        for (const n of names) assignedToOthers.add(n);
+      }
+    }
+    return allImages.filter((n) => !assignedToOthers.has(n));
+  }
+  return map[eventId] || [];
+}
+
+function addImagesToEvent(eventId: string, imageNames: string[]) {
+  const map = getEventImageMap();
+  const existing = new Set(map[eventId] || []);
+  for (const n of imageNames) existing.add(n);
+  map[eventId] = Array.from(existing);
+  setEventImageMap(map);
+}
+
+function removeImageFromEvent(eventId: string, imageName: string) {
+  const map = getEventImageMap();
+  map[eventId] = (map[eventId] || []).filter((n) => n !== imageName);
+  setEventImageMap(map);
+}
+
 interface Props {
   onSave: (msg: string) => void;
   activeEventId: string;
@@ -15,6 +60,7 @@ interface Props {
 export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
   const [events, setEvts] = useState<EventData[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [allHfImages, setAllHfImages] = useState<string[]>([]);
   const [imageNames, setImageNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -41,7 +87,7 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
         sessionStorage.removeItem("__hf_image_names_cache");
       }
       const names = await getAllImageNames();
-      setImageNames(names);
+      setAllHfImages(names);
     } catch {
       // Keep existing images on error
     } finally {
@@ -51,7 +97,16 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
 
   useEffect(() => {
     loadImages();
-  }, [selectedEventId, loadImages]);
+  }, [loadImages]);
+
+  // Filter images for the selected event
+  useEffect(() => {
+    if (allHfImages.length > 0 && selectedEventId) {
+      setImageNames(getImagesForEvent(selectedEventId, allHfImages));
+    } else {
+      setImageNames([]);
+    }
+  }, [allHfImages, selectedEventId]);
 
   const photoCount = imageNames.length;
 
@@ -97,8 +152,17 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     setUploadProgress({ current: 0, total: 0 });
     onSave(`${totalUploaded}枚アップロード完了（${totalFaces}件の顔を検出）`);
 
-    // Reload image list with fresh data
+    // Reload image list and register new images to the selected event
     await loadImages(true);
+    // After reload, new images will be in allHfImages but not yet mapped
+    // Get the difference to find newly uploaded names
+    const refreshedNames = await getAllImageNames();
+    const oldNames = new Set(allHfImages);
+    const newNames = refreshedNames.filter((n) => !oldNames.has(n));
+    if (newNames.length > 0) {
+      addImagesToEvent(selectedEventId, newNames);
+    }
+    setAllHfImages(refreshedNames);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -123,6 +187,8 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
       });
       if (res.ok) {
         setImageNames((prev) => prev.filter((n) => n !== imageName));
+        setAllHfImages((prev) => prev.filter((n) => n !== imageName));
+        removeImageFromEvent(selectedEventId, imageName);
         if (previewImage === imageName) setPreviewImage(null);
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("__hf_image_names_cache");
