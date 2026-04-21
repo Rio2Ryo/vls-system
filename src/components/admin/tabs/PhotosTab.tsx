@@ -53,7 +53,6 @@ export default function PhotosTab({ onSave, activeEventId, tenantId }: Props) {
     loadImages();
   }, [selectedEventId, loadImages]);
 
-  const selectedEvent = events.find((e) => e.id === selectedEventId);
   const photoCount = imageNames.length;
 
   // Upload photos to HF Space
