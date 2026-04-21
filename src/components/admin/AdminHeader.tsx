@@ -2,41 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getStoredTenants } from "@/lib/store";
-import { Tenant, ROLE_PERMISSIONS, AdminRole } from "@/lib/types";
+import { Tenant } from "@/lib/types";
 import { useTenantBranding } from "@/components/providers/TenantBrandingProvider";
 import { useDarkMode } from "@/components/providers/DarkModeProvider";
 import NotificationBanner from "@/components/admin/NotificationBanner";
 import GlobalSearchModal from "@/components/admin/GlobalSearchModal";
 import AdminPresenceBar from "@/components/admin/AdminPresenceBar";
 import { useAdminPresence } from "@/hooks/useAdminPresence";
-
-interface NavItem {
-  href: string;
-  label: string;
-  requiredPermission?: string;  // permission needed to see this nav item
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { href: "/admin", label: "Admin" },
-  { href: "/admin/events", label: "イベント", requiredPermission: "events.read" },
-  { href: "/admin/analytics", label: "アンケート", requiredPermission: "analytics.read" },
-  { href: "/admin/stats", label: "CM統計", requiredPermission: "analytics.read" },
-  { href: "/admin/users", label: "ユーザー", requiredPermission: "users.read" },
-  { href: "/admin/import", label: "インポート", requiredPermission: "import.write" },
-  { href: "/admin/checkin", label: "チェックイン", requiredPermission: "events.write" },
-  { href: "/admin/live", label: "ライブ", requiredPermission: "analytics.read" },
-  { href: "/admin/command", label: "統合管理", requiredPermission: "analytics.read" },
-  { href: "/admin/roi", label: "ROI", requiredPermission: "analytics.read" },
-  { href: "/admin/segments", label: "セグメント", requiredPermission: "analytics.read" },
-  { href: "/admin/calendar", label: "カレンダー", requiredPermission: "events.read" },
-  { href: "/admin/reports", label: "レポート", requiredPermission: "analytics.read" },
-  { href: "/admin/settings", label: "テーマ設定", requiredPermission: "analytics.read" },
-  { href: "/admin/chat", label: "チャット", requiredPermission: "events.read" },
-  { href: "/admin/viral", label: "バイラル", requiredPermission: "analytics.read" },
-];
 
 interface AdminHeaderProps {
   title: string;
@@ -46,7 +20,6 @@ interface AdminHeaderProps {
 }
 
 export default function AdminHeader({ title, badge, onLogout, actions }: AdminHeaderProps) {
-  const pathname = usePathname();
   const { data: session } = useSession();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
@@ -73,11 +46,6 @@ export default function AdminHeader({ title, badge, onLogout, actions }: AdminHe
     return () => document.removeEventListener("keydown", handleGlobalKeyDown);
   }, [handleGlobalKeyDown]);
   const isSuperAdmin = session?.user?.role === "super_admin";
-  const userRole = (session?.user?.role || "viewer") as AdminRole;
-  const userPermissions = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS.viewer;
-  const visibleNavItems = NAV_ITEMS.filter(
-    (item) => !item.requiredPermission || userPermissions.includes(item.requiredPermission as typeof userPermissions[number])
-  );
 
   useEffect(() => {
     const tid = sessionStorage.getItem("adminTenantId") || null;
