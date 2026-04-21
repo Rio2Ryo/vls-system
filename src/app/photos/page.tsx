@@ -7,6 +7,24 @@ import { searchFaces, getAllImageNames, getImageUrl, getAnnotatedImageUrl } from
 import type { SearchResponse } from "@/lib/face-api-client";
 import "@/app/face-search.css";
 
+// Event-to-image mapping (same as admin PhotosTab)
+const EVENT_IMAGES_KEY = "vls_event_images_map";
+function getEventImageMap(): Record<string, string[]> {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(EVENT_IMAGES_KEY) || "{}"); } catch { return {}; }
+}
+function getImagesForEvent(eventId: string, allImages: string[]): string[] {
+  const map = getEventImageMap();
+  if (eventId === "evt-summer") {
+    const assignedToOthers = new Set<string>();
+    for (const [eid, names] of Object.entries(map)) {
+      if (eid !== "evt-summer") for (const n of names) assignedToOthers.add(n);
+    }
+    return allImages.filter((n) => !assignedToOthers.has(n));
+  }
+  return map[eventId] || [];
+}
+
 export default function PhotosPage() {
   const router = useRouter();
 
@@ -37,15 +55,17 @@ export default function PhotosPage() {
     setEventName(sessionStorage.getItem("eventName") || "イベント");
   }, []);
 
-  // Load all image names from HF Space
+  // Load image names from HF Space, filtered by current event
   useEffect(() => {
     let cancelled = false;
+    const eventId = sessionStorage.getItem("eventId") || "";
     (async () => {
       try {
         setLoading(true);
-        const names = await getAllImageNames();
+        const allNames = await getAllImageNames();
         if (!cancelled) {
-          setAllImages(names);
+          const filtered = eventId ? getImagesForEvent(eventId, allNames) : allNames;
+          setAllImages(filtered);
           setLoading(false);
         }
       } catch (err) {
