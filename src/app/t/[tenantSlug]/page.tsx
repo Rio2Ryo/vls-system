@@ -18,6 +18,9 @@ export default function TenantPage() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [hfPhotoCount, setHfPhotoCount] = useState<number | null>(null);
+  const [authed, setAuthed] = useState(false);
+  const [password, setPassword] = useState("");
+  const [pwError, setPwError] = useState("");
 
   useEffect(() => {
     if (!slug) {
@@ -30,6 +33,12 @@ export default function TenantPage() {
       return;
     }
     setTenant(t);
+
+    // Skip password gate if no userPassword set, or already authed in session
+    if (!t.userPassword || sessionStorage.getItem("tenantAuthed_" + slug) === "true") {
+      setAuthed(true);
+    }
+
     const evts = getEventsForTenant(t.id).filter(
       (e) => e.status === "active" || e.status === "ended"
     );
@@ -40,6 +49,22 @@ export default function TenantPage() {
       .then((names) => setHfPhotoCount(names.length))
       .catch(() => {});
   }, [slug]);
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError("");
+    const trimmed = password.trim();
+    if (!trimmed) {
+      setPwError("パスワードを入力してください");
+      return;
+    }
+    if (tenant && trimmed === tenant.userPassword) {
+      sessionStorage.setItem("tenantAuthed_" + slug, "true");
+      setAuthed(true);
+    } else {
+      setPwError("パスワードが正しくありません");
+    }
+  };
 
   if (notFound) {
     return (
@@ -91,64 +116,105 @@ export default function TenantPage() {
         <p className="text-sm mt-2 opacity-80">イベント写真ダウンロードサービス</p>
       </div>
 
-      {/* Events */}
-      <div className="max-w-2xl mx-auto px-6 py-8">
-        {events.length > 0 ? (
-          <>
-            <h2 className="text-lg font-bold text-gray-800 mb-4">イベント一覧</h2>
-            <div className="space-y-3">
-              {events.map((evt, i) => (
-                <motion.div
-                  key={evt.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
+      {/* Password Gate or Events */}
+      {!authed ? (
+        <div className="max-w-md mx-auto px-6 py-8">
+          <Card className="w-full">
+            <form onSubmit={handlePasswordSubmit} className="space-y-5">
+              <div>
+                <label
+                  htmlFor="tenant-password"
+                  className="block text-sm font-bold text-gray-600 mb-2"
                 >
-                  <div
-                    className="cursor-pointer"
-                    onClick={() => {
-                      sessionStorage.setItem("tenantSlug", slug);
-                      if (evt.slug) {
-                        router.push(`/e/${evt.slug}`);
-                      } else {
-                        router.push(`/?pw=${evt.password}`);
-                      }
-                    }}
+                  パスワードを入力してください
+                </label>
+                <input
+                  id="tenant-password"
+                  type="text"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="イベントパスワード"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200
+                             focus:border-[#6EC6FF] focus:ring-2 focus:ring-blue-100
+                             focus:outline-none text-center text-lg font-mono
+                             tracking-wider bg-gray-50/50"
+                />
+                {pwError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-red-400 text-sm mt-2 text-center"
+                    role="alert"
+                    aria-live="assertive"
                   >
-                  <Card className="hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-bold text-gray-800">{evt.name}</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">{evt.date} — {evt.description}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                            📷 {evt.id === "evt-summer" && hfPhotoCount != null ? hfPhotoCount : evt.photos.length}枚
-                          </span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                            evt.status === "active"
-                              ? "bg-green-50 text-green-600"
-                              : "bg-gray-100 text-gray-500"
-                          }`}>
-                            {evt.status === "active" ? "公開中" : "終了"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-2xl">📸</div>
-                    </div>
-                  </Card>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <Card className="text-center py-12">
-            <div className="text-4xl mb-3">📷</div>
-            <p className="text-gray-500">現在公開中のイベントはありません</p>
+                    {pwError}
+                  </motion.p>
+                )}
+              </div>
+              <Button type="submit" className="w-full">
+                ログイン
+              </Button>
+            </form>
           </Card>
-        )}
-
-      </div>
+        </div>
+      ) : (
+        <div className="max-w-2xl mx-auto px-6 py-8">
+          {events.length > 0 ? (
+            <>
+              <h2 className="text-lg font-bold text-gray-800 mb-4">イベント一覧</h2>
+              <div className="space-y-3">
+                {events.map((evt, i) => (
+                  <motion.div
+                    key={evt.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                  >
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => {
+                        sessionStorage.setItem("tenantSlug", slug);
+                        if (evt.slug) {
+                          router.push(`/e/${evt.slug}`);
+                        } else {
+                          router.push(`/?pw=${evt.password}`);
+                        }
+                      }}
+                    >
+                    <Card className="hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold text-gray-800">{evt.name}</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">{evt.date} — {evt.description}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                              📷 {evt.id === "evt-summer" && hfPhotoCount != null ? hfPhotoCount : evt.photos.length}枚
+                            </span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                              evt.status === "active"
+                                ? "bg-green-50 text-green-600"
+                                : "bg-gray-100 text-gray-500"
+                            }`}>
+                              {evt.status === "active" ? "公開中" : "終了"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-2xl">📸</div>
+                      </div>
+                    </Card>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <Card className="text-center py-12">
+              <div className="text-4xl mb-3">📷</div>
+              <p className="text-gray-500">現在公開中のイベントはありません</p>
+            </Card>
+          )}
+        </div>
+      )}
     </main>
   );
 }

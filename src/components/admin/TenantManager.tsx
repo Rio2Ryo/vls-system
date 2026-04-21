@@ -27,7 +27,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({
-    name: "", slug: "", adminPassword: "", plan: "basic" as Tenant["plan"],
+    name: "", slug: "", adminPassword: "", userPassword: "", plan: "basic" as Tenant["plan"],
     contactEmail: "", contactName: "", billingAddress: "", invoicePrefix: "",
     licenseStart: "", licenseEnd: "", maxEvents: "",
     logoUrl: "", primaryColor: "#6EC6FF",
@@ -42,13 +42,13 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
 
   const startNew = () => {
     setEditing("__new__");
-    setForm({ name: "", slug: "", adminPassword: "", plan: "basic", contactEmail: "", contactName: "", billingAddress: "", invoicePrefix: "", licenseStart: "", licenseEnd: "", maxEvents: "", logoUrl: "", primaryColor: "#6EC6FF" });
+    setForm({ name: "", slug: "", adminPassword: "", userPassword: "", plan: "basic", contactEmail: "", contactName: "", billingAddress: "", invoicePrefix: "", licenseStart: "", licenseEnd: "", maxEvents: "", logoUrl: "", primaryColor: "#6EC6FF" });
   };
 
   const startEdit = (t: Tenant) => {
     setEditing(t.id);
     setForm({
-      name: t.name, slug: t.slug, adminPassword: t.adminPassword, plan: t.plan,
+      name: t.name, slug: t.slug, adminPassword: t.adminPassword, userPassword: t.userPassword || "", plan: t.plan,
       contactEmail: t.contactEmail, contactName: t.contactName,
       billingAddress: t.billingAddress || "", invoicePrefix: t.invoicePrefix || "",
       licenseStart: t.licenseStart || "", licenseEnd: t.licenseEnd || "",
@@ -73,6 +73,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
         name: form.name,
         slug: slugVal,
         adminPassword: form.adminPassword.toUpperCase(),
+        userPassword: form.userPassword || undefined,
         plan: form.plan,
         contactEmail: form.contactEmail,
         contactName: form.contactName,
@@ -90,6 +91,7 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
           name: form.name,
           slug: slugVal,
           adminPassword: form.adminPassword.toUpperCase(),
+          userPassword: form.userPassword || undefined,
           plan: form.plan,
           contactEmail: form.contactEmail,
           contactName: form.contactName,
@@ -180,6 +182,10 @@ export default function TenantManager({ onSave }: { onSave: (msg: string) => voi
             <div>
               <label className="text-xs text-gray-500 block mb-1">管理パスワード *</label>
               <input className={inputCls} value={form.adminPassword} onChange={(e) => setForm({ ...form, adminPassword: e.target.value })} placeholder="SAKURA_ADMIN_2026" data-testid="tenant-password-input" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">テナントパスワード（ユーザー向け）</label>
+              <input className={inputCls} value={form.userPassword} onChange={(e) => setForm({ ...form, userPassword: e.target.value })} placeholder="例: SAKURA2026" />
             </div>
             <div>
               <label className="text-xs text-gray-500 block mb-1">プラン</label>

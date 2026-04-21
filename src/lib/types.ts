@@ -191,6 +191,7 @@ export interface Tenant {
   licenseEnd?: string;     // ISO date "2026-12-31"
   maxEvents?: number;      // max events allowed under license
   isActive?: boolean;      // manually toggle active/inactive
+  userPassword?: string;   // password for user access to tenant page
 }
 
 // Watermark configuration (per-tenant customizable)
