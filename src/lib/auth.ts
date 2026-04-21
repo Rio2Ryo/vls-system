@@ -3,7 +3,8 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
 import { ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, TENANTS } from "@/lib/data";
-import { isD1Configured, upsertUserAccount } from "@/lib/d1";
+import { isD1Configured, upsertUserAccount, d1Get } from "@/lib/d1";
+import type { Tenant } from "@/lib/types";
 
 /**
  * LINE Login OAuth 2.1 provider for NextAuth.
@@ -81,8 +82,28 @@ export const authOptions: AuthOptions = {
         if (pw === ADMIN_PASSWORD) {
           return { id: "super-admin", name: "Super Admin", role: "super_admin", tenantId: null, tenantName: null };
         }
+
+        // Load tenants from D1 (dynamic) + fallback to static defaults
+        let allTenants: Tenant[] = [...TENANTS];
+        if (isD1Configured()) {
+          try {
+            const d1Data = await d1Get("vls_admin_tenants");
+            if (d1Data) {
+              const d1Tenants: Tenant[] = JSON.parse(d1Data);
+              // Merge: D1 tenants override defaults by ID
+              const d1Ids = new Set(d1Tenants.map((t) => t.id));
+              allTenants = [
+                ...d1Tenants,
+                ...TENANTS.filter((t) => !d1Ids.has(t.id)),
+              ];
+            }
+          } catch {
+            // fallback to static TENANTS
+          }
+        }
+
         // Tenant admin
-        const tenant = TENANTS.find((t) => t.adminPassword === pw.toUpperCase());
+        const tenant = allTenants.find((t) => t.adminPassword === pw || t.adminPassword === pw.toUpperCase());
         if (tenant) {
           if (tenant.isActive === false) return null;
           if (tenant.licenseEnd && new Date(tenant.licenseEnd + "T23:59:59") < new Date()) return null;
@@ -91,7 +112,7 @@ export const authOptions: AuthOptions = {
         // RBAC: Check admin users (viewers and custom roles)
         const adminUser = DEFAULT_ADMIN_USERS.find((u) => u.password === pw && u.isActive);
         if (adminUser) {
-          const userTenant = adminUser.tenantId ? TENANTS.find((t) => t.id === adminUser.tenantId) : null;
+          const userTenant = adminUser.tenantId ? allTenants.find((t) => t.id === adminUser.tenantId) : null;
           return {
             id: adminUser.id,
             name: adminUser.name,
