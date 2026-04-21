@@ -48,7 +48,7 @@ const ChartJsAnalytics = dynamic(() => import("@/components/admin/ChartJsAnalyti
 // LicenseBulkImport removed per Yakon's request
 const TenantManager = dynamic(() => import("@/components/admin/TenantManager"), { loading: TabSkeleton, ssr: false });
 
-type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "reports" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings" | "frames";
+type Tab = "events" | "photos" | "companies" | "cmVideos" | "survey" | "dashboard" | "storage" | "matching" | "funnel" | "tenants" | "import" | "reports" | "chartjs" | "licenses" | "notifications" | "errorLog" | "export" | "qrAnalytics" | "settings" | "frames" | "checkin";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -186,6 +186,7 @@ export default function AdminPage() {
         { key: "frames", label: "フレーム管理", icon: "🖼️" },
         { key: "survey", label: "アンケート", icon: "📝" },
         { key: "import", label: "参加者管理", icon: "👥" },
+        { key: "checkin", label: "チェックイン", icon: "✅" },
       ],
     },
     {
@@ -357,6 +358,26 @@ export default function AdminPage() {
             {tab === "storage" && <StorageTab onSave={showToast} />}
             {tab === "matching" && <MatchingDebugTab />}
             {tab === "export" && <ExportTab onSave={showToast} tenantId={adminTenantId} />}
+            {tab === "checkin" && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-gray-800">チェックイン管理</h2>
+                <Card>
+                  <div className="text-center py-6">
+                    <p className="text-4xl mb-3">✅</p>
+                    <p className="text-gray-700 font-medium mb-2">イベント当日のチェックイン管理</p>
+                    <p className="text-sm text-gray-500 mb-4">参加者の来場確認・QRスキャンチェックインを管理します</p>
+                    <div className="flex gap-3 justify-center">
+                      <a href="/admin/checkin" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-90 transition" style={{ backgroundColor: "var(--primary)" }}>
+                        ✅ チェックイン管理を開く
+                      </a>
+                      <a href="/scan" target="_blank" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 font-medium text-sm hover:bg-gray-50 transition">
+                        📱 QRスキャン画面
+                      </a>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
             {tab === "settings" && <SettingsTab onSave={showToast} tenantId={adminTenantId} />}
           </motion.div>
         </AnimatePresence>
