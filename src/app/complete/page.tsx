@@ -321,42 +321,29 @@ export default function CompletePage() {
     setDownloadProgress("");
 
     try {
-      if (selectedPhotos.length === 1) {
-        // Single photo: download as individual PNG
-        const photo = selectedPhotos[0];
-        const filename = `${eventName}_photo_1.png`;
+      // Always download as ZIP
+      const zip = new JSZip();
+      for (let i = 0; i < selectedPhotos.length; i++) {
+        const photo = selectedPhotos[i];
+        const filename = `${eventName}_photo_${i + 1}.png`;
+        setDownloadProgress(`${i + 1} / ${selectedPhotos.length}`);
         try {
           const blob = await compositeImageBlob(photo.originalUrl, eventId);
-          triggerBlobDownload(blob, filename);
+          zip.file(filename, blob);
         } catch (e) {
-          console.error("[download] Single photo composite failed:", e);
-          await downloadImageFallback(photo.originalUrl, filename);
-        }
-      } else {
-        // Multiple photos: compress into a single ZIP file
-        const zip = new JSZip();
-        for (let i = 0; i < selectedPhotos.length; i++) {
-          const photo = selectedPhotos[i];
-          const filename = `${eventName}_photo_${i + 1}.png`;
-          setDownloadProgress(`${i + 1} / ${selectedPhotos.length}`);
+          console.warn(`[download] Photo ${i + 1} composite failed, trying fallback:`, e);
           try {
-            const blob = await compositeImageBlob(photo.originalUrl, eventId);
-            zip.file(filename, blob);
-          } catch (e) {
-            console.warn(`[download] Photo ${i + 1} composite failed, trying fallback:`, e);
-            try {
-              const res = await fetch(photo.originalUrl);
-              const fallbackBlob = await res.blob();
-              zip.file(filename, fallbackBlob);
-            } catch (e2) {
-              console.error(`[download] Photo ${i + 1} skipped:`, e2);
-            }
+            const res = await fetch(photo.originalUrl);
+            const fallbackBlob = await res.blob();
+            zip.file(filename, fallbackBlob);
+          } catch (e2) {
+            console.error(`[download] Photo ${i + 1} skipped:`, e2);
           }
         }
-        setDownloadProgress(t("zipping"));
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        triggerBlobDownload(zipBlob, `${eventName}_photos.zip`);
       }
+      setDownloadProgress(t("zipping"));
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      triggerBlobDownload(zipBlob, `${eventName}_photos.zip`);
 
       setPhotosDownloaded(true);
     } catch (e) {

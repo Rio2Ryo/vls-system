@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
           Authorization: `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM || "みらい発見ラボ <onboarding@resend.dev>",
+          from: process.env.EMAIL_FROM || "未来発見ラボ <onboarding@resend.dev>",
           to: [email],
-          subject: `${name}様の写真ダウンロードリンクをお届けします｜みらい発見ラボ`,
+          subject: `${name}様の写真ダウンロードリンクをお届けします｜未来発見ラボ`,
           html: `
             <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="text-align: center; margin-bottom: 24px;">
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
                 ※ ボタンをクリックするとダウンロードページが開きます。スポンサー提供のフレーム付きで写真がダウンロードされます。
               </p>
               <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-              <p style="color: #bbb; font-size: 11px; text-align: center;">みらい発見ラボ — イベント写真サービス</p>
+              <p style="color: #bbb; font-size: 11px; text-align: center;">未来発見ラボ — イベント写真サービス</p>
             </div>
           `,
         }),
