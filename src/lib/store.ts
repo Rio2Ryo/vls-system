@@ -271,6 +271,28 @@ export function getParticipantsForEvent(eventId: string): Participant[] {
   return getStoredParticipants().filter((p) => p.eventId === eventId);
 }
 
+export function getParticipantByCheckinToken(token: string): Participant | null {
+  return getStoredParticipants().find((p) => p.checkinToken === token) || null;
+}
+
+/** Ensure every participant in the store has a checkinToken. Assign missing ones. */
+export function ensureCheckinTokens(): number {
+  const all = getStoredParticipants();
+  let count = 0;
+  const updated = all.map((p) => {
+    if (p.checkinToken) return p;
+    count++;
+    return { ...p, checkinToken: generateCheckinToken() };
+  });
+  if (count > 0) setStoredParticipants(updated);
+  return count;
+}
+
+/** Generate a short unique token for check-in QR codes. */
+export function generateCheckinToken(): string {
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+}
+
 // --- Invoices ---
 export function getStoredInvoices(): InvoiceData[] {
   return safeGet(KEYS.invoices, []);

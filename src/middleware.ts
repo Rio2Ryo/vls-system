@@ -27,7 +27,7 @@ const ADMIN_PAGES = [
 const CSRF_METHODS = new Set(["POST", "PUT", "DELETE"]);
 
 /** API routes exempt from CSRF (handled externally). */
-const CSRF_EXEMPT = ["/api/auth/", "/api/webhook/stripe", "/api/face/import-embeddings", "/api/proxy/", "/api/send-download-link"];
+const CSRF_EXEMPT = ["/api/auth/", "/api/webhook/stripe", "/api/face/import-embeddings", "/api/proxy/", "/api/send-download-link", "/api/checkin/"];
 
 /**
  * API routes + methods that require admin auth (session or x-admin-password).
@@ -141,7 +141,7 @@ export async function middleware(request: NextRequest) {
   const KNOWN_ROOT_PATHS = new Set([
     "", "admin", "survey", "survey-nps", "processing", "photos", "complete", "downloading",
     "demo", "scan", "dl", "e", "t", "my", "login", "forgot-password", "reset-password",
-    "lp", "report", "sponsor", "fonts",
+    "lp", "report", "sponsor", "fonts", "checkin",
     "api", "_next", "favicon.ico", "logo-mirai.svg",
   ]);
   const segments = pathname.split("/").filter(Boolean);
@@ -300,6 +300,7 @@ export const config = {
     "/demo",
     "/login",
     "/scan",
+    "/checkin/:path*",
     "/album/:path*",
     "/my/:path*",
     "/sponsor",

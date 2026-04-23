@@ -242,6 +242,7 @@ export interface Participant {
   registeredAt: number;
   checkedIn: boolean;
   checkedInAt?: number;
+  checkinToken?: string;  // unique token for personal QR check-in
 }
 
 // Invoice

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { EventData, Participant, InterestTag } from "@/lib/types";
-import { getStoredEvents, getStoredParticipants, setStoredParticipants, getEventsForTenant, getParticipantsForTenant } from "@/lib/store";
+import { getStoredEvents, getStoredParticipants, setStoredParticipants, getEventsForTenant, getParticipantsForTenant, generateCheckinToken } from "@/lib/store";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
 
@@ -132,6 +132,7 @@ export default function BulkImport({ onSave, tenantId }: { onSave: (msg: string)
       tags: row.tags ? row.tags.split(/[;|]/).map((t) => t.trim()).filter(Boolean) as InterestTag[] : undefined,
       registeredAt: Date.now(),
       checkedIn: false,
+      checkinToken: generateCheckinToken(),
     }));
     // Merge with global store to avoid overwriting other tenants' data
     const allParticipants = getStoredParticipants();
