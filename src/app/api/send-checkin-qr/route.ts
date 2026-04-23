@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import QRCode from "qrcode";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://vls-system.vercel.app";
@@ -29,8 +28,8 @@ export async function POST(req: NextRequest) {
 
   const checkinUrl = `${APP_URL}/checkin/${token}`;
 
-  // Generate QR code using the same library as PDF (visual consistency)
-  const qrDataUrl = await QRCode.toDataURL(checkinUrl, { width: 200, margin: 1 });
+  // Use external QR image URL (base64 data URLs are blocked by Gmail/Outlook)
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(checkinUrl)}`;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -47,14 +46,9 @@ export async function POST(req: NextRequest) {
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #333;">${name} さん</h2>
             <p>イベント「<strong>${eventName || ""}</strong>」のチェックイン用QRコードです。</p>
-            <p>会場のスキャナーにQRコードをかざすか、下のボタンからチェックインしてください。</p>
+            <p>会場のスキャナーにQRコードをかざしてチェックインしてください。</p>
             <div style="text-align: center; margin: 30px 0;">
-              <img src="${qrDataUrl}" alt="QR Code" style="width: 200px; height: 200px;" />
-            </div>
-            <div style="text-align: center; margin: 20px 0;">
-              <a href="${checkinUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; text-decoration: none; border-radius: 12px; font-weight: bold;">
-                チェックインする
-              </a>
+              <img src="${qrImageUrl}" alt="チェックイン用QRコード" width="250" height="250" style="width: 250px; height: 250px;" />
             </div>
             <p style="color: #999; font-size: 12px;">このQRコードはあなた専用です。他の方と共有しないでください。</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
