@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { d1Get, d1Set, isD1Configured } from "@/lib/d1";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 /**
  * POST /api/checkin/[token]
  * Server-side check-in by personal QR token.

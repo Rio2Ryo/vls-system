@@ -46,7 +46,8 @@ export default function CheckinPage() {
     const eid = eventId || selectedEventId;
     if (!eid) { setParticipants([]); return; }
     try {
-      const res = await fetch("/api/db?key=vls_participants");
+      // Cache-busting: timestamp prevents browser/CDN caching
+      const res = await fetch(`/api/db?key=vls_participants&_t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) {
         setParticipants(getParticipantsForEvent(eid));
         return;
@@ -54,8 +55,6 @@ export default function CheckinPage() {
       const data = await res.json();
       if (data.value) {
         const all: Participant[] = JSON.parse(data.value);
-        // Update localStorage WITHOUT triggering D1 write-back
-        // (to prevent overwriting D1 with stale data)
         try { localStorage.setItem("vls_participants", data.value); } catch {}
         setParticipants(all.filter((p) => p.eventId === eid));
       }
@@ -70,15 +69,14 @@ export default function CheckinPage() {
     const evts = tenantId ? allEvts.filter((e) => e.tenantId === tenantId) : allEvts;
     setEvents(evts);
     if (evts.length > 0 && !selectedEventId) setSelectedEventId(evts[0].id);
-    // NOTE: ensureCheckinTokens removed from here — it was overwriting D1 with stale localStorage data
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tenantId]);
 
-  // Load participants when event changes + poll D1 every 5 seconds
+  // Poll D1 every 3 seconds + on focus
   useEffect(() => {
     if (!selectedEventId || status !== "authenticated") return;
     fetchParticipantsFromD1(selectedEventId);
-    const interval = setInterval(() => fetchParticipantsFromD1(selectedEventId), 5000);
+    const interval = setInterval(() => fetchParticipantsFromD1(selectedEventId), 3000);
     const onFocus = () => fetchParticipantsFromD1(selectedEventId);
     window.addEventListener("focus", onFocus);
     return () => { clearInterval(interval); window.removeEventListener("focus", onFocus); };

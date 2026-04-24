@@ -44,7 +44,7 @@ export default function ScanKioskPage() {
     setPhase("processing");
 
     try {
-      const res = await fetch(`/api/checkin/${token}`, { method: "POST" });
+      const res = await fetch(`/api/checkin/${token}`, { method: "POST", cache: "no-store" });
       if (res.status === 404) {
         setResult(null);
         setPhase("not-found");

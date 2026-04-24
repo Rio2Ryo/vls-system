@@ -3,6 +3,13 @@ import { d1Get, d1GetAll, d1Set, d1Delete, isD1Configured } from "@/lib/d1";
 import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  "Pragma": "no-cache",
+};
 
 /**
  * GET /api/db          → return all key-value pairs (initial sync)
@@ -21,12 +28,12 @@ export async function GET(request: NextRequest) {
       if (value === null) {
         return NextResponse.json({ error: "Key not found" }, { status: 404 });
       }
-      return NextResponse.json({ key, value });
+      return NextResponse.json({ key, value }, { headers: NO_CACHE_HEADERS });
     }
 
     // Return all key-value pairs
     const all = await d1GetAll();
-    return NextResponse.json(all);
+    return NextResponse.json(all, { headers: NO_CACHE_HEADERS });
   } catch (error) {
     logError({ route: "/api/db GET", error });
     return NextResponse.json({ error: "D1 query failed" }, { status: 500 });
