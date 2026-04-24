@@ -13,7 +13,6 @@ import {
   setStoredParticipants,
   getParticipantsForEvent,
   ensureCheckinTokens,
-  syncFromD1,
 } from "@/lib/store";
 import { fireWebhook } from "@/lib/webhook";
 import { csrfHeaders } from "@/lib/csrf";
@@ -43,11 +42,28 @@ export default function CheckinPage() {
     setTimeout(() => setToast(""), 2000);
   }, []);
 
-  // Reload participant list from localStorage
-  const refreshParticipants = useCallback((eventId?: string) => {
+  // Fetch participants directly from D1 (source of truth)
+  const fetchParticipantsFromD1 = useCallback(async (eventId?: string) => {
     const eid = eventId || selectedEventId;
     if (!eid) { setParticipants([]); return; }
-    setParticipants(getParticipantsForEvent(eid));
+    try {
+      const res = await fetch("/api/db?key=vls_participants");
+      if (!res.ok) {
+        // Fallback to localStorage
+        setParticipants(getParticipantsForEvent(eid));
+        return;
+      }
+      const data = await res.json();
+      if (data.value) {
+        const all: Participant[] = JSON.parse(data.value);
+        // Also update localStorage so other components stay in sync
+        setStoredParticipants(all);
+        setParticipants(all.filter((p) => p.eventId === eid));
+      }
+    } catch {
+      // Fallback to localStorage
+      setParticipants(getParticipantsForEvent(eid));
+    }
   }, [selectedEventId]);
 
   useEffect(() => {
@@ -61,26 +77,18 @@ export default function CheckinPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tenantId]);
 
+  // Load participants when event changes + poll D1 every 5 seconds
   useEffect(() => {
-    refreshParticipants();
-  }, [selectedEventId, refreshParticipants]);
-
-  // Auto-sync from D1 every 10 seconds + on window focus
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    const doSync = async () => {
-      const ok = await syncFromD1();
-      if (ok) refreshParticipants();
-    };
-    // Initial sync
-    doSync();
-    // Periodic sync
-    const interval = setInterval(doSync, 10000);
-    // Sync on focus
-    const onFocus = () => doSync();
+    if (!selectedEventId || status !== "authenticated") return;
+    // Immediate fetch
+    fetchParticipantsFromD1(selectedEventId);
+    // Poll every 5 seconds
+    const interval = setInterval(() => fetchParticipantsFromD1(selectedEventId), 5000);
+    // Refresh on window focus
+    const onFocus = () => fetchParticipantsFromD1(selectedEventId);
     window.addEventListener("focus", onFocus);
     return () => { clearInterval(interval); window.removeEventListener("focus", onFocus); };
-  }, [status, refreshParticipants]);
+  }, [selectedEventId, status, fetchParticipantsFromD1]);
 
   const toggleCheckin = (participantId: string) => {
     const allParticipants = getStoredParticipants();
