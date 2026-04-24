@@ -84,8 +84,31 @@ export default function CheckinPage() {
     return () => { clearInterval(interval); window.removeEventListener("focus", onFocus); };
   }, [selectedEventId, status, fetchParticipantsFromD1]);
 
+  // Write participants to D1 and refresh UI
+  const writeParticipantsToD1 = async (updated: Participant[], toastMsg: string) => {
+    const json = JSON.stringify(updated);
+    try { localStorage.setItem("vls_participants", json); } catch {}
+    setParticipants(updated.filter((p) => p.eventId === selectedEventId));
+    showToast(toastMsg);
+    // Write to D1 directly
+    try {
+      await fetch("/api/db", {
+        method: "PUT",
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ key: "vls_participants", value: json }),
+      });
+    } catch (err) {
+      console.error("[checkin] D1 write failed:", err);
+    }
+    // Re-fetch from D1 to confirm
+    fetchParticipantsFromD1(selectedEventId);
+  };
+
   const toggleCheckin = (participantId: string) => {
-    const allParticipants = getStoredParticipants();
+    // Read from current state (which came from D1)
+    const currentJson = localStorage.getItem("vls_participants");
+    if (!currentJson) return;
+    const allParticipants: Participant[] = JSON.parse(currentJson);
     const target = allParticipants.find((p) => p.id === participantId);
     if (!target) return;
     const now = Date.now();
@@ -94,37 +117,37 @@ export default function CheckinPage() {
         ? { ...p, checkedIn: !p.checkedIn, checkedInAt: !p.checkedIn ? now : undefined }
         : p
     );
-    setStoredParticipants(updated);
-    setParticipants(updated.filter((p) => p.eventId === selectedEventId));
+    const msg = !target.checkedIn
+      ? `${target.name} をチェックインしました`
+      : `${target.name} のチェックインを取り消しました`;
+    writeParticipantsToD1(updated, msg);
     if (!target.checkedIn) {
-      showToast(`${target.name} をチェックインしました`);
       fireWebhook("checkin", { eventId: selectedEventId, participantName: target.name, participantEmail: target.email || undefined }, tenantId);
-    } else {
-      showToast(`${target.name} のチェックインを取り消しました`);
     }
   };
 
   const bulkCheckinAll = () => {
-    const allParticipants = getStoredParticipants();
+    const currentJson = localStorage.getItem("vls_participants");
+    if (!currentJson) return;
+    const allParticipants: Participant[] = JSON.parse(currentJson);
     const now = Date.now();
     const eventParticipantIds = new Set(participants.map((p) => p.id));
+    const uncheckedCount = participants.filter((p) => !p.checkedIn).length;
     const updated = allParticipants.map((p) =>
       eventParticipantIds.has(p.id) && !p.checkedIn ? { ...p, checkedIn: true, checkedInAt: now } : p
     );
-    setStoredParticipants(updated);
-    setParticipants(updated.filter((p) => p.eventId === selectedEventId));
-    showToast(`${participants.filter((p) => !p.checkedIn).length}名を一括チェックインしました`);
+    writeParticipantsToD1(updated, `${uncheckedCount}名を一括チェックインしました`);
   };
 
   const resetAll = () => {
-    const allParticipants = getStoredParticipants();
+    const currentJson = localStorage.getItem("vls_participants");
+    if (!currentJson) return;
+    const allParticipants: Participant[] = JSON.parse(currentJson);
     const eventParticipantIds = new Set(participants.map((p) => p.id));
     const updated = allParticipants.map((p) =>
       eventParticipantIds.has(p.id) ? { ...p, checkedIn: false, checkedInAt: undefined } : p
     );
-    setStoredParticipants(updated);
-    setParticipants(updated.filter((p) => p.eventId === selectedEventId));
-    showToast("チェックイン状態をリセットしました");
+    writeParticipantsToD1(updated, "チェックイン状態をリセットしました");
   };
 
   // Generate PDF with QR codes

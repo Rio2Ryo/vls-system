@@ -3,21 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Card from "@/components/ui/Card";
-import {
-  getParticipantByCheckinToken,
-  getStoredParticipants,
-  setStoredParticipants,
-  getStoredEvents,
-} from "@/lib/store";
-import { Participant, EventData } from "@/lib/types";
-import { fireWebhook } from "@/lib/webhook";
 
 type Phase = "scanning" | "processing" | "success" | "already" | "not-found";
 
+interface CheckinResult {
+  name: string;
+  eventName?: string;
+  checkedInAt?: number;
+  alreadyCheckedIn: boolean;
+}
+
 export default function ScanKioskPage() {
   const [phase, setPhase] = useState<Phase>("scanning");
-  const [participant, setParticipant] = useState<Participant | null>(null);
-  const [event, setEvent] = useState<EventData | null>(null);
+  const [result, setResult] = useState<CheckinResult | null>(null);
   const [cameraError, setCameraError] = useState("");
   const [scanning, setScanning] = useState(false);
   const [lastScannedToken, setLastScannedToken] = useState("");
@@ -37,19 +35,7 @@ export default function ScanKioskPage() {
     return null;
   };
 
-  const checkinViaApi = async (token: string): Promise<{
-    found: boolean; alreadyCheckedIn?: boolean; participant?: Participant; event?: EventData | null;
-  }> => {
-    try {
-      const res = await fetch(`/api/checkin/${token}`, { method: "POST" });
-      if (!res.ok) return { found: false };
-      const data = await res.json();
-      const p: Participant = { id: data.participantId, name: data.participantName, eventId: data.eventId, checkedIn: true, checkedInAt: data.checkedInAt, registeredAt: 0 };
-      const evt: EventData | null = data.eventName ? { id: data.eventId, name: data.eventName, date: data.eventDate || "", description: "", password: "", photos: [] } : null;
-      return { found: true, alreadyCheckedIn: data.alreadyCheckedIn, participant: p, event: evt };
-    } catch { return { found: false }; }
-  };
-
+  // ALL check-in goes through API (D1 is source of truth, never localStorage)
   const handleQrResult = useCallback(async (text: string) => {
     if (phaseRef.current !== "scanning") return;
     const token = extractToken(text);
@@ -57,32 +43,30 @@ export default function ScanKioskPage() {
     setLastScannedToken(token);
     setPhase("processing");
 
-    // 1. Try localStorage
-    const p = getParticipantByCheckinToken(token);
-    if (p) {
-      const events = getStoredEvents();
-      setEvent(events.find((e) => e.id === p.eventId) || null);
-      setParticipant(p);
-      if (p.checkedIn) { setPhase("already"); return; }
-      const all = getStoredParticipants();
-      const now = Date.now();
-      setStoredParticipants(all.map((pp) => pp.id === p.id ? { ...pp, checkedIn: true, checkedInAt: now } : pp));
-      setParticipant({ ...p, checkedIn: true, checkedInAt: now });
-      setPhase("success");
-      fireWebhook("checkin", { eventId: p.eventId, participantName: p.name, participantEmail: p.email || undefined }, p.tenantId);
-      return;
+    try {
+      const res = await fetch(`/api/checkin/${token}`, { method: "POST" });
+      if (res.status === 404) {
+        setResult(null);
+        setPhase("not-found");
+        return;
+      }
+      if (!res.ok) {
+        setResult(null);
+        setPhase("not-found");
+        return;
+      }
+      const data = await res.json();
+      setResult({
+        name: data.participantName,
+        eventName: data.eventName,
+        checkedInAt: data.checkedInAt,
+        alreadyCheckedIn: data.alreadyCheckedIn,
+      });
+      setPhase(data.alreadyCheckedIn ? "already" : "success");
+    } catch {
+      setResult(null);
+      setPhase("not-found");
     }
-
-    // 2. Fallback: API
-    const apiResult = await checkinViaApi(token);
-    if (apiResult.found && apiResult.participant) {
-      setParticipant(apiResult.participant);
-      setEvent(apiResult.event || null);
-      setPhase(apiResult.alreadyCheckedIn ? "already" : "success");
-      return;
-    }
-
-    setPhase("not-found");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastScannedToken]);
 
@@ -115,7 +99,7 @@ export default function ScanKioskPage() {
   }, [startScanner, stopScanner]);
 
   const handleTapToReset = () => {
-    setPhase("scanning"); setParticipant(null); setEvent(null); setLastScannedToken("");
+    setPhase("scanning"); setResult(null); setLastScannedToken("");
   };
 
   return (
@@ -181,8 +165,8 @@ export default function ScanKioskPage() {
                   <Card className="text-center border-2 border-green-400 bg-green-50 py-8">
                     <span className="text-7xl block mb-4">✅</span>
                     <h2 className="text-3xl font-black text-green-700">チェックイン完了</h2>
-                    <p className="text-2xl font-bold text-gray-800 mt-3">{participant?.name}</p>
-                    {event && <p className="text-sm text-gray-500 mt-1">{event.name}</p>}
+                    <p className="text-2xl font-bold text-gray-800 mt-3">{result?.name}</p>
+                    {result?.eventName && <p className="text-sm text-gray-500 mt-1">{result.eventName}</p>}
                     <p className="text-xs text-gray-400 mt-3">{new Date().toLocaleTimeString("ja-JP")}</p>
                     <p className="mt-6 text-sm text-gray-400 animate-pulse">タップして次のスキャンへ →</p>
                   </Card>
@@ -191,8 +175,8 @@ export default function ScanKioskPage() {
                   <Card className="text-center border-2 border-yellow-400 bg-yellow-50 py-8">
                     <span className="text-7xl block mb-4">⚠️</span>
                     <h2 className="text-2xl font-bold text-yellow-700">チェックイン済みです</h2>
-                    <p className="text-xl font-bold text-gray-800 mt-3">{participant?.name}</p>
-                    {participant?.checkedInAt && <p className="text-sm text-gray-500 mt-2">時刻: {new Date(participant.checkedInAt).toLocaleTimeString("ja-JP")}</p>}
+                    <p className="text-xl font-bold text-gray-800 mt-3">{result?.name}</p>
+                    {result?.checkedInAt && <p className="text-sm text-gray-500 mt-2">時刻: {new Date(result.checkedInAt).toLocaleTimeString("ja-JP")}</p>}
                     <p className="mt-6 text-sm text-gray-400 animate-pulse">タップして次のスキャンへ →</p>
                   </Card>
                 )}
