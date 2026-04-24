@@ -12,7 +12,6 @@ import {
   getStoredParticipants,
   setStoredParticipants,
   getParticipantsForEvent,
-  ensureCheckinTokens,
 } from "@/lib/store";
 import { fireWebhook } from "@/lib/webhook";
 import { csrfHeaders } from "@/lib/csrf";
@@ -42,26 +41,25 @@ export default function CheckinPage() {
     setTimeout(() => setToast(""), 2000);
   }, []);
 
-  // Fetch participants directly from D1 (source of truth)
+  // Fetch participants directly from D1 (source of truth) — READ ONLY, no write-back
   const fetchParticipantsFromD1 = useCallback(async (eventId?: string) => {
     const eid = eventId || selectedEventId;
     if (!eid) { setParticipants([]); return; }
     try {
       const res = await fetch("/api/db?key=vls_participants");
       if (!res.ok) {
-        // Fallback to localStorage
         setParticipants(getParticipantsForEvent(eid));
         return;
       }
       const data = await res.json();
       if (data.value) {
         const all: Participant[] = JSON.parse(data.value);
-        // Also update localStorage so other components stay in sync
-        setStoredParticipants(all);
+        // Update localStorage WITHOUT triggering D1 write-back
+        // (to prevent overwriting D1 with stale data)
+        try { localStorage.setItem("vls_participants", data.value); } catch {}
         setParticipants(all.filter((p) => p.eventId === eid));
       }
     } catch {
-      // Fallback to localStorage
       setParticipants(getParticipantsForEvent(eid));
     }
   }, [selectedEventId]);
@@ -72,19 +70,15 @@ export default function CheckinPage() {
     const evts = tenantId ? allEvts.filter((e) => e.tenantId === tenantId) : allEvts;
     setEvents(evts);
     if (evts.length > 0 && !selectedEventId) setSelectedEventId(evts[0].id);
-    const assigned = ensureCheckinTokens();
-    if (assigned > 0) console.log(`[Checkin] Assigned ${assigned} missing checkin tokens`);
+    // NOTE: ensureCheckinTokens removed from here — it was overwriting D1 with stale localStorage data
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tenantId]);
 
   // Load participants when event changes + poll D1 every 5 seconds
   useEffect(() => {
     if (!selectedEventId || status !== "authenticated") return;
-    // Immediate fetch
     fetchParticipantsFromD1(selectedEventId);
-    // Poll every 5 seconds
     const interval = setInterval(() => fetchParticipantsFromD1(selectedEventId), 5000);
-    // Refresh on window focus
     const onFocus = () => fetchParticipantsFromD1(selectedEventId);
     window.addEventListener("focus", onFocus);
     return () => { clearInterval(interval); window.removeEventListener("focus", onFocus); };
