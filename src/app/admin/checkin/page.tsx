@@ -13,6 +13,7 @@ import {
   setStoredParticipants,
   getParticipantsForEvent,
   ensureCheckinTokens,
+  syncFromD1,
 } from "@/lib/store";
 import { fireWebhook } from "@/lib/webhook";
 import { csrfHeaders } from "@/lib/csrf";
@@ -42,22 +43,44 @@ export default function CheckinPage() {
     setTimeout(() => setToast(""), 2000);
   }, []);
 
+  // Reload participant list from localStorage
+  const refreshParticipants = useCallback((eventId?: string) => {
+    const eid = eventId || selectedEventId;
+    if (!eid) { setParticipants([]); return; }
+    setParticipants(getParticipantsForEvent(eid));
+  }, [selectedEventId]);
+
   useEffect(() => {
     if (status !== "authenticated") return;
     const allEvts = getStoredEvents();
     const evts = tenantId ? allEvts.filter((e) => e.tenantId === tenantId) : allEvts;
     setEvents(evts);
     if (evts.length > 0 && !selectedEventId) setSelectedEventId(evts[0].id);
-    // Ensure all participants have checkin tokens
     const assigned = ensureCheckinTokens();
     if (assigned > 0) console.log(`[Checkin] Assigned ${assigned} missing checkin tokens`);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tenantId]);
 
   useEffect(() => {
-    if (!selectedEventId) { setParticipants([]); return; }
-    setParticipants(getParticipantsForEvent(selectedEventId));
-  }, [selectedEventId]);
+    refreshParticipants();
+  }, [selectedEventId, refreshParticipants]);
+
+  // Auto-sync from D1 every 10 seconds + on window focus
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const doSync = async () => {
+      const ok = await syncFromD1();
+      if (ok) refreshParticipants();
+    };
+    // Initial sync
+    doSync();
+    // Periodic sync
+    const interval = setInterval(doSync, 10000);
+    // Sync on focus
+    const onFocus = () => doSync();
+    window.addEventListener("focus", onFocus);
+    return () => { clearInterval(interval); window.removeEventListener("focus", onFocus); };
+  }, [status, refreshParticipants]);
 
   const toggleCheckin = (participantId: string) => {
     const allParticipants = getStoredParticipants();
