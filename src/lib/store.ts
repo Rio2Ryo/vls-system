@@ -264,7 +264,15 @@ export function getStoredParticipants(): Participant[] {
 }
 
 export function setStoredParticipants(participants: Participant[]): void {
-  safeSet(KEYS.participants, participants);
+  // IMPORTANT: Only write to localStorage, NEVER persist to D1 automatically.
+  // D1 writes for participants must go through explicit API calls
+  // (/api/db PUT or /api/checkin/[token]) to prevent stale data overwrites.
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(KEYS.participants, JSON.stringify(participants));
+  } catch {
+    // QuotaExceededError — ignore
+  }
 }
 
 export function getParticipantsForEvent(eventId: string): Participant[] {
