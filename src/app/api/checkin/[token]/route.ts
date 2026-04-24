@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { d1Get, d1Set, isD1Configured } from "@/lib/d1";
 
 /**
  * POST /api/checkin/[token]
  * Server-side check-in by personal QR token.
- * Looks up participant in D1, marks as checked-in.
+ * Directly reads/writes D1 (no internal API calls that would be blocked by CSRF/auth).
  */
 export async function POST(
   req: NextRequest,
@@ -14,16 +15,15 @@ export async function POST(
     return NextResponse.json({ error: "Invalid token" }, { status: 400 });
   }
 
-  try {
-    // Fetch participants from D1
-    const dbRes = await fetch(new URL("/api/db?key=vls_participants", req.url));
-    if (!dbRes.ok) {
-      return NextResponse.json({ error: "DB error" }, { status: 500 });
-    }
+  if (!isD1Configured()) {
+    return NextResponse.json({ error: "D1 not configured" }, { status: 503 });
+  }
 
-    const dbData = await dbRes.json();
-    if (!dbData.value) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    // Read participants directly from D1
+    const rawParticipants = await d1Get("vls_participants");
+    if (!rawParticipants) {
+      return NextResponse.json({ error: "No participants data" }, { status: 404 });
     }
 
     interface ParticipantRecord {
@@ -38,33 +38,30 @@ export async function POST(
       registeredAt: number;
     }
 
-    const participants: ParticipantRecord[] = JSON.parse(dbData.value);
+    const participants: ParticipantRecord[] = JSON.parse(rawParticipants);
     const participant = participants.find((p) => p.checkinToken === token);
 
     if (!participant) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    // Read event info directly from D1
+    let eventName = "";
+    let eventDate = "";
+    try {
+      const rawEvents = await d1Get("vls_admin_events");
+      if (rawEvents) {
+        const events = JSON.parse(rawEvents);
+        const evt = events.find((e: { id: string }) => e.id === participant.eventId);
+        if (evt) {
+          eventName = evt.name || "";
+          eventDate = evt.date || "";
+        }
+      }
+    } catch { /* ignore */ }
+
     // Already checked in
     if (participant.checkedIn) {
-      // Fetch event name
-      let eventName = "";
-      let eventDate = "";
-      try {
-        const evtRes = await fetch(new URL("/api/db?key=vls_admin_events", req.url));
-        if (evtRes.ok) {
-          const evtData = await evtRes.json();
-          if (evtData.value) {
-            const events = JSON.parse(evtData.value);
-            const evt = events.find((e: { id: string }) => e.id === participant.eventId);
-            if (evt) {
-              eventName = evt.name;
-              eventDate = evt.date || "";
-            }
-          }
-        }
-      } catch { /* ignore */ }
-
       return NextResponse.json({
         alreadyCheckedIn: true,
         participantId: participant.id,
@@ -76,7 +73,7 @@ export async function POST(
       });
     }
 
-    // Perform check-in
+    // Perform check-in: update in D1 directly
     const now = Date.now();
     const updated = participants.map((p) =>
       p.id === participant.id
@@ -84,33 +81,7 @@ export async function POST(
         : p
     );
 
-    // Save to D1
-    await fetch(new URL("/api/db", req.url), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: "vls_participants",
-        value: JSON.stringify(updated),
-      }),
-    });
-
-    // Fetch event name
-    let eventName = "";
-    let eventDate = "";
-    try {
-      const evtRes = await fetch(new URL("/api/db?key=vls_admin_events", req.url));
-      if (evtRes.ok) {
-        const evtData = await evtRes.json();
-        if (evtData.value) {
-          const events = JSON.parse(evtData.value);
-          const evt = events.find((e: { id: string }) => e.id === participant.eventId);
-          if (evt) {
-            eventName = evt.name;
-            eventDate = evt.date || "";
-          }
-        }
-      }
-    } catch { /* ignore */ }
+    await d1Set("vls_participants", JSON.stringify(updated));
 
     return NextResponse.json({
       alreadyCheckedIn: false,
