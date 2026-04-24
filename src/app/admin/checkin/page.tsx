@@ -9,8 +9,6 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import { EventData, Participant } from "@/lib/types";
 import {
   getStoredEvents,
-  getStoredParticipants,
-  setStoredParticipants,
   getParticipantsForEvent,
 } from "@/lib/store";
 import { fireWebhook } from "@/lib/webhook";
