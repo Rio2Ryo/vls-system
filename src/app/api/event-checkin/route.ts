@@ -9,8 +9,8 @@ export const revalidate = 0;
  * Body: { eventId: string, name: string }
  *
  * Hybrid check-in:
- * 1. ALWAYS create a walk-in record (来場記録) with timestamp
- * 2. ALSO try to match against pre-registered participants → auto check-in if matched
+ * 1. ALWAYS save a walk-in log entry (来場記録) in vls_walkin_log — separate from participants
+ * 2. Try to match against pre-registered participants (vls_participants) → auto check-in if matched
  */
 export async function POST(req: NextRequest) {
   if (!isD1Configured()) {
@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
     // --- Get event info ---
     let eventName = "";
     let eventDate = "";
-    let eventTenantId: string | undefined;
     try {
       const rawEvents = await d1Get("vls_admin_events");
       if (rawEvents) {
@@ -44,14 +43,9 @@ export async function POST(req: NextRequest) {
         if (evt) {
           eventName = evt.name || "";
           eventDate = evt.date || "";
-          eventTenantId = evt.tenantId;
         }
       }
     } catch { /* ignore */ }
-
-    // --- Read existing participants ---
-    const rawParticipants = await d1Get("vls_participants");
-    const participants: Record<string, unknown>[] = rawParticipants ? JSON.parse(rawParticipants) : [];
 
     // --- Normalize helper ---
     const normalize = (s: string) =>
@@ -64,36 +58,35 @@ export async function POST(req: NextRequest) {
     const normalizedInput = normalize(name);
     const now = Date.now();
 
-    // --- 1. Always create walk-in record (来場記録) ---
-    // Check for duplicate walk-in (same name, same event, within last 5 minutes)
-    const recentDuplicate = participants.find(
-      (p) =>
-        p.eventId === eventId &&
-        p.walkIn === true &&
-        normalize(String(p.name || "")) === normalizedInput &&
-        typeof p.checkedInAt === "number" &&
-        now - (p.checkedInAt as number) < 5 * 60 * 1000
+    // --- 1. Walk-in log (来場記録) — separate storage ---
+    const rawLog = await d1Get("vls_walkin_log");
+    const walkInLog: Record<string, unknown>[] = rawLog ? JSON.parse(rawLog) : [];
+
+    // Check for duplicate within 5 minutes
+    const recentDuplicate = walkInLog.find(
+      (entry) =>
+        entry.eventId === eventId &&
+        normalize(String(entry.name || "")) === normalizedInput &&
+        typeof entry.timestamp === "number" &&
+        now - (entry.timestamp as number) < 5 * 60 * 1000
     );
 
     if (recentDuplicate) {
-      // Same person within 5 min — don't create duplicate
       return NextResponse.json({
         status: "already",
         participantName: recentDuplicate.name,
         eventName,
         eventDate,
-        checkedInAt: recentDuplicate.checkedInAt,
-        matched: recentDuplicate.matchedParticipantId ? true : false,
-        matchedName: recentDuplicate.matchedParticipantName || null,
+        checkedInAt: recentDuplicate.timestamp,
       });
     }
 
     // --- 2. Try to match against pre-registered participants ---
-    const preRegistered = participants.filter(
-      (p) => p.eventId === eventId && !p.walkIn
-    );
+    const rawParticipants = await d1Get("vls_participants");
+    const participants: Record<string, unknown>[] = rawParticipants ? JSON.parse(rawParticipants) : [];
 
-    // Exact match first, then partial
+    const preRegistered = participants.filter((p) => p.eventId === eventId);
+
     let matchedParticipant = preRegistered.find(
       (p) => normalize(String(p.name || "")) === normalizedInput
     );
@@ -105,42 +98,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If matched, mark the pre-registered participant as checked-in
+    // If matched and not yet checked in, mark as checked-in
     let matched = false;
     let matchedName: string | null = null;
-    if (matchedParticipant && !matchedParticipant.checkedIn) {
-      matchedParticipant.checkedIn = true;
-      matchedParticipant.checkedInAt = now;
-      matched = true;
-      matchedName = String(matchedParticipant.name || "");
-    } else if (matchedParticipant && matchedParticipant.checkedIn) {
-      matched = true;
-      matchedName = String(matchedParticipant.name || "");
-    }
+    let participantsChanged = false;
 
-    // --- 3. Create walk-in record ---
-    const walkInId = `w-${now}-${Math.random().toString(36).slice(2, 6)}`;
-    const walkInRecord: Record<string, unknown> = {
-      id: walkInId,
-      eventId,
-      tenantId: eventTenantId,
-      name,
-      registeredAt: now,
-      checkedIn: true,
-      checkedInAt: now,
-      walkIn: true,
-    };
-
-    // Link to matched participant if found
     if (matchedParticipant) {
-      walkInRecord.matchedParticipantId = matchedParticipant.id;
-      walkInRecord.matchedParticipantName = matchedParticipant.name;
+      matchedName = String(matchedParticipant.name || "");
+      matched = true;
+      if (!matchedParticipant.checkedIn) {
+        matchedParticipant.checkedIn = true;
+        matchedParticipant.checkedInAt = now;
+        participantsChanged = true;
+      }
     }
 
-    participants.push(walkInRecord);
+    // --- 3. Save walk-in log entry ---
+    const logEntry: Record<string, unknown> = {
+      id: `wl-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      eventId,
+      name,
+      timestamp: now,
+      matched,
+      matchedParticipantId: matchedParticipant ? matchedParticipant.id : null,
+      matchedParticipantName: matchedName,
+    };
+    walkInLog.push(logEntry);
 
-    // --- Save to D1 ---
-    await d1Set("vls_participants", JSON.stringify(participants));
+    // --- 4. Save to D1 ---
+    await d1Set("vls_walkin_log", JSON.stringify(walkInLog));
+    if (participantsChanged) {
+      await d1Set("vls_participants", JSON.stringify(participants));
+    }
 
     return NextResponse.json({
       status: "success",

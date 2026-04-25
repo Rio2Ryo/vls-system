@@ -16,7 +16,7 @@ import { csrfHeaders } from "@/lib/csrf";
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100";
 const APP_URL = typeof window !== "undefined" ? window.location.origin : "";
 
-type Tab = "list" | "qr";
+type Tab = "list" | "qr" | "walkin";
 
 export default function CheckinPage() {
   const { data: session, status } = useSession();
@@ -28,6 +28,17 @@ export default function CheckinPage() {
   const [showCheckedIn, setShowCheckedIn] = useState(true);
   const [sortKey, setSortKey] = useState<"name" | "time" | "status">("name");
   const [tab, setTab] = useState<Tab>("list");
+
+  interface WalkInEntry {
+    id: string;
+    eventId: string;
+    name: string;
+    timestamp: number;
+    matched: boolean;
+    matchedParticipantId?: string;
+    matchedParticipantName?: string;
+  }
+  const [walkInLog, setWalkInLog] = useState<WalkInEntry[]>([]);
 
   const tenantId = session?.user?.tenantId ?? (typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") : null) ?? null;
 
@@ -41,7 +52,6 @@ export default function CheckinPage() {
     const eid = eventId || selectedEventId;
     if (!eid) { setParticipants([]); return; }
     try {
-      // Cache-busting: timestamp prevents browser/CDN caching
       const res = await fetch(`/api/db?key=vls_participants&_t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) {
         setParticipants(getParticipantsForEvent(eid));
@@ -51,11 +61,23 @@ export default function CheckinPage() {
       if (data.value) {
         const all: Participant[] = JSON.parse(data.value);
         try { localStorage.setItem("vls_participants", data.value); } catch {}
-        setParticipants(all.filter((p) => p.eventId === eid));
+        // Filter out any walkIn entries that might exist from old data
+        setParticipants(all.filter((p) => p.eventId === eid && !(p as unknown as Record<string, unknown>).walkIn));
       }
     } catch {
       setParticipants(getParticipantsForEvent(eid));
     }
+    // Also fetch walk-in log
+    try {
+      const logRes = await fetch(`/api/db?key=vls_walkin_log&_t=${Date.now()}`, { cache: "no-store" });
+      if (logRes.ok) {
+        const logData = await logRes.json();
+        if (logData.value) {
+          const allLog = JSON.parse(logData.value);
+          setWalkInLog(allLog.filter((e: { eventId: string }) => e.eventId === eid));
+        }
+      }
+    } catch { /* ignore */ }
   }, [selectedEventId]);
 
   useEffect(() => {
@@ -225,10 +247,44 @@ export default function CheckinPage() {
           <button onClick={() => setTab("list")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "list" ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}>
             📋 参加者一覧
           </button>
+          <button onClick={() => setTab("walkin")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "walkin" ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}>
+            🚶 来場記録 {walkInLog.length > 0 && <span className="ml-1 bg-white/30 px-1.5 py-0.5 rounded-full text-xs">{walkInLog.length}</span>}
+          </button>
           <button onClick={() => setTab("qr")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "qr" ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}>
             📱 イベントQRコード
           </button>
         </div>
+
+        {/* Walk-in log tab */}
+        {tab === "walkin" && (
+          <Card>
+            <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">🚶 来場記録</h3>
+            <p className="text-xs text-gray-500 mb-4">チェックインページから名前を入力した人の記録です。事前登録者との照合結果も表示されます。</p>
+            {walkInLog.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">来場記録はまだありません</p>
+            ) : (
+              <div className="space-y-2">
+                {[...walkInLog].sort((a, b) => b.timestamp - a.timestamp).map((entry) => (
+                  <div key={entry.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                    <span className={`text-lg ${entry.matched ? "text-green-500" : "text-gray-400"}`}>{entry.matched ? "✅" : "🚶"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-gray-800 dark:text-gray-200">{entry.name}</p>
+                      {entry.matched && entry.matchedParticipantName && (
+                        <p className="text-xs text-green-600">→ 登録名「{entry.matchedParticipantName}」と一致</p>
+                      )}
+                      {!entry.matched && (
+                        <p className="text-xs text-orange-500">事前登録との一致なし</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-500 font-mono flex-shrink-0">
+                      {new Date(entry.timestamp).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
 
         {/* QR tab — event checkin QR */}
         {tab === "qr" && (

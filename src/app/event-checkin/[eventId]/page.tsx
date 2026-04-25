@@ -15,8 +15,6 @@ export default function EventCheckinPage() {
   const [resultName, setResultName] = useState("");
   const [eventName, setEventName] = useState("");
   const [checkedInAt, setCheckedInAt] = useState<number | null>(null);
-  const [matched, setMatched] = useState(false);
-  const [matchedName, setMatchedName] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +38,6 @@ export default function EventCheckinPage() {
       setResultName(data.participantName);
       setEventName(data.eventName || "");
       setCheckedInAt(data.checkedInAt);
-      setMatched(data.matched || false);
-      setMatchedName(data.matchedName || null);
 
       if (data.status === "already") {
         setPhase("already");
@@ -57,8 +53,6 @@ export default function EventCheckinPage() {
     setPhase("input");
     setName("");
     setResultName("");
-    setMatched(false);
-    setMatchedName(null);
   };
 
   return (
@@ -139,12 +133,6 @@ export default function EventCheckinPage() {
                   </motion.span>
                   <h2 className="text-3xl font-black text-emerald-700">チェックイン完了！</h2>
                   <p className="text-2xl font-bold text-slate-800 mt-3">{resultName} さん</p>
-                  <p className="text-sm text-slate-500 mt-1">ようこそ！</p>
-                  {matched && matchedName && (
-                    <div className="mt-3 px-3 py-1.5 bg-emerald-50 rounded-lg inline-block">
-                      <p className="text-xs text-emerald-600">✓ 事前登録「{matchedName}」と一致</p>
-                    </div>
-                  )}
                   {eventName && (
                     <div className="mt-4 pt-4 border-t border-slate-100">
                       <p className="text-sm text-slate-600 font-medium">🎪 {eventName}</p>
