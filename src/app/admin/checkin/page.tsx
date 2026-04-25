@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { EventData, Participant } from "@/lib/types";
 import {
@@ -29,8 +28,6 @@ export default function CheckinPage() {
   const [showCheckedIn, setShowCheckedIn] = useState(true);
   const [sortKey, setSortKey] = useState<"name" | "time" | "status">("name");
   const [tab, setTab] = useState<Tab>("list");
-  const [qrGenerating, setQrGenerating] = useState(false);
-  const [emailSending, setEmailSending] = useState(false);
 
   const tenantId = session?.user?.tenantId ?? (typeof window !== "undefined" ? sessionStorage.getItem("adminTenantId") : null) ?? null;
 
@@ -146,89 +143,6 @@ export default function CheckinPage() {
     writeParticipantsToD1(updated, "チェックイン状態をリセットしました");
   };
 
-  // Generate PDF with QR codes
-  const generateQrPdf = async () => {
-    setQrGenerating(true);
-    try {
-      const QRCode = (await import("qrcode")).default;
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const eventName = events.find((e) => e.id === selectedEventId)?.name || "";
-      const cols = 2, rows = 4;
-      const cardW = 85, cardH = 60;
-      const marginX = (210 - cols * cardW) / (cols + 1);
-      const marginY = (297 - rows * cardH) / (rows + 1);
-
-      for (let i = 0; i < participants.length; i++) {
-        const p = participants[i];
-        if (!p.checkinToken) continue;
-        const _page = Math.floor(i / (cols * rows)); void _page;
-        const posOnPage = i % (cols * rows);
-        if (posOnPage === 0 && i > 0) doc.addPage();
-        const col = posOnPage % cols;
-        const row = Math.floor(posOnPage / cols);
-        const x = marginX + col * (cardW + marginX);
-        const y = marginY + row * (cardH + marginY);
-
-        // Card border
-        doc.setDrawColor(200);
-        doc.roundedRect(x, y, cardW, cardH, 3, 3);
-
-        // QR code
-        const url = `${APP_URL}/checkin/${p.checkinToken}`;
-        const qrDataUrl = await QRCode.toDataURL(url, { width: 160, margin: 1 });
-        doc.addImage(qrDataUrl, "PNG", x + 3, y + 3, 30, 30);
-
-        // Name & event
-        doc.setFontSize(12);
-        doc.setTextColor(30);
-        doc.text(p.name, x + 38, y + 14);
-        doc.setFontSize(8);
-        doc.setTextColor(120);
-        doc.text(eventName, x + 38, y + 20);
-        if (p.email) {
-          doc.setFontSize(7);
-          doc.text(p.email, x + 38, y + 26);
-        }
-        // Token
-        doc.setFontSize(6);
-        doc.setTextColor(180);
-        doc.text(`ID: ${p.checkinToken}`, x + 3, y + cardH - 3);
-      }
-
-      doc.save(`checkin-qr-${eventName || "event"}.pdf`);
-      showToast("QRコードPDFを生成しました");
-    } catch (err) {
-      console.error("PDF generation error:", err);
-      showToast("PDF生成に失敗しました");
-    }
-    setQrGenerating(false);
-  };
-
-  // Send QR via email
-  const sendQrEmails = async () => {
-    const withEmail = participants.filter((p) => p.email && p.checkinToken);
-    if (withEmail.length === 0) { showToast("メールアドレスのある参加者がいません"); return; }
-    setEmailSending(true);
-    let sent = 0;
-    for (const p of withEmail) {
-      try {
-        const res = await fetch("/api/send-checkin-qr", {
-          method: "POST",
-          headers: csrfHeaders({ "Content-Type": "application/json" }),
-          body: JSON.stringify({
-            email: p.email,
-            name: p.name,
-            token: p.checkinToken,
-            eventName: events.find((e) => e.id === selectedEventId)?.name || "",
-          }),
-        });
-        if (res.ok) sent++;
-      } catch { /* ignore */ }
-    }
-    setEmailSending(false);
-    showToast(`${sent}/${withEmail.length}名にQRコードメールを送信しました`);
-  };
 
   if (status === "loading") {
     return (
@@ -312,41 +226,84 @@ export default function CheckinPage() {
             📋 参加者一覧
           </button>
           <button onClick={() => setTab("qr")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "qr" ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}>
-            📱 QRコード配布
+            📱 イベントQRコード
           </button>
         </div>
 
-        {/* QR tab */}
+        {/* QR tab — event checkin QR */}
         {tab === "qr" && (
           <Card>
-            <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">個人QRコード配布</h3>
-            <p className="text-xs text-gray-500 mb-4">各参加者にユニークなQRコードを配布します。QRをスキャンするだけでチェックインが完了します。</p>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                <h4 className="font-medium text-sm text-gray-700 dark:text-gray-200 mb-2">📄 PDF一括生成</h4>
-                <p className="text-xs text-gray-500 mb-3">名前入りQRカードをPDFで生成します。印刷して名札に貼り付けられます。</p>
-                <Button size="sm" onClick={generateQrPdf} disabled={qrGenerating || totalCount === 0}>
-                  {qrGenerating ? "生成中..." : `QRコードPDF生成 (${totalCount}名)`}
-                </Button>
+            <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">🎫 イベントチェックインQRコード</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              このQRコードを会場に掲示してください。参加者が自分のスマホで読み取り、名前を入力するとチェックインできます。
+            </p>
+            <div className="flex flex-col items-center gap-4">
+              {/* QR Code display */}
+              <div className="bg-white p-4 rounded-2xl shadow-md border-2 border-emerald-200">
+                <div id="event-qr-code" className="w-64 h-64 flex items-center justify-center">
+                  <p className="text-sm text-gray-400">QRコード読み込み中...</p>
+                </div>
               </div>
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                <h4 className="font-medium text-sm text-gray-700 dark:text-gray-200 mb-2">✉️ メール一括送信</h4>
-                <p className="text-xs text-gray-500 mb-3">メールアドレスが登録されている参加者にQRコード付きメールを送信します。</p>
-                <Button size="sm" onClick={sendQrEmails} disabled={emailSending || participants.filter((p) => p.email).length === 0}>
-                  {emailSending ? "送信中..." : `QRメール送信 (${participants.filter((p) => p.email).length}名)`}
-                </Button>
+              {/* URL display */}
+              <div className="w-full max-w-md">
+                <div className="flex items-center gap-2">
+                  <code className="text-xs bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border flex-1 truncate">
+                    {APP_URL}/event-checkin/{selectedEventId}
+                  </code>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(`${APP_URL}/event-checkin/${selectedEventId}`); showToast("URLをコピーしました"); }}
+                    className="text-xs px-3 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 font-medium flex-shrink-0"
+                  >
+                    コピー
+                  </button>
+                </div>
+              </div>
+              {/* Action buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      const QRCode = (await import("qrcode")).default;
+                      const { jsPDF } = await import("jspdf");
+                      const url = `${APP_URL}/event-checkin/${selectedEventId}`;
+                      const eventName = events.find((e) => e.id === selectedEventId)?.name || "";
+                      const qrDataUrl = await QRCode.toDataURL(url, { width: 600, margin: 2 });
+                      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+                      // Title
+                      doc.setFontSize(24);
+                      doc.setTextColor(30);
+                      doc.text(eventName || "チェックイン", 105, 40, { align: "center" });
+
+                      // Subtitle
+                      doc.setFontSize(14);
+                      doc.setTextColor(100);
+                      doc.text("QRコードを読み取ってチェックインしてください", 105, 55, { align: "center" });
+
+                      // QR code (centered, large)
+                      doc.addImage(qrDataUrl, "PNG", 30, 70, 150, 150);
+
+                      // URL below
+                      doc.setFontSize(8);
+                      doc.setTextColor(150);
+                      doc.text(url, 105, 230, { align: "center" });
+
+                      doc.save(`checkin-qr-${eventName || "event"}.pdf`);
+                      showToast("QRコードPDFを生成しました");
+                    } catch (err) {
+                      console.error("PDF error:", err);
+                      showToast("PDF生成に失敗しました");
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-sm font-medium"
+                >
+                  📄 PDF印刷用に出力
+                </button>
               </div>
             </div>
-            {/* Kiosk link */}
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-              <h4 className="font-medium text-sm text-blue-700 dark:text-blue-300 mb-1">📱 キオスクスキャナー</h4>
-              <p className="text-xs text-gray-500 mb-2">会場の端末でこのURLを開き、参加者のQRコードを読み取ってチェックインします。</p>
-              <div className="flex items-center gap-2">
-                <code className="text-xs bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border flex-1 truncate">{APP_URL}/scan</code>
-                <button onClick={() => { navigator.clipboard.writeText(`${APP_URL}/scan`); showToast("URLをコピーしました"); }}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-medium flex-shrink-0">コピー</button>
-              </div>
-            </div>
+
+            {/* QR code render script */}
+            <QrRenderer url={`${APP_URL}/event-checkin/${selectedEventId}`} />
           </Card>
         )}
 
@@ -411,4 +368,28 @@ export default function CheckinPage() {
       </div>
     </main>
   );
+}
+
+/** Renders a QR code into #event-qr-code container */
+function QrRenderer({ url }: { url: string }) {
+  useEffect(() => {
+    const container = document.getElementById("event-qr-code");
+    if (!container || !url) return;
+
+    import("qrcode").then(({ default: QRCode }) => {
+      const canvas = document.createElement("canvas");
+      QRCode.toCanvas(canvas, url, { width: 256, margin: 2 }, (err) => {
+        if (err) {
+          container.innerHTML = '<p class="text-red-400 text-sm">QR生成エラー</p>';
+          return;
+        }
+        container.innerHTML = "";
+        container.appendChild(canvas);
+      });
+    }).catch(() => {
+      if (container) container.innerHTML = '<p class="text-red-400 text-sm">QRライブラリ読み込みエラー</p>';
+    });
+  }, [url]);
+
+  return null;
 }
