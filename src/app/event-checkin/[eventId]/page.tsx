@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Phase = "input" | "checking" | "success" | "already" | "not-found" | "error";
+type Phase = "input" | "checking" | "success" | "already" | "error";
 
 export default function EventCheckinPage() {
   const params = useParams();
@@ -29,10 +29,6 @@ export default function EventCheckinPage() {
         cache: "no-store",
       });
 
-      if (res.status === 404) {
-        setPhase("not-found");
-        return;
-      }
       if (!res.ok) {
         setPhase("error");
         return;
@@ -169,26 +165,7 @@ export default function EventCheckinPage() {
               </motion.div>
             )}
 
-            {/* Not found */}
-            {phase === "not-found" && (
-              <motion.div key="not-found" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", duration: 0.5 }}>
-                <div className="bg-white rounded-2xl shadow-xl p-8 text-center border-2 border-red-300">
-                  <span className="text-8xl block mb-4">❌</span>
-                  <h2 className="text-2xl font-bold text-red-700">お名前が見つかりません</h2>
-                  <p className="text-sm text-slate-500 mt-2">
-                    登録されたお名前と一致しませんでした。<br />
-                    もう一度確認してお試しください。
-                  </p>
-                  <button
-                    onClick={handleReset}
-                    className="mt-6 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
-                  >
-                    ← もう一度入力する
-                  </button>
-                </div>
-              </motion.div>
-            )}
+
 
             {/* Error */}
             {phase === "error" && (
