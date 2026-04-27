@@ -258,7 +258,39 @@ export default function CheckinPage() {
         {/* Walk-in log tab */}
         {tab === "walkin" && (
           <Card>
-            <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">🚶 来場記録</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-700 dark:text-gray-200">🚶 来場記録</h3>
+              {walkInLog.length > 0 && (
+                <button
+                  onClick={async () => {
+                    if (!confirm("この来場記録をすべて削除しますか？")) return;
+                    // Read full log from D1, remove entries for this event, write back
+                    try {
+                      const logRes = await fetch(`/api/db?key=vls_walkin_log&_t=${Date.now()}`, { cache: "no-store" });
+                      let allLog: WalkInEntry[] = [];
+                      if (logRes.ok) {
+                        const logData = await logRes.json();
+                        if (logData.value) allLog = JSON.parse(logData.value);
+                      }
+                      const remaining = allLog.filter((e) => e.eventId !== selectedEventId);
+                      await fetch("/api/db", {
+                        method: "PUT",
+                        headers: csrfHeaders({ "Content-Type": "application/json" }),
+                        body: JSON.stringify({ key: "vls_walkin_log", value: JSON.stringify(remaining) }),
+                      });
+                      setWalkInLog([]);
+                      showToast("来場記録をクリアしました");
+                    } catch (err) {
+                      console.error("[checkin] Failed to clear walk-in log:", err);
+                      showToast("削除に失敗しました");
+                    }
+                  }}
+                  className="text-xs text-red-400 hover:text-red-600 font-medium"
+                >
+                  すべてクリア
+                </button>
+              )}
+            </div>
             <p className="text-xs text-gray-500 mb-4">チェックインページから名前を入力した人の記録です。事前登録者との照合結果も表示されます。</p>
             {walkInLog.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-8">来場記録はまだありません</p>
@@ -279,6 +311,33 @@ export default function CheckinPage() {
                     <span className="text-xs text-gray-500 font-mono flex-shrink-0">
                       {new Date(entry.timestamp).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </span>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const logRes = await fetch(`/api/db?key=vls_walkin_log&_t=${Date.now()}`, { cache: "no-store" });
+                          let allLog: WalkInEntry[] = [];
+                          if (logRes.ok) {
+                            const logData = await logRes.json();
+                            if (logData.value) allLog = JSON.parse(logData.value);
+                          }
+                          const remaining = allLog.filter((e) => e.id !== entry.id);
+                          await fetch("/api/db", {
+                            method: "PUT",
+                            headers: csrfHeaders({ "Content-Type": "application/json" }),
+                            body: JSON.stringify({ key: "vls_walkin_log", value: JSON.stringify(remaining) }),
+                          });
+                          setWalkInLog((prev) => prev.filter((e) => e.id !== entry.id));
+                          showToast(`${entry.name} を削除しました`);
+                        } catch (err) {
+                          console.error("[checkin] Failed to delete walk-in entry:", err);
+                          showToast("削除に失敗しました");
+                        }
+                      }}
+                      className="text-red-400 hover:text-red-600 flex-shrink-0 ml-1"
+                      title="この記録を削除"
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>
