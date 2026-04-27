@@ -5,8 +5,21 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { EventData, Participant, InterestTag } from "@/lib/types";
 import { getStoredEvents, getStoredParticipants, setStoredParticipants, getEventsForTenant, getParticipantsForTenant, generateCheckinToken } from "@/lib/store";
+import { csrfHeaders } from "@/lib/csrf";
 
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#6EC6FF] focus:outline-none text-sm";
+
+/** Persist the full participants array to D1 so changes survive page reloads. */
+function persistParticipantsToD1(participants: Participant[]): void {
+  const json = JSON.stringify(participants);
+  fetch("/api/db", {
+    method: "PUT",
+    headers: csrfHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ key: "vls_participants", value: json }),
+  }).catch((err) => {
+    console.error("[BulkImport] Failed to persist participants to D1:", err);
+  });
+}
 
 interface ParsedRow {
   name: string;
@@ -138,6 +151,7 @@ export default function BulkImport({ onSave, tenantId }: { onSave: (msg: string)
     const allParticipants = getStoredParticipants();
     const updatedAll = [...allParticipants, ...newParticipants];
     setStoredParticipants(updatedAll);
+    persistParticipantsToD1(updatedAll);
     setParticipants(tenantId ? updatedAll.filter((p) => p.tenantId === tenantId) : updatedAll);
     setParsed(null);
     onSave(`${newParticipants.length}名の参加者をインポートしました`);
@@ -147,6 +161,7 @@ export default function BulkImport({ onSave, tenantId }: { onSave: (msg: string)
     const allParticipants = getStoredParticipants();
     const updatedAll = allParticipants.filter((p) => p.id !== id);
     setStoredParticipants(updatedAll);
+    persistParticipantsToD1(updatedAll);
     setParticipants(tenantId ? updatedAll.filter((p) => p.tenantId === tenantId) : updatedAll);
   };
 
@@ -154,6 +169,7 @@ export default function BulkImport({ onSave, tenantId }: { onSave: (msg: string)
     const allParticipants = getStoredParticipants();
     const updatedAll = allParticipants.filter((p) => p.eventId !== eventId);
     setStoredParticipants(updatedAll);
+    persistParticipantsToD1(updatedAll);
     setParticipants(tenantId ? updatedAll.filter((p) => p.tenantId === tenantId) : updatedAll);
     onSave("イベントの参加者をクリアしました");
   };
