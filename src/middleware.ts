@@ -27,7 +27,7 @@ const ADMIN_PAGES = [
 const CSRF_METHODS = new Set(["POST", "PUT", "DELETE"]);
 
 /** API routes exempt from CSRF (handled externally). */
-const CSRF_EXEMPT = ["/api/auth/", "/api/webhook/stripe", "/api/face/import-embeddings", "/api/proxy/", "/api/send-download-link", "/api/checkin/", "/api/event-checkin"];
+const CSRF_EXEMPT = ["/api/auth/", "/api/webhook/stripe", "/api/face/import-embeddings", "/api/proxy/", "/api/send-download-link", "/api/checkin/", "/api/event-checkin", "/api/register", "/api/send-registration-confirm"];
 
 /**
  * API routes + methods that require admin auth (session or x-admin-password).
@@ -126,6 +126,7 @@ const PUBLIC_POST_ROUTES = [
   "/api/behavior",
   "/api/coupon",
   "/api/auth/reset-password",
+  "/api/register",
 ];
 
 export async function middleware(request: NextRequest) {
