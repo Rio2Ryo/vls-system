@@ -561,29 +561,39 @@ function RegistrationTab({
   const [regOpen, setRegOpen] = useState(selectedEvent?.registrationOpen ?? false);
   const [deadline, setDeadline] = useState(selectedEvent?.registrationDeadline ?? "");
   const [maxP, setMaxP] = useState(selectedEvent?.maxParticipants ?? 0);
+  const [description, setDescription] = useState(selectedEvent?.registrationDescription ?? "");
+  const [customFields, setCustomFields] = useState<import("@/lib/types").RegistrationField[]>(
+    selectedEvent?.registrationFields ?? []
+  );
 
   // Sync when event changes
   useEffect(() => {
     setRegOpen(selectedEvent?.registrationOpen ?? false);
     setDeadline(selectedEvent?.registrationDeadline ?? "");
     setMaxP(selectedEvent?.maxParticipants ?? 0);
+    setDescription(selectedEvent?.registrationDescription ?? "");
+    setCustomFields(selectedEvent?.registrationFields ?? []);
   }, [selectedEvent]);
 
   const saveSettings = async () => {
     if (!selectedEvent) return;
     setSaving(true);
     try {
-      // Update event in-memory
       const updatedEvents = events.map((e) =>
         e.id === selectedEventId
-          ? { ...e, registrationOpen: regOpen, registrationDeadline: deadline || undefined, maxParticipants: maxP || undefined }
+          ? {
+              ...e,
+              registrationOpen: regOpen,
+              registrationDeadline: deadline || undefined,
+              maxParticipants: maxP || undefined,
+              registrationDescription: description || undefined,
+              registrationFields: customFields.length > 0 ? customFields : undefined,
+            }
           : e
       );
-      // Save to localStorage
       setStoredEvents(updatedEvents);
       setEvents(updatedEvents);
 
-      // Save to D1
       try {
         localStorage.setItem("vls_admin_events", JSON.stringify(updatedEvents));
       } catch { /* ignore */ }
@@ -602,6 +612,37 @@ function RegistrationTab({
     }
   };
 
+  // --- Custom field CRUD ---
+  const addField = (type: import("@/lib/types").RegistrationFieldType) => {
+    const id = `cf-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    const defaults: Record<string, Partial<import("@/lib/types").RegistrationField>> = {
+      text: { label: "新しいテキスト項目", required: false },
+      textarea: { label: "自由記入欄", required: false },
+      radio: { label: "選択項目", required: false, options: ["選択肢1", "選択肢2"] },
+      checkbox: { label: "同意確認", required: true, description: "上記の内容に同意します" },
+    };
+    const d = defaults[type] || {};
+    setCustomFields([...customFields, { id, type, label: d.label || "", required: d.required ?? false, options: d.options, description: d.description }]);
+  };
+
+  const updateField = (id: string, updates: Partial<import("@/lib/types").RegistrationField>) => {
+    setCustomFields(customFields.map((f) => (f.id === id ? { ...f, ...updates } : f)));
+  };
+
+  const removeField = (id: string) => {
+    setCustomFields(customFields.filter((f) => f.id !== id));
+  };
+
+  const moveField = (id: string, dir: -1 | 1) => {
+    const idx = customFields.findIndex((f) => f.id === id);
+    if (idx < 0) return;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= customFields.length) return;
+    const arr = [...customFields];
+    [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+    setCustomFields(arr);
+  };
+
   const registrationUrl = `${APP_URL}/register/${selectedEventId}`;
 
   if (!selectedEvent) {
@@ -614,9 +655,9 @@ function RegistrationTab({
 
   return (
     <>
+      {/* Basic settings */}
       <Card>
         <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4">📝 申し込みフォーム設定</h3>
-
         <div className="space-y-5">
           {/* Toggle */}
           <div className="flex items-center justify-between">
@@ -628,9 +669,7 @@ function RegistrationTab({
               onClick={() => setRegOpen(!regOpen)}
               className={`relative w-14 h-7 rounded-full transition-colors ${regOpen ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"}`}
             >
-              <span
-                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${regOpen ? "translate-x-7" : ""}`}
-              />
+              <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${regOpen ? "translate-x-7" : ""}`} />
             </button>
           </div>
 
@@ -652,77 +691,172 @@ function RegistrationTab({
 
           {/* Deadline */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-              受付締切日
-            </label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">受付締切日</label>
             <p className="text-xs text-gray-400 mb-2">この日の23:59まで受付（空欄 = 手動で閉じるまで受付）</p>
-            <input
-              type="date"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-emerald-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100"
-            />
+            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-emerald-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100" />
           </div>
 
           {/* Max participants */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-              定員
-            </label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">定員</label>
             <p className="text-xs text-gray-400 mb-2">0 = 無制限</p>
-            <input
-              type="number"
-              min={0}
-              value={maxP}
-              onChange={(e) => setMaxP(parseInt(e.target.value) || 0)}
-              className="w-32 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-emerald-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100"
-              placeholder="0"
-            />
+            <input type="number" min={0} value={maxP} onChange={(e) => setMaxP(parseInt(e.target.value) || 0)}
+              className="w-32 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-emerald-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100" placeholder="0" />
             <span className="text-xs text-gray-500 ml-2">名</span>
           </div>
+        </div>
+      </Card>
 
-          {/* Save button */}
-          <button
-            onClick={saveSettings}
-            disabled={saving}
-            className="px-6 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 font-medium text-sm transition-colors disabled:opacity-50"
-          >
-            {saving ? "保存中..." : "設定を保存"}
+      {/* Description editor */}
+      <Card>
+        <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">📄 イベント概要</h3>
+        <p className="text-xs text-gray-500 mb-3">フォーム上部に表示される概要テキスト。日時・場所・内容・注意事項などを自由に記載できます。</p>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={8}
+          placeholder={"日時：1月24日（土）13:30-16:00　受付 13:15〜\n場所：○○小学校 体育館\n対象：小学1〜6年生\n参加費：無料\n\nプログラム内容：\n1部　かけっこ教室\n2部　スポーツ体験\n\n問い合わせ先：イベント事務局 info@example.com"}
+          className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-emerald-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100 resize-y font-sans"
+        />
+        {description && (
+          <div className="mt-3">
+            <p className="text-xs text-gray-500 mb-1">プレビュー：</p>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+              {description}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Custom fields editor */}
+      <Card>
+        <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">🔧 カスタム入力項目</h3>
+        <p className="text-xs text-gray-500 mb-4">名前・メール・電話番号以外の追加項目（テキスト入力、選択肢、同意チェックなど）を自由に設定できます。</p>
+
+        {customFields.length > 0 && (
+          <div className="space-y-3 mb-4">
+            {customFields.map((field, idx) => (
+              <div key={field.id} className="border border-gray-200 dark:border-gray-600 rounded-xl p-4 bg-gray-50 dark:bg-gray-800">
+                <div className="flex items-start gap-2 mb-3">
+                  <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-mono flex-shrink-0">
+                    {field.type === "text" ? "📝 テキスト" : field.type === "textarea" ? "📝 自由記入" : field.type === "radio" ? "🔘 選択" : "☑️ 同意"}
+                  </span>
+                  <div className="flex gap-1 ml-auto">
+                    <button onClick={() => moveField(field.id, -1)} disabled={idx === 0}
+                      className="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 hover:bg-gray-300 disabled:opacity-30">↑</button>
+                    <button onClick={() => moveField(field.id, 1)} disabled={idx === customFields.length - 1}
+                      className="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 hover:bg-gray-300 disabled:opacity-30">↓</button>
+                    <button onClick={() => removeField(field.id)}
+                      className="text-xs px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-500 hover:bg-red-200">✕</button>
+                  </div>
+                </div>
+
+                {/* Label */}
+                <div className="mb-2">
+                  <label className="text-xs text-gray-500 mb-0.5 block">ラベル</label>
+                  <input type="text" value={field.label} onChange={(e) => updateField(field.id, { label: e.target.value })}
+                    className="w-full px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-emerald-500"
+                    placeholder="項目のラベル" />
+                </div>
+
+                {/* Description */}
+                <div className="mb-2">
+                  <label className="text-xs text-gray-500 mb-0.5 block">補足説明（任意）</label>
+                  <input type="text" value={field.description || ""} onChange={(e) => updateField(field.id, { description: e.target.value || undefined })}
+                    className="w-full px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-emerald-500"
+                    placeholder="補足テキスト" />
+                </div>
+
+                {/* Required toggle */}
+                <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                  <input type="checkbox" checked={field.required} onChange={(e) => updateField(field.id, { required: e.target.checked })}
+                    className="rounded border-gray-300" />
+                  <span className="text-xs text-gray-600 dark:text-gray-300">必須項目</span>
+                </label>
+
+                {/* Radio options editor */}
+                {field.type === "radio" && (
+                  <div className="mt-2">
+                    <label className="text-xs text-gray-500 mb-1 block">選択肢</label>
+                    <div className="space-y-1.5">
+                      {(field.options || []).map((opt, optIdx) => (
+                        <div key={optIdx} className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-400 w-4">{optIdx + 1}.</span>
+                          <input type="text" value={opt}
+                            onChange={(e) => {
+                              const newOpts = [...(field.options || [])];
+                              newOpts[optIdx] = e.target.value;
+                              updateField(field.id, { options: newOpts });
+                            }}
+                            className="flex-1 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-emerald-500" />
+                          <button onClick={() => {
+                            const newOpts = (field.options || []).filter((_, i) => i !== optIdx);
+                            updateField(field.id, { options: newOpts });
+                          }} className="text-xs text-red-400 hover:text-red-600 px-1">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={() => updateField(field.id, { options: [...(field.options || []), `選択肢${(field.options?.length || 0) + 1}`] })}
+                      className="mt-2 text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                      ＋ 選択肢を追加
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add field buttons */}
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => addField("text")}
+            className="text-xs px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-medium border border-blue-200 dark:border-blue-800">
+            ＋ テキスト入力
+          </button>
+          <button onClick={() => addField("textarea")}
+            className="text-xs px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 font-medium border border-purple-200 dark:border-purple-800">
+            ＋ 自由記入欄
+          </button>
+          <button onClick={() => addField("radio")}
+            className="text-xs px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 font-medium border border-amber-200 dark:border-amber-800">
+            ＋ 選択肢（ラジオ）
+          </button>
+          <button onClick={() => addField("checkbox")}
+            className="text-xs px-3 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 font-medium border border-green-200 dark:border-green-800">
+            ＋ 同意チェック
           </button>
         </div>
+      </Card>
+
+      {/* Save button */}
+      <Card>
+        <button
+          onClick={saveSettings}
+          disabled={saving}
+          className="w-full px-6 py-3 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 font-bold text-base transition-colors disabled:opacity-50"
+        >
+          {saving ? "保存中..." : "💾 設定をすべて保存"}
+        </button>
       </Card>
 
       {/* URL & QR */}
       <Card>
         <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">🔗 申し込みフォームURL</h3>
-        <p className="text-xs text-gray-500 mb-4">
-          このURLまたはQRコードを共有して、参加者に事前申し込みしてもらいます。
-        </p>
-
+        <p className="text-xs text-gray-500 mb-4">このURLまたはQRコードを共有して、参加者に事前申し込みしてもらいます。</p>
         <div className="flex flex-col items-center gap-4">
-          {/* QR Code */}
           <div className="bg-white p-4 rounded-2xl shadow-md border-2 border-emerald-200">
             <div id="registration-qr-code" className="w-64 h-64 flex items-center justify-center">
               <p className="text-sm text-gray-400">QRコード読み込み中...</p>
             </div>
           </div>
-
-          {/* URL display */}
           <div className="w-full max-w-md">
             <div className="flex items-center gap-2">
-              <code className="text-xs bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border flex-1 truncate">
-                {registrationUrl}
-              </code>
-              <button
-                onClick={() => { navigator.clipboard.writeText(registrationUrl); showToast("URLをコピーしました"); }}
-                className="text-xs px-3 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 font-medium flex-shrink-0"
-              >
-                コピー
-              </button>
+              <code className="text-xs bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border flex-1 truncate">{registrationUrl}</code>
+              <button onClick={() => { navigator.clipboard.writeText(registrationUrl); showToast("URLをコピーしました"); }}
+                className="text-xs px-3 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 font-medium flex-shrink-0">コピー</button>
             </div>
           </div>
-
-          {/* PDF export */}
           <div className="flex gap-3">
             <button
               onClick={async () => {
@@ -732,21 +866,16 @@ function RegistrationTab({
                   const qrDataUrl = await QRCode.toDataURL(registrationUrl, { width: 600, margin: 2 });
                   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
                   const eventName = selectedEvent?.name || "";
-
                   doc.setFontSize(24);
                   doc.setTextColor(30);
                   doc.text(eventName || "イベント申し込み", 105, 40, { align: "center" });
-
                   doc.setFontSize(14);
                   doc.setTextColor(100);
                   doc.text("QRコードを読み取って申し込みしてください", 105, 55, { align: "center" });
-
                   doc.addImage(qrDataUrl, "PNG", 30, 70, 150, 150);
-
                   doc.setFontSize(8);
                   doc.setTextColor(150);
                   doc.text(registrationUrl, 105, 230, { align: "center" });
-
                   doc.save(`registration-qr-${eventName || "event"}.pdf`);
                   showToast("QRコードPDFを生成しました");
                 } catch (err) {
@@ -754,22 +883,11 @@ function RegistrationTab({
                   showToast("PDF生成に失敗しました");
                 }
               }}
-              className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-sm font-medium"
-            >
-              📄 PDF印刷用に出力
-            </button>
-            <a
-              href={registrationUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 text-sm font-medium"
-            >
-              🔗 フォームを開く
-            </a>
+              className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-sm font-medium">📄 PDF印刷用に出力</button>
+            <a href={registrationUrl} target="_blank" rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 text-sm font-medium">🔗 フォームを開く</a>
           </div>
         </div>
-
-        {/* QR code render */}
         <RegistrationQrRenderer url={registrationUrl} />
       </Card>
     </>
@@ -799,3 +917,4 @@ function RegistrationQrRenderer({ url }: { url: string }) {
 
   return null;
 }
+

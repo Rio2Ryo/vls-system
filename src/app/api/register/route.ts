@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
   let name: string;
   let email: string;
   let phone: string;
+  let customFields: Record<string, string> = {};
 
   try {
     const body = await req.json();
@@ -34,6 +35,9 @@ export async function POST(req: NextRequest) {
     name = (body.name || "").trim();
     email = (body.email || "").trim().toLowerCase();
     phone = (body.phone || "").trim();
+    if (body.customFields && typeof body.customFields === "object") {
+      customFields = body.customFields;
+    }
   } catch {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
@@ -121,6 +125,7 @@ export async function POST(req: NextRequest) {
       checkedIn: false,
       checkinToken,
       source: "form",
+      customFields: Object.keys(customFields).length > 0 ? customFields : undefined,
     };
 
     allParticipants.push(newParticipant);
