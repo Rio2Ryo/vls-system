@@ -135,11 +135,9 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           email,
           name,
-          phone: phone || undefined,
           eventName: event.name || "",
           eventDate: event.date || "",
           eventVenue: event.venue || "",
-          checkinToken,
         }),
       }).catch((err) => {
         console.error("[register] Confirmation email failed:", err);

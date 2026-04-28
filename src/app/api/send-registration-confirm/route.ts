@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://vls-system.vercel.app";
 
 /**
  * POST /api/send-registration-confirm
- * Send a registration confirmation email with personal QR code.
- * Body: { email, name, phone?, eventName, eventDate, eventVenue, checkinToken }
+ * Send a registration confirmation email (no QR code).
+ * Body: { email, name, eventName, eventDate, eventVenue }
  */
 export async function POST(req: NextRequest) {
   let body: {
     email?: string;
     name?: string;
-    phone?: string;
     eventName?: string;
     eventDate?: string;
     eventVenue?: string;
-    checkinToken?: string;
   };
 
   try {
@@ -25,18 +22,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { email, name, eventName, eventDate, eventVenue, checkinToken } = body;
-  if (!email || !name || !checkinToken) {
-    return NextResponse.json({ error: "email, name, checkinToken required" }, { status: 400 });
+  const { email, name, eventName, eventDate, eventVenue } = body;
+  if (!email || !name) {
+    return NextResponse.json({ error: "email, name required" }, { status: 400 });
   }
 
   if (!RESEND_API_KEY || RESEND_API_KEY.startsWith("re_placeholder")) {
     console.warn("[send-registration-confirm] Email not configured, skipping");
     return NextResponse.json({ error: "Email not configured" }, { status: 500 });
   }
-
-  const checkinUrl = `${APP_URL}/checkin/${checkinToken}`;
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(checkinUrl)}`;
 
   // Format date for display
   let dateDisplay = eventDate || "";
@@ -83,22 +77,19 @@ export async function POST(req: NextRequest) {
                 ${eventVenue ? `<p style="color: #666; font-size: 13px; margin: 0;">📍 ${eventVenue}</p>` : ""}
               </div>
 
-              <!-- QR Code -->
-              <div style="text-align: center; margin: 24px 0;">
-                <p style="color: #333; font-size: 14px; font-weight: bold; margin: 0 0 12px;">
-                  チェックイン用QRコード
+              <div style="background: #ecfdf5; border-radius: 8px; padding: 16px; margin: 0 0 24px; text-align: center;">
+                <p style="color: #065f46; font-size: 14px; font-weight: bold; margin: 0 0 4px;">
+                  📋 申し込みを受け付けました
                 </p>
-                <img src="${qrImageUrl}" alt="チェックイン用QRコード" width="200" height="200"
-                  style="width: 200px; height: 200px; border: 1px solid #e5e7eb; border-radius: 8px;" />
-                <p style="color: #999; font-size: 11px; margin: 8px 0 0;">
-                  会場でこのQRコードを提示してチェックインしてください
+                <p style="color: #047857; font-size: 12px; margin: 0;">
+                  当日は会場にてチェックインをお願いいたします
                 </p>
               </div>
 
               <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
 
               <p style="color: #aaa; font-size: 11px; margin: 0; text-align: center;">
-                このQRコードはあなた専用です。他の方と共有しないでください。
+                ご不明な点がございましたら、イベント主催者までお問い合わせください。
               </p>
             </div>
 

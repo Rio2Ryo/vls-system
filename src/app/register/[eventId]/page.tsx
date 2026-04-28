@@ -329,7 +329,7 @@ export default function RegisterPage() {
                       📧 確認メールを送信しました
                     </p>
                     <p className="text-xs text-emerald-600 mt-1">
-                      QRコード付きのメールをご確認ください
+                      受信トレイをご確認ください
                     </p>
                   </div>
 
