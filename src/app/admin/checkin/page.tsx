@@ -165,6 +165,17 @@ export default function CheckinPage() {
     writeParticipantsToD1(updated, "チェックイン状態をリセットしました");
   };
 
+  const deleteParticipant = (participantId: string) => {
+    const target = participants.find((p) => p.id === participantId);
+    if (!target) return;
+    if (!confirm(`「${target.name}」を参加者リストから削除しますか？\nこの操作は取り消せません。`)) return;
+    const currentJson = localStorage.getItem("vls_participants");
+    if (!currentJson) return;
+    const allParticipants: Participant[] = JSON.parse(currentJson);
+    const updated = allParticipants.filter((p) => p.id !== participantId);
+    writeParticipantsToD1(updated, `${target.name} を削除しました`);
+  };
+
 
   if (status === "loading") {
     return (
@@ -475,6 +486,11 @@ export default function CheckinPage() {
                 <button onClick={() => toggleCheckin(p.id)}
                   className={`text-xs px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0 ${p.checkedIn ? "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600" : "bg-green-500 text-white hover:bg-green-600 shadow-sm"}`}>
                   {p.checkedIn ? "取消" : "チェックイン"}
+                </button>
+                <button onClick={() => deleteParticipant(p.id)}
+                  className="text-xs px-2 py-2 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+                  title="参加者を削除">
+                  🗑
                 </button>
               </motion.div>
             ))}
