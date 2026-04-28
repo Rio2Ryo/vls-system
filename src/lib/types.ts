@@ -49,6 +49,10 @@ export interface EventData {
   expiresAt?: number;           // publish deadline (Unix ms), default publishedAt + 7 days
   archivedAt?: number;          // archive timestamp (compressed)
   status?: EventStatus;         // "preparing" | "active" | "ended" | "archived"
+  // Registration form settings
+  registrationOpen?: boolean;        // 申し込み受付中フラグ
+  registrationDeadline?: string;     // 受付締切日 ISO "2026-08-14"
+  maxParticipants?: number;          // 定員（0 or undefined = 無制限）
 }
 
 // Photo scene classification (AI auto-classification)
@@ -231,18 +235,20 @@ export const DEFAULT_WATERMARK_CONFIG: Omit<WatermarkConfig, "tenantId"> = {
   gridRows: 3,
 };
 
-// Pre-registered participant (bulk import)
+// Pre-registered participant (bulk import or registration form)
 export interface Participant {
   id: string;
   eventId: string;
   tenantId?: string;
   name: string;
   email?: string;
+  phone?: string;             // 電話番号
   tags?: InterestTag[];
   registeredAt: number;
   checkedIn: boolean;
   checkedInAt?: number;
   checkinToken?: string;  // unique token for personal QR check-in
+  source?: "import" | "form";  // 登録元（CSVインポート or 申し込みフォーム）
 }
 
 // Invoice

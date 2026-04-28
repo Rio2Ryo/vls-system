@@ -9,6 +9,7 @@ import { EventData, Participant } from "@/lib/types";
 import {
   getStoredEvents,
   getParticipantsForEvent,
+  setStoredEvents,
 } from "@/lib/store";
 import { fireWebhook } from "@/lib/webhook";
 import { csrfHeaders } from "@/lib/csrf";
@@ -16,7 +17,7 @@ import { csrfHeaders } from "@/lib/csrf";
 const inputCls = "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-[#6EC6FF] focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100";
 const APP_URL = typeof window !== "undefined" ? window.location.origin : "";
 
-type Tab = "list" | "qr" | "walkin";
+type Tab = "list" | "qr" | "walkin" | "registration";
 
 export default function CheckinPage() {
   const { data: session, status } = useSession();
@@ -254,7 +255,7 @@ export default function CheckinPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button onClick={() => setTab("list")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "list" ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}>
             📋 参加者一覧
           </button>
@@ -263,6 +264,9 @@ export default function CheckinPage() {
           </button>
           <button onClick={() => setTab("qr")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "qr" ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}>
             📱 イベントQRコード
+          </button>
+          <button onClick={() => setTab("registration")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "registration" ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}>
+            📝 申し込みフォーム
           </button>
         </div>
 
@@ -496,6 +500,17 @@ export default function CheckinPage() {
             ))}
           </div>
         ))}
+
+        {/* Registration form settings tab */}
+        {tab === "registration" && (
+          <RegistrationTab
+            selectedEventId={selectedEventId}
+            events={events}
+            setEvents={setEvents}
+            participantCount={totalCount}
+            showToast={showToast}
+          />
+        )}
       </div>
     </main>
   );
@@ -505,6 +520,266 @@ export default function CheckinPage() {
 function QrRenderer({ url }: { url: string }) {
   useEffect(() => {
     const container = document.getElementById("event-qr-code");
+    if (!container || !url) return;
+
+    import("qrcode").then(({ default: QRCode }) => {
+      const canvas = document.createElement("canvas");
+      QRCode.toCanvas(canvas, url, { width: 256, margin: 2 }, (err) => {
+        if (err) {
+          container.innerHTML = '<p class="text-red-400 text-sm">QR生成エラー</p>';
+          return;
+        }
+        container.innerHTML = "";
+        container.appendChild(canvas);
+      });
+    }).catch(() => {
+      if (container) container.innerHTML = '<p class="text-red-400 text-sm">QRライブラリ読み込みエラー</p>';
+    });
+  }, [url]);
+
+  return null;
+}
+
+/** Registration form settings tab */
+function RegistrationTab({
+  selectedEventId,
+  events,
+  setEvents,
+  participantCount,
+  showToast,
+}: {
+  selectedEventId: string;
+  events: EventData[];
+  setEvents: (e: EventData[]) => void;
+  participantCount: number;
+  showToast: (msg: string) => void;
+}) {
+  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  const [saving, setSaving] = useState(false);
+
+  // Local state for form fields
+  const [regOpen, setRegOpen] = useState(selectedEvent?.registrationOpen ?? false);
+  const [deadline, setDeadline] = useState(selectedEvent?.registrationDeadline ?? "");
+  const [maxP, setMaxP] = useState(selectedEvent?.maxParticipants ?? 0);
+
+  // Sync when event changes
+  useEffect(() => {
+    setRegOpen(selectedEvent?.registrationOpen ?? false);
+    setDeadline(selectedEvent?.registrationDeadline ?? "");
+    setMaxP(selectedEvent?.maxParticipants ?? 0);
+  }, [selectedEvent]);
+
+  const saveSettings = async () => {
+    if (!selectedEvent) return;
+    setSaving(true);
+    try {
+      // Update event in-memory
+      const updatedEvents = events.map((e) =>
+        e.id === selectedEventId
+          ? { ...e, registrationOpen: regOpen, registrationDeadline: deadline || undefined, maxParticipants: maxP || undefined }
+          : e
+      );
+      // Save to localStorage
+      setStoredEvents(updatedEvents);
+      setEvents(updatedEvents);
+
+      // Save to D1
+      try {
+        localStorage.setItem("vls_admin_events", JSON.stringify(updatedEvents));
+      } catch { /* ignore */ }
+      await fetch("/api/db", {
+        method: "PUT",
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ key: "vls_admin_events", value: JSON.stringify(updatedEvents) }),
+      });
+
+      showToast("申し込みフォーム設定を保存しました");
+    } catch (err) {
+      console.error("[registration] Save failed:", err);
+      showToast("保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const registrationUrl = `${APP_URL}/register/${selectedEventId}`;
+
+  if (!selectedEvent) {
+    return (
+      <Card>
+        <p className="text-sm text-gray-400 text-center py-8">イベントを選択してください</p>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card>
+        <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4">📝 申し込みフォーム設定</h3>
+
+        <div className="space-y-5">
+          {/* Toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">申し込み受付</p>
+              <p className="text-xs text-gray-400">ONにするとフォームが公開されます</p>
+            </div>
+            <button
+              onClick={() => setRegOpen(!regOpen)}
+              className={`relative w-14 h-7 rounded-full transition-colors ${regOpen ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${regOpen ? "translate-x-7" : ""}`}
+              />
+            </button>
+          </div>
+
+          {/* Status indicator */}
+          <div className={`px-4 py-3 rounded-xl border ${regOpen ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${regOpen ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+              <span className={`text-sm font-medium ${regOpen ? "text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400"}`}>
+                {regOpen ? "受付中" : "受付停止中"}
+              </span>
+            </div>
+            {regOpen && (
+              <p className="text-xs text-green-600 dark:text-green-500 mt-1 ml-5">
+                現在の申し込み: {participantCount}名
+                {maxP > 0 && ` / 定員${maxP}名`}
+              </p>
+            )}
+          </div>
+
+          {/* Deadline */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+              受付締切日
+            </label>
+            <p className="text-xs text-gray-400 mb-2">この日の23:59まで受付（空欄 = 手動で閉じるまで受付）</p>
+            <input
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-emerald-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100"
+            />
+          </div>
+
+          {/* Max participants */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+              定員
+            </label>
+            <p className="text-xs text-gray-400 mb-2">0 = 無制限</p>
+            <input
+              type="number"
+              min={0}
+              value={maxP}
+              onChange={(e) => setMaxP(parseInt(e.target.value) || 0)}
+              className="w-32 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-emerald-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100"
+              placeholder="0"
+            />
+            <span className="text-xs text-gray-500 ml-2">名</span>
+          </div>
+
+          {/* Save button */}
+          <button
+            onClick={saveSettings}
+            disabled={saving}
+            className="px-6 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 font-medium text-sm transition-colors disabled:opacity-50"
+          >
+            {saving ? "保存中..." : "設定を保存"}
+          </button>
+        </div>
+      </Card>
+
+      {/* URL & QR */}
+      <Card>
+        <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">🔗 申し込みフォームURL</h3>
+        <p className="text-xs text-gray-500 mb-4">
+          このURLまたはQRコードを共有して、参加者に事前申し込みしてもらいます。
+        </p>
+
+        <div className="flex flex-col items-center gap-4">
+          {/* QR Code */}
+          <div className="bg-white p-4 rounded-2xl shadow-md border-2 border-emerald-200">
+            <div id="registration-qr-code" className="w-64 h-64 flex items-center justify-center">
+              <p className="text-sm text-gray-400">QRコード読み込み中...</p>
+            </div>
+          </div>
+
+          {/* URL display */}
+          <div className="w-full max-w-md">
+            <div className="flex items-center gap-2">
+              <code className="text-xs bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border flex-1 truncate">
+                {registrationUrl}
+              </code>
+              <button
+                onClick={() => { navigator.clipboard.writeText(registrationUrl); showToast("URLをコピーしました"); }}
+                className="text-xs px-3 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 font-medium flex-shrink-0"
+              >
+                コピー
+              </button>
+            </div>
+          </div>
+
+          {/* PDF export */}
+          <div className="flex gap-3">
+            <button
+              onClick={async () => {
+                try {
+                  const QRCode = (await import("qrcode")).default;
+                  const { jsPDF } = await import("jspdf");
+                  const qrDataUrl = await QRCode.toDataURL(registrationUrl, { width: 600, margin: 2 });
+                  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                  const eventName = selectedEvent?.name || "";
+
+                  doc.setFontSize(24);
+                  doc.setTextColor(30);
+                  doc.text(eventName || "イベント申し込み", 105, 40, { align: "center" });
+
+                  doc.setFontSize(14);
+                  doc.setTextColor(100);
+                  doc.text("QRコードを読み取って申し込みしてください", 105, 55, { align: "center" });
+
+                  doc.addImage(qrDataUrl, "PNG", 30, 70, 150, 150);
+
+                  doc.setFontSize(8);
+                  doc.setTextColor(150);
+                  doc.text(registrationUrl, 105, 230, { align: "center" });
+
+                  doc.save(`registration-qr-${eventName || "event"}.pdf`);
+                  showToast("QRコードPDFを生成しました");
+                } catch (err) {
+                  console.error("PDF error:", err);
+                  showToast("PDF生成に失敗しました");
+                }
+              }}
+              className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-sm font-medium"
+            >
+              📄 PDF印刷用に出力
+            </button>
+            <a
+              href={registrationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 text-sm font-medium"
+            >
+              🔗 フォームを開く
+            </a>
+          </div>
+        </div>
+
+        {/* QR code render */}
+        <RegistrationQrRenderer url={registrationUrl} />
+      </Card>
+    </>
+  );
+}
+
+/** Renders QR code for registration form */
+function RegistrationQrRenderer({ url }: { url: string }) {
+  useEffect(() => {
+    const container = document.getElementById("registration-qr-code");
     if (!container || !url) return;
 
     import("qrcode").then(({ default: QRCode }) => {
