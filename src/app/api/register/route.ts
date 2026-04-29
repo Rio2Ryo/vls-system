@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           email,
           name,
-          eventName: event.name || "",
+          formTitle: event.registrationFormTitle || event.name || "",
           eventDate: event.date || "",
           eventVenue: event.venue || "",
         }),

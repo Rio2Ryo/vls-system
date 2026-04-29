@@ -4,14 +4,14 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 
 /**
  * POST /api/send-registration-confirm
- * Send a registration confirmation email (no QR code).
- * Body: { email, name, eventName, eventDate, eventVenue }
+ * Send a registration confirmation email.
+ * Body: { email, name, formTitle, eventDate, eventVenue }
  */
 export async function POST(req: NextRequest) {
   let body: {
     email?: string;
     name?: string;
-    eventName?: string;
+    formTitle?: string;
     eventDate?: string;
     eventVenue?: string;
   };
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { email, name, eventName, eventDate, eventVenue } = body;
+  const { email, name, formTitle, eventDate, eventVenue } = body;
   if (!email || !name) {
     return NextResponse.json({ error: "email, name required" }, { status: 400 });
   }
@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
     console.warn("[send-registration-confirm] Email not configured, skipping");
     return NextResponse.json({ error: "Email not configured" }, { status: 500 });
   }
+
+  const title = formTitle || "イベント";
 
   // Format date for display
   let dateDisplay = eventDate || "";
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         from: "みらい発見ラボ <noreply@miraihakkenlab.com>",
         to: [email],
-        subject: `申し込み完了｜${eventName || "イベント"}`,
+        subject: `申し込み完了｜${title}`,
         html: `
           <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 0;">
             <!-- Header -->
@@ -65,13 +67,13 @@ export async function POST(req: NextRequest) {
             <div style="background: #fff; padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none;">
               <p style="color: #333; font-size: 16px; margin: 0 0 16px;">${name} さん</p>
               <p style="color: #555; font-size: 14px; margin: 0 0 24px;">
-                イベントへの申し込みが完了しました。ありがとうございます！
+                お申し込みが完了しました。ありがとうございます！
               </p>
 
               <!-- Event details -->
               <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin: 0 0 24px;">
                 <p style="color: #333; font-size: 15px; font-weight: bold; margin: 0 0 8px;">
-                  🎪 ${eventName || "イベント"}
+                  ${title}
                 </p>
                 ${dateDisplay ? `<p style="color: #666; font-size: 13px; margin: 0 0 4px;">📅 ${dateDisplay}</p>` : ""}
                 ${eventVenue ? `<p style="color: #666; font-size: 13px; margin: 0;">📍 ${eventVenue}</p>` : ""}
