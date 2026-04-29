@@ -53,12 +53,14 @@ export interface EventData {
   registrationOpen?: boolean;        // 申し込み受付中フラグ
   registrationDeadline?: string;     // 受付締切日 ISO "2026-08-14"
   maxParticipants?: number;          // 定員（0 or undefined = 無制限）
+  registrationFormTitle?: string;    // フォームタイトル（デフォルト: "イベント申し込み"）
   registrationDescription?: string;  // フォーム概要テキスト（改行対応）
   registrationFields?: RegistrationField[];  // カスタム入力項目
 }
 
 // カスタム申し込みフォーム項目
-export type RegistrationFieldType = "text" | "textarea" | "radio" | "checkbox";
+// "name" | "email" | "phone" = システム項目（Participantの対応フィールドに自動マッピング）
+export type RegistrationFieldType = "text" | "textarea" | "radio" | "checkbox" | "name" | "email" | "phone";
 
 export interface RegistrationField {
   id: string;

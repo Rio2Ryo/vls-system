@@ -561,6 +561,7 @@ function RegistrationTab({
   const [regOpen, setRegOpen] = useState(selectedEvent?.registrationOpen ?? false);
   const [deadline, setDeadline] = useState(selectedEvent?.registrationDeadline ?? "");
   const [maxP, setMaxP] = useState(selectedEvent?.maxParticipants ?? 0);
+  const [formTitle, setFormTitle] = useState(selectedEvent?.registrationFormTitle ?? "");
   const [description, setDescription] = useState(selectedEvent?.registrationDescription ?? "");
   const [customFields, setCustomFields] = useState<import("@/lib/types").RegistrationField[]>(
     selectedEvent?.registrationFields ?? []
@@ -571,6 +572,7 @@ function RegistrationTab({
     setRegOpen(selectedEvent?.registrationOpen ?? false);
     setDeadline(selectedEvent?.registrationDeadline ?? "");
     setMaxP(selectedEvent?.maxParticipants ?? 0);
+    setFormTitle(selectedEvent?.registrationFormTitle ?? "");
     setDescription(selectedEvent?.registrationDescription ?? "");
     setCustomFields(selectedEvent?.registrationFields ?? []);
   }, [selectedEvent]);
@@ -586,6 +588,7 @@ function RegistrationTab({
               registrationOpen: regOpen,
               registrationDeadline: deadline || undefined,
               maxParticipants: maxP || undefined,
+              registrationFormTitle: formTitle || undefined,
               registrationDescription: description || undefined,
               registrationFields: customFields.length > 0 ? customFields : undefined,
             }
@@ -616,6 +619,9 @@ function RegistrationTab({
   const addField = (type: import("@/lib/types").RegistrationFieldType) => {
     const id = `cf-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
     const defaults: Record<string, Partial<import("@/lib/types").RegistrationField>> = {
+      name: { label: "お名前", required: true },
+      email: { label: "メールアドレス", required: true },
+      phone: { label: "電話番号", required: false },
       text: { label: "新しいテキスト項目", required: false },
       textarea: { label: "自由記入欄", required: false },
       radio: { label: "選択項目", required: false, options: ["選択肢1", "選択肢2"] },
@@ -699,7 +705,16 @@ function RegistrationTab({
 
           {/* Max participants */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">定員</label>
+            {/* Form title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">フォームタイトル</label>
+            <p className="text-xs text-gray-400 mb-2">空欄 = 「イベント申し込み」</p>
+            <input type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value)}
+              placeholder="イベント申し込み"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-emerald-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100" />
+          </div>
+
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">定員</label>
             <p className="text-xs text-gray-400 mb-2">0 = 無制限</p>
             <input type="number" min={0} value={maxP} onChange={(e) => setMaxP(parseInt(e.target.value) || 0)}
               className="w-32 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 focus:border-emerald-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-gray-100" placeholder="0" />
@@ -731,16 +746,16 @@ function RegistrationTab({
 
       {/* Custom fields editor */}
       <Card>
-        <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">🔧 カスタム入力項目</h3>
-        <p className="text-xs text-gray-500 mb-4">名前・メール・電話番号以外の追加項目（テキスト入力、選択肢、同意チェックなど）を自由に設定できます。</p>
+        <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-3">🔧 フォーム入力項目</h3>
+        <p className="text-xs text-gray-500 mb-4">フォームに表示する入力項目を自由に設定できます。「お名前」「メールアドレス」は必須です。</p>
 
         {customFields.length > 0 && (
           <div className="space-y-3 mb-4">
             {customFields.map((field, idx) => (
               <div key={field.id} className="border border-gray-200 dark:border-gray-600 rounded-xl p-4 bg-gray-50 dark:bg-gray-800">
                 <div className="flex items-start gap-2 mb-3">
-                  <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-mono flex-shrink-0">
-                    {field.type === "text" ? "📝 テキスト" : field.type === "textarea" ? "📝 自由記入" : field.type === "radio" ? "🔘 選択" : "☑️ 同意"}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-mono flex-shrink-0 ${["name","email","phone"].includes(field.type) ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"}`}>
+                    {field.type === "name" ? "👤 お名前" : field.type === "email" ? "✉️ メール" : field.type === "phone" ? "📞 電話番号" : field.type === "text" ? "📝 テキスト" : field.type === "textarea" ? "📝 自由記入" : field.type === "radio" ? "🔘 選択" : "☑️ 同意"}
                   </span>
                   <div className="flex gap-1 ml-auto">
                     <button onClick={() => moveField(field.id, -1)} disabled={idx === 0}
@@ -808,10 +823,26 @@ function RegistrationTab({
           </div>
         )}
 
-        {/* Add field buttons */}
+        {/* Add system field buttons */}
+        <p className="text-xs text-gray-500 mb-2 font-medium">システム項目：</p>
+        <div className="flex flex-wrap gap-2 mb-3">
+          <button onClick={() => addField("name")}
+            className="text-xs px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-medium border border-blue-200 dark:border-blue-800">
+            ＋ お名前
+          </button>
+          <button onClick={() => addField("email")}
+            className="text-xs px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-medium border border-blue-200 dark:border-blue-800">
+            ＋ メールアドレス
+          </button>
+          <button onClick={() => addField("phone")}
+            className="text-xs px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-medium border border-blue-200 dark:border-blue-800">
+            ＋ 電話番号
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mb-2 font-medium">カスタム項目：</p>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => addField("text")}
-            className="text-xs px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-medium border border-blue-200 dark:border-blue-800">
+            className="text-xs px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 font-medium border border-emerald-200 dark:border-emerald-800">
             ＋ テキスト入力
           </button>
           <button onClick={() => addField("textarea")}

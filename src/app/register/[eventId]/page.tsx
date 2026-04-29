@@ -13,6 +13,7 @@ interface EventInfo {
   venue: string;
   maxParticipants: number | null;
   currentCount: number;
+  formTitle: string;
   description: string;
   customFields: RegistrationField[];
 }
@@ -23,10 +24,7 @@ export default function RegisterPage() {
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [eventInfo, setEventInfo] = useState<EventInfo | null>(null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState("");
   const [resultName, setResultName] = useState("");
 
@@ -43,24 +41,22 @@ export default function RegisterPage() {
         const event = events.find((e: { id: string }) => e.id === eventId);
         if (!event) { setPhase("error"); return; }
 
-        // Check registration status
-        if (!event.registrationOpen) {
-          setEventInfo({ name: event.name, date: event.date || "", venue: event.venue || "", maxParticipants: null, currentCount: 0, description: "", customFields: [] });
-          setPhase("closed");
-          return;
-        }
+        const makeInfo = (extra?: Partial<EventInfo>): EventInfo => ({
+          name: event.name, date: event.date || "", venue: event.venue || "",
+          maxParticipants: null, currentCount: 0,
+          formTitle: event.registrationFormTitle || "イベント申し込み",
+          description: event.registrationDescription || "",
+          customFields: event.registrationFields || [],
+          ...extra,
+        });
 
-        // Check deadline
+        if (!event.registrationOpen) { setEventInfo(makeInfo()); setPhase("closed"); return; }
+
         if (event.registrationDeadline) {
           const deadlineEnd = new Date(event.registrationDeadline + "T23:59:59+09:00").getTime();
-          if (Date.now() > deadlineEnd) {
-            setEventInfo({ name: event.name, date: event.date || "", venue: event.venue || "", maxParticipants: null, currentCount: 0, description: "", customFields: [] });
-            setPhase("closed");
-            return;
-          }
+          if (Date.now() > deadlineEnd) { setEventInfo(makeInfo()); setPhase("closed"); return; }
         }
 
-        // Get participant count
         let currentCount = 0;
         try {
           const pRes = await fetch(`/api/db?key=vls_participants&_t=${Date.now()}`, { cache: "no-store" });
@@ -75,20 +71,12 @@ export default function RegisterPage() {
 
         const maxP = event.maxParticipants || null;
         if (maxP && currentCount >= maxP) {
-          setEventInfo({ name: event.name, date: event.date || "", venue: event.venue || "", maxParticipants: maxP, currentCount, description: "", customFields: [] });
+          setEventInfo(makeInfo({ maxParticipants: maxP, currentCount }));
           setPhase("full");
           return;
         }
 
-        setEventInfo({
-          name: event.name,
-          date: event.date || "",
-          venue: event.venue || "",
-          maxParticipants: maxP,
-          currentCount,
-          description: event.registrationDescription || "",
-          customFields: event.registrationFields || [],
-        });
+        setEventInfo(makeInfo({ maxParticipants: maxP, currentCount }));
         setPhase("input");
       } catch {
         setPhase("error");
@@ -96,67 +84,87 @@ export default function RegisterPage() {
     })();
   }, [eventId]);
 
+  // Extract name/email/phone from field values based on field type
+  const extractSystemFields = () => {
+    if (!eventInfo) return { name: "", email: "", phone: "" };
+    let name = "", email = "", phone = "";
+    for (const field of eventInfo.customFields) {
+      const val = fieldValues[field.id]?.trim() || "";
+      if (field.type === "name") name = val;
+      else if (field.type === "email") email = val;
+      else if (field.type === "phone") phone = val;
+    }
+    return { name, email, phone };
+  };
+
+  // Build customFields (non-system fields only)
+  const buildCustomFields = () => {
+    if (!eventInfo) return {};
+    const custom: Record<string, string> = {};
+    for (const field of eventInfo.customFields) {
+      if (field.type !== "name" && field.type !== "email" && field.type !== "phone") {
+        const val = fieldValues[field.id];
+        if (val !== undefined && val !== "") custom[field.id] = val;
+      }
+    }
+    return custom;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
 
-    // Basic email validation
-    if (!email.includes("@") || !email.includes(".")) {
-      setErrorMessage("メールアドレスの形式が正しくありません");
-      return;
-    }
+    const { name, email } = extractSystemFields();
 
-    // Validate required custom fields
+    // Validate required fields
     if (eventInfo?.customFields) {
       for (const field of eventInfo.customFields) {
-        if (field.required && !customValues[field.id]?.trim()) {
+        const val = fieldValues[field.id]?.trim() || "";
+        if (field.required && !val) {
           setErrorMessage(`「${field.label}」は必須項目です`);
+          return;
+        }
+        if (field.type === "email" && val && (!val.includes("@") || !val.includes("."))) {
+          setErrorMessage("メールアドレスの形式が正しくありません");
           return;
         }
       }
     }
 
+    if (!name) { setErrorMessage("お名前が入力されていません"); return; }
+    if (!email) { setErrorMessage("メールアドレスが入力されていません"); return; }
+
     setPhase("submitting");
     setErrorMessage("");
 
     try {
+      const { phone } = extractSystemFields();
+      const customFields = buildCustomFields();
+
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId,
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          customFields: Object.keys(customValues).length > 0 ? customValues : undefined,
+          name,
+          email,
+          phone,
+          customFields: Object.keys(customFields).length > 0 ? customFields : undefined,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.error === "registration_closed" || data.error === "registration_deadline_passed") {
-          setPhase("closed");
-          return;
-        }
-        if (data.error === "registration_full") {
-          setPhase("full");
-          return;
-        }
-        if (data.error === "duplicate_email") {
-          setPhase("duplicate");
-          setResultName(data.participantName || name);
-          return;
-        }
+        if (data.error === "registration_closed" || data.error === "registration_deadline_passed") { setPhase("closed"); return; }
+        if (data.error === "registration_full") { setPhase("full"); return; }
+        if (data.error === "duplicate_email") { setPhase("duplicate"); setResultName(data.participantName || name); return; }
         setErrorMessage(data.message || "エラーが発生しました");
         setPhase("input");
         return;
       }
 
       setResultName(data.participantName || name);
-      if (eventInfo) {
-        setEventInfo({ ...eventInfo, currentCount: data.currentCount || eventInfo.currentCount + 1 });
-      }
+      if (eventInfo) setEventInfo({ ...eventInfo, currentCount: data.currentCount || eventInfo.currentCount + 1 });
       setPhase("success");
     } catch {
       setErrorMessage("通信エラーが発生しました");
@@ -166,37 +174,32 @@ export default function RegisterPage() {
 
   const handleReset = () => {
     setPhase("input");
-    setName("");
-    setEmail("");
-    setPhone("");
-    setCustomValues({});
+    setFieldValues({});
     setErrorMessage("");
     setResultName("");
   };
 
-  const setCustomValue = (fieldId: string, value: string) => {
-    setCustomValues((prev) => ({ ...prev, [fieldId]: value }));
+  const setFieldValue = (fieldId: string, value: string) => {
+    setFieldValues((prev) => ({ ...prev, [fieldId]: value }));
   };
 
-  // Format date
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
     try {
       const d = new Date(dateStr + "T00:00:00");
       return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-    } catch {
-      return dateStr;
-    }
+    } catch { return dateStr; }
   };
 
   const isSubmitting = phase === "submitting";
+  const formTitle = eventInfo?.formTitle || "イベント申し込み";
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-slate-50 to-slate-100">
       {/* Header */}
       <div className="flex-shrink-0 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-4 shadow-lg">
         <div className="max-w-md mx-auto text-center">
-          <h1 className="text-lg font-bold tracking-wide">📝 イベント申し込み</h1>
+          <h1 className="text-lg font-bold tracking-wide">📝 {formTitle}</h1>
           {eventInfo && <p className="text-sm text-emerald-100 mt-1">{eventInfo.name}</p>}
         </div>
       </div>
@@ -227,95 +230,52 @@ export default function RegisterPage() {
                   {eventInfo && (
                     <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 mb-5 border border-emerald-100">
                       <p className="font-bold text-emerald-800 text-lg">{eventInfo.name}</p>
-                      {eventInfo.date && (
-                        <p className="text-sm text-emerald-700 mt-1">📅 {formatDate(eventInfo.date)}</p>
-                      )}
-                      {eventInfo.venue && (
-                        <p className="text-sm text-emerald-700 mt-0.5">📍 {eventInfo.venue}</p>
-                      )}
+                      {eventInfo.date && <p className="text-sm text-emerald-700 mt-1">📅 {formatDate(eventInfo.date)}</p>}
+                      {eventInfo.venue && <p className="text-sm text-emerald-700 mt-0.5">📍 {eventInfo.venue}</p>}
                       {eventInfo.maxParticipants && eventInfo.maxParticipants > 0 && (
                         <p className="text-xs text-emerald-600 mt-2">
                           👥 {eventInfo.currentCount} / {eventInfo.maxParticipants} 名
-                          <span className="ml-1 text-emerald-500">
-                            （残り{eventInfo.maxParticipants - eventInfo.currentCount}席）
-                          </span>
+                          <span className="ml-1 text-emerald-500">（残り{eventInfo.maxParticipants - eventInfo.currentCount}席）</span>
                         </p>
                       )}
                     </div>
                   )}
 
-                  {/* Event description / overview */}
+                  {/* Event description */}
                   {eventInfo?.description && (
                     <div className="bg-slate-50 rounded-xl p-4 mb-5 border border-slate-200">
-                      <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                        {eventInfo.description}
-                      </div>
+                      <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{eventInfo.description}</div>
                     </div>
                   )}
 
+                  {/* Form title */}
                   <div className="text-center mb-5">
-                    <h2 className="text-xl font-bold text-slate-800">参加申し込み</h2>
-                    <p className="text-sm text-slate-500 mt-1">以下の情報を入力してください</p>
+                    <h2 className="text-xl font-bold text-slate-800">{formTitle}</h2>
                   </div>
 
                   {errorMessage && (
-                    <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-2 rounded-xl mb-4">
-                      {errorMessage}
-                    </div>
+                    <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-2 rounded-xl mb-4">{errorMessage}</div>
                   )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Name */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        お名前 <span className="text-red-400">*</span>
-                      </label>
-                      <input
-                        type="text" value={name} onChange={(e) => setName(e.target.value)}
-                        placeholder="例：山田 太郎"
-                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none text-base bg-slate-50 transition-colors"
-                        required autoFocus autoComplete="name" disabled={isSubmitting}
-                      />
-                    </div>
-
-                    {/* Email */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        メールアドレス <span className="text-red-400">*</span>
-                      </label>
-                      <input
-                        type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                        placeholder="example@email.com"
-                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none text-base bg-slate-50 transition-colors"
-                        required autoComplete="email" disabled={isSubmitting}
-                      />
-                    </div>
-
-                    {/* Phone */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">電話番号</label>
-                      <input
-                        type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                        placeholder="090-1234-5678"
-                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none text-base bg-slate-50 transition-colors"
-                        autoComplete="tel" disabled={isSubmitting}
-                      />
-                    </div>
-
-                    {/* Custom fields */}
+                    {/* All fields from custom fields */}
                     {eventInfo?.customFields?.map((field) => (
-                      <CustomFieldInput
+                      <FieldInput
                         key={field.id}
                         field={field}
-                        value={customValues[field.id] || ""}
-                        onChange={(v) => setCustomValue(field.id, v)}
+                        value={fieldValues[field.id] || ""}
+                        onChange={(v) => setFieldValue(field.id, v)}
                         disabled={isSubmitting}
                       />
                     ))}
 
+                    {(!eventInfo?.customFields || eventInfo.customFields.length === 0) && (
+                      <p className="text-sm text-slate-400 text-center py-4">入力項目が設定されていません</p>
+                    )}
+
                     <button
                       type="submit"
-                      disabled={!name.trim() || !email.trim() || isSubmitting}
+                      disabled={isSubmitting || !eventInfo?.customFields?.length}
                       className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-lg shadow-lg hover:shadow-xl hover:from-emerald-600 hover:to-teal-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
                     >
                       {isSubmitting ? (
@@ -323,15 +283,11 @@ export default function RegisterPage() {
                           <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                           送信中...
                         </span>
-                      ) : (
-                        "申し込む →"
-                      )}
+                      ) : "申し込む →"}
                     </button>
                   </form>
 
-                  <p className="text-xs text-slate-400 text-center mt-4">
-                    申し込み完了後、確認メールをお送りします
-                  </p>
+                  <p className="text-xs text-slate-400 text-center mt-4">申し込み完了後、確認メールをお送りします</p>
                 </div>
               </motion.div>
             )}
@@ -406,9 +362,7 @@ export default function RegisterPage() {
                   <p className="text-slate-600 mt-3">このメールアドレスは既に登録されています</p>
                   <p className="text-lg font-bold text-slate-800 mt-2">{resultName} さん</p>
                   <button onClick={handleReset}
-                    className="mt-6 px-6 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium transition-colors">
-                    ← 戻る
-                  </button>
+                    className="mt-6 px-6 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium transition-colors">← 戻る</button>
                 </div>
               </motion.div>
             )}
@@ -429,106 +383,80 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex-shrink-0 text-center py-3 text-xs text-slate-400">
-        Powered by VLS System
-      </div>
+      <div className="flex-shrink-0 text-center py-3 text-xs text-slate-400">Powered by VLS System</div>
     </div>
   );
 }
 
-/** Renders a single custom field based on its type */
-function CustomFieldInput({
-  field,
-  value,
-  onChange,
-  disabled,
-}: {
-  field: RegistrationField;
-  value: string;
-  onChange: (v: string) => void;
-  disabled: boolean;
+/** Renders a single field based on its type */
+function FieldInput({ field, value, onChange, disabled }: {
+  field: RegistrationField; value: string; onChange: (v: string) => void; disabled: boolean;
 }) {
   const inputBase = "w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none text-base bg-slate-50 transition-colors";
+
+  // System fields (name/email/phone) render as styled inputs
+  if (field.type === "name" || field.type === "email" || field.type === "phone") {
+    const inputType = field.type === "email" ? "email" : field.type === "phone" ? "tel" : "text";
+    const autoComplete = field.type === "name" ? "name" : field.type === "email" ? "email" : "tel";
+    const placeholder = field.type === "name" ? "例：山田 太郎" : field.type === "email" ? "example@email.com" : "090-1234-5678";
+    return (
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          {field.label}{field.required && <span className="text-red-400 ml-0.5">*</span>}
+        </label>
+        {field.description && <p className="text-xs text-slate-500 mb-2">{field.description}</p>}
+        <input type={inputType} value={value} onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder} className={inputBase}
+          required={field.required} autoComplete={autoComplete} disabled={disabled} />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-slate-50/50 rounded-xl p-4 border border-slate-100">
       <label className="block text-sm font-medium text-slate-700 mb-1">
-        {field.label}
-        {field.required && <span className="text-red-400 ml-0.5">*</span>}
+        {field.label}{field.required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
-      {field.description && (
-        <p className="text-xs text-slate-500 mb-2">{field.description}</p>
-      )}
+      {field.description && <p className="text-xs text-slate-500 mb-2">{field.description}</p>}
 
-      {/* Text input */}
       {field.type === "text" && (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={inputBase}
-          required={field.required}
-          disabled={disabled}
-        />
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
+          className={inputBase} required={field.required} disabled={disabled} />
       )}
 
-      {/* Textarea */}
       {field.type === "textarea" && (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={3}
-          className={inputBase + " resize-none"}
-          required={field.required}
-          disabled={disabled}
-        />
+        <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={3}
+          className={inputBase + " resize-none"} required={field.required} disabled={disabled} />
       )}
 
-      {/* Radio buttons */}
       {field.type === "radio" && field.options && (
         <div className="space-y-2 mt-1">
           {field.options.map((option, idx) => (
             <label key={idx} className="flex items-center gap-3 cursor-pointer group">
               <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                value === option ? "border-emerald-500 bg-emerald-500" : "border-slate-300 group-hover:border-emerald-400"
-              }`}>
+                value === option ? "border-emerald-500 bg-emerald-500" : "border-slate-300 group-hover:border-emerald-400"}`}>
                 {value === option && <span className="w-2.5 h-2.5 rounded-full bg-white" />}
               </span>
-              <input
-                type="radio"
-                name={`field-${field.id}`}
-                value={option}
-                checked={value === option}
-                onChange={() => onChange(option)}
-                className="sr-only"
-                disabled={disabled}
-              />
+              <input type="radio" name={`field-${field.id}`} value={option} checked={value === option}
+                onChange={() => onChange(option)} className="sr-only" disabled={disabled} />
               <span className="text-sm text-slate-700">{option}</span>
             </label>
           ))}
         </div>
       )}
 
-      {/* Checkbox (agreement) */}
       {field.type === "checkbox" && (
         <label className="flex items-start gap-3 cursor-pointer group mt-1">
           <span className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-            value === "true" ? "border-emerald-500 bg-emerald-500" : "border-slate-300 group-hover:border-emerald-400"
-          }`}>
+            value === "true" ? "border-emerald-500 bg-emerald-500" : "border-slate-300 group-hover:border-emerald-400"}`}>
             {value === "true" && (
               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             )}
           </span>
-          <input
-            type="checkbox"
-            checked={value === "true"}
-            onChange={(e) => onChange(e.target.checked ? "true" : "")}
-            className="sr-only"
-            disabled={disabled}
-          />
+          <input type="checkbox" checked={value === "true"} onChange={(e) => onChange(e.target.checked ? "true" : "")}
+            className="sr-only" disabled={disabled} />
           <span className="text-sm text-slate-700">同意する</span>
         </label>
       )}
