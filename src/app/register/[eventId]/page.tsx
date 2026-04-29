@@ -205,7 +205,7 @@ export default function RegisterPage() {
 
       {/* Content */}
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md md:max-w-2xl">
+        <div className="w-full max-w-md md:max-w-4xl">
           <AnimatePresence mode="wait">
 
             {/* Loading */}
@@ -227,12 +227,12 @@ export default function RegisterPage() {
                 <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200">
                   {/* Date & participant count */}
                   {eventInfo && (eventInfo.date || (eventInfo.maxParticipants && eventInfo.maxParticipants > 0)) && (
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-sm text-slate-600">
-                      {eventInfo.date && <span>📅 {formatDate(eventInfo.date)}</span>}
+                    <div className="mb-4 text-sm text-slate-600 space-y-1">
+                      {eventInfo.date && <p>📅 {formatDate(eventInfo.date)}</p>}
                       {eventInfo.maxParticipants && eventInfo.maxParticipants > 0 && (
-                        <span className="text-emerald-600 font-medium">
+                        <p className="text-emerald-600 font-medium">
                           👥 {eventInfo.currentCount} / {eventInfo.maxParticipants} 名（残り{eventInfo.maxParticipants - eventInfo.currentCount}席）
-                        </span>
+                        </p>
                       )}
                     </div>
                   )}
