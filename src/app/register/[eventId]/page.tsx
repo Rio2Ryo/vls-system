@@ -84,16 +84,31 @@ export default function RegisterPage() {
     })();
   }, [eventId]);
 
-  // Extract name/email/phone from field values based on field type
+  // Extract name/email/phone from field values based on field type or label
   const extractSystemFields = () => {
     if (!eventInfo) return { name: "", email: "", phone: "" };
     let name = "", email = "", phone = "";
+
+    // 1st pass: exact type match
     for (const field of eventInfo.customFields) {
       const val = fieldValues[field.id]?.trim() || "";
       if (field.type === "name") name = val;
       else if (field.type === "email") email = val;
       else if (field.type === "phone") phone = val;
     }
+
+    // 2nd pass: fallback by label (for backward compat with text-type fields)
+    if (!name || !email) {
+      for (const field of eventInfo.customFields) {
+        if (field.type !== "text") continue;
+        const val = fieldValues[field.id]?.trim() || "";
+        const label = field.label.toLowerCase();
+        if (!name && (label.includes("名前") || label.includes("氏名") || label.includes("name"))) name = val;
+        if (!email && (label.includes("メール") || label.includes("email") || label.includes("mail"))) email = val;
+        if (!phone && (label.includes("電話") || label.includes("phone") || label.includes("tel"))) phone = val;
+      }
+    }
+
     return { name, email, phone };
   };
 
@@ -101,13 +116,19 @@ export default function RegisterPage() {
   const buildCustomFields = () => {
     if (!eventInfo) return {};
     const custom: Record<string, string> = {};
+    const systemTypes = new Set(["name", "email", "phone"]);
     for (const field of eventInfo.customFields) {
-      if (field.type !== "name" && field.type !== "email" && field.type !== "phone") {
+      if (!systemTypes.has(field.type)) {
         const val = fieldValues[field.id];
         if (val !== undefined && val !== "") custom[field.id] = val;
       }
     }
     return custom;
+  };
+
+  const scrollToError = () => {
+    // Scroll to top of form so user can see the error message
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,17 +142,26 @@ export default function RegisterPage() {
         const val = fieldValues[field.id]?.trim() || "";
         if (field.required && !val) {
           setErrorMessage(`「${field.label}」は必須項目です`);
+          scrollToError();
           return;
         }
-        if (field.type === "email" && val && (!val.includes("@") || !val.includes("."))) {
+        // Email format validation (for both "email" type and label-detected email)
+        const isEmailField = field.type === "email" || (!extractSystemFields().email && field.type === "text" && field.label.toLowerCase().includes("メール"));
+        if (isEmailField && val && (!val.includes("@") || !val.includes("."))) {
           setErrorMessage("メールアドレスの形式が正しくありません");
+          scrollToError();
           return;
         }
       }
     }
 
-    if (!name) { setErrorMessage("お名前が入力されていません"); return; }
-    if (!email) { setErrorMessage("メールアドレスが入力されていません"); return; }
+    // Only enforce name/email if system fields or label-detected fields exist
+    if (!name && eventInfo?.customFields?.some(f => f.type === "name" || (f.type === "text" && (f.label.includes("名前") || f.label.includes("氏名"))))) {
+      setErrorMessage("お名前が入力されていません"); scrollToError(); return;
+    }
+    if (!email && eventInfo?.customFields?.some(f => f.type === "email" || (f.type === "text" && f.label.toLowerCase().includes("メール")))) {
+      setErrorMessage("メールアドレスが入力されていません"); scrollToError(); return;
+    }
 
     setPhase("submitting");
     setErrorMessage("");
