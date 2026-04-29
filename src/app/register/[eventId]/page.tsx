@@ -323,13 +323,6 @@ export default function RegisterPage() {
                     className="text-8xl block mb-4">🎉</motion.span>
                   <h2 className="text-2xl font-black text-emerald-700">申し込み完了！</h2>
                   <p className="text-xl font-bold text-slate-800 mt-3">{resultName} さん</p>
-                  {eventInfo && (
-                    <div className="mt-5 bg-slate-50 rounded-xl p-4 text-left">
-                      <p className="text-sm font-bold text-slate-700 mb-2">🎪 {eventInfo.name}</p>
-                      {eventInfo.date && <p className="text-sm text-slate-600">📅 {formatDate(eventInfo.date)}</p>}
-                      {eventInfo.venue && <p className="text-sm text-slate-600">📍 {eventInfo.venue}</p>}
-                    </div>
-                  )}
                   <div className="mt-5 bg-emerald-50 rounded-xl p-3 border border-emerald-100">
                     <p className="text-sm text-emerald-700">📧 確認メールを送信しました</p>
                     <p className="text-xs text-emerald-600 mt-1">受信トレイをご確認ください</p>
