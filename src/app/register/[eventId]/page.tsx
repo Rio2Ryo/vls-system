@@ -197,10 +197,9 @@ export default function RegisterPage() {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-slate-50 to-slate-100">
       {/* Header */}
-      <div className="flex-shrink-0 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-4 shadow-lg">
+      <div className="flex-shrink-0 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-5 shadow-lg">
         <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-lg font-bold tracking-wide">📝 {formTitle}</h1>
-          {eventInfo && <p className="text-sm text-emerald-100 mt-1">{eventInfo.name}</p>}
+          <h1 className="text-xl font-bold tracking-wide">{formTitle}</h1>
         </div>
       </div>
 
@@ -226,17 +225,14 @@ export default function RegisterPage() {
             {(phase === "input" || phase === "submitting") && (
               <motion.div key="input" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200">
-                  {/* Event info card */}
-                  {eventInfo && (
-                    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 mb-5 border border-emerald-100">
-                      <p className="font-bold text-emerald-800 text-lg">{eventInfo.name}</p>
-                      {eventInfo.date && <p className="text-sm text-emerald-700 mt-1">📅 {formatDate(eventInfo.date)}</p>}
-                      {eventInfo.venue && <p className="text-sm text-emerald-700 mt-0.5">📍 {eventInfo.venue}</p>}
+                  {/* Date & participant count */}
+                  {eventInfo && (eventInfo.date || (eventInfo.maxParticipants && eventInfo.maxParticipants > 0)) && (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-sm text-slate-600">
+                      {eventInfo.date && <span>📅 {formatDate(eventInfo.date)}</span>}
                       {eventInfo.maxParticipants && eventInfo.maxParticipants > 0 && (
-                        <p className="text-xs text-emerald-600 mt-2">
-                          👥 {eventInfo.currentCount} / {eventInfo.maxParticipants} 名
-                          <span className="ml-1 text-emerald-500">（残り{eventInfo.maxParticipants - eventInfo.currentCount}席）</span>
-                        </p>
+                        <span className="text-emerald-600 font-medium">
+                          👥 {eventInfo.currentCount} / {eventInfo.maxParticipants} 名（残り{eventInfo.maxParticipants - eventInfo.currentCount}席）
+                        </span>
                       )}
                     </div>
                   )}
@@ -247,11 +243,6 @@ export default function RegisterPage() {
                       <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{eventInfo.description}</div>
                     </div>
                   )}
-
-                  {/* Form title */}
-                  <div className="text-center mb-5">
-                    <h2 className="text-xl font-bold text-slate-800">{formTitle}</h2>
-                  </div>
 
                   {errorMessage && (
                     <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-2 rounded-xl mb-4">{errorMessage}</div>
