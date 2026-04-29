@@ -198,7 +198,7 @@ export default function RegisterPage() {
     <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-slate-50 to-slate-100">
       {/* Header */}
       <div className="flex-shrink-0 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-4 shadow-lg">
-        <div className="max-w-md mx-auto text-center">
+        <div className="max-w-2xl mx-auto text-center">
           <h1 className="text-lg font-bold tracking-wide">📝 {formTitle}</h1>
           {eventInfo && <p className="text-sm text-emerald-100 mt-1">{eventInfo.name}</p>}
         </div>
@@ -206,7 +206,7 @@ export default function RegisterPage() {
 
       {/* Content */}
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md md:max-w-2xl">
           <AnimatePresence mode="wait">
 
             {/* Loading */}
