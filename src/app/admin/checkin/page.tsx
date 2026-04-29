@@ -520,34 +520,34 @@ export default function CheckinPage() {
                       initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-4 pb-3 pt-1 border-t border-gray-100 dark:border-gray-700">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      <div className="px-4 pb-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+                        <div className="space-y-2 text-xs">
                           {p.phone && (
-                            <div className="flex gap-2">
-                              <span className="text-gray-400 flex-shrink-0">📞 電話番号:</span>
-                              <span className="text-gray-700 dark:text-gray-300">{p.phone}</span>
+                            <div>
+                              <span className="text-gray-400">📞 電話番号</span>
+                              <p className="text-gray-700 dark:text-gray-300 mt-0.5">{p.phone}</p>
                             </div>
                           )}
                           {p.source && (
-                            <div className="flex gap-2">
-                              <span className="text-gray-400 flex-shrink-0">📋 登録元:</span>
-                              <span className="text-gray-700 dark:text-gray-300">{p.source === "form" ? "申し込みフォーム" : "CSVインポート"}</span>
+                            <div>
+                              <span className="text-gray-400">📋 登録元</span>
+                              <p className="text-gray-700 dark:text-gray-300 mt-0.5">{p.source === "form" ? "申し込みフォーム" : "CSVインポート"}</p>
                             </div>
                           )}
                           {p.customFields && Object.entries(p.customFields).map(([fieldId, value]) => {
                             const fieldDef = regFields.find((f) => f.id === fieldId);
                             const label = fieldDef?.label || fieldId;
                             return (
-                              <div key={fieldId} className="flex gap-2">
-                                <span className="text-gray-400 flex-shrink-0">{label}:</span>
-                                <span className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{value === "true" ? "✅ 同意" : value}</span>
+                              <div key={fieldId}>
+                                <span className="text-gray-400">{label}</span>
+                                <p className="text-gray-700 dark:text-gray-300 mt-0.5 break-words">{value === "true" ? "✅ 同意" : value}</p>
                               </div>
                             );
                           })}
                           {p.registeredAt && (
-                            <div className="flex gap-2">
-                              <span className="text-gray-400 flex-shrink-0">📅 登録日時:</span>
-                              <span className="text-gray-700 dark:text-gray-300">{new Date(p.registeredAt).toLocaleString("ja-JP")}</span>
+                            <div>
+                              <span className="text-gray-400">📅 登録日時</span>
+                              <p className="text-gray-700 dark:text-gray-300 mt-0.5">{new Date(p.registeredAt).toLocaleString("ja-JP")}</p>
                             </div>
                           )}
                         </div>
