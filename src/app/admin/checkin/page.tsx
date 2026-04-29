@@ -29,6 +29,7 @@ export default function CheckinPage() {
   const [showCheckedIn, setShowCheckedIn] = useState(true);
   const [sortKey, setSortKey] = useState<"name" | "time" | "status">("name");
   const [tab, setTab] = useState<Tab>("list");
+  const [expandedParticipant, setExpandedParticipant] = useState<string | null>(null);
 
   interface WalkInEntry {
     id: string;
@@ -473,31 +474,90 @@ export default function CheckinPage() {
         ) : (
           <div className="space-y-2">
             <p className="text-xs text-gray-400">{searchText ? `${sorted.length}件 / ${totalCount}件表示` : `${sorted.length}名の参加者`}</p>
-            {sorted.map((p) => (
+            {sorted.map((p) => {
+              const selectedEvent = events.find((e) => e.id === selectedEventId);
+              const regFields = selectedEvent?.registrationFields || [];
+              const hasDetails = p.phone || p.source || (p.customFields && Object.keys(p.customFields).length > 0);
+              return (
               <motion.div key={p.id} layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                className={`flex items-center gap-4 px-4 py-3 rounded-xl border transition-colors ${p.checkedIn ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-[#6EC6FF]"}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 ${p.checkedIn ? "bg-green-100 dark:bg-green-900/30" : "bg-gray-100 dark:bg-gray-700"}`}>
-                  {p.checkedIn ? "✅" : "⬜"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`font-medium text-sm ${p.checkedIn ? "text-green-700 dark:text-green-400" : "text-gray-700 dark:text-gray-200"}`}>{p.name}</p>
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    {p.email && <span>{p.email}</span>}
-                    {p.checkinToken && <span className="text-[10px] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono">{p.checkinToken}</span>}
+                className={`rounded-xl border transition-colors ${p.checkedIn ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-[#6EC6FF]"}`}>
+                <div className="flex items-center gap-4 px-4 py-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 ${p.checkedIn ? "bg-green-100 dark:bg-green-900/30" : "bg-gray-100 dark:bg-gray-700"}`}>
+                    {p.checkedIn ? "✅" : "⬜"}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium text-sm ${p.checkedIn ? "text-green-700 dark:text-green-400" : "text-gray-700 dark:text-gray-200"}`}>{p.name}</p>
+                    <div className="flex items-center gap-2 text-xs text-gray-400 flex-wrap">
+                      {p.email && <span>{p.email}</span>}
+                      {p.phone && <span>📞 {p.phone}</span>}
+                      {p.source === "form" && <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded text-[10px]">フォーム</span>}
+                    </div>
+                  </div>
+                  {p.checkedIn && p.checkedInAt && <span className="text-xs text-green-500 font-mono flex-shrink-0">{formatTime(p.checkedInAt)}</span>}
+                  {hasDetails && (
+                    <button
+                      onClick={() => setExpandedParticipant(expandedParticipant === p.id ? null : p.id)}
+                      className="text-xs px-2 py-1 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                      title="詳細を表示"
+                    >
+                      {expandedParticipant === p.id ? "▲" : "▼"}
+                    </button>
+                  )}
+                  <button onClick={() => toggleCheckin(p.id)}
+                    className={`text-xs px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0 ${p.checkedIn ? "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600" : "bg-green-500 text-white hover:bg-green-600 shadow-sm"}`}>
+                    {p.checkedIn ? "取消" : "チェックイン"}
+                  </button>
+                  <button onClick={() => deleteParticipant(p.id)}
+                    className="text-xs px-2 py-2 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+                    title="参加者を削除">
+                    🗑
+                  </button>
                 </div>
-                {p.checkedIn && p.checkedInAt && <span className="text-xs text-green-500 font-mono flex-shrink-0">{formatTime(p.checkedInAt)}</span>}
-                <button onClick={() => toggleCheckin(p.id)}
-                  className={`text-xs px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0 ${p.checkedIn ? "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600" : "bg-green-500 text-white hover:bg-green-600 shadow-sm"}`}>
-                  {p.checkedIn ? "取消" : "チェックイン"}
-                </button>
-                <button onClick={() => deleteParticipant(p.id)}
-                  className="text-xs px-2 py-2 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
-                  title="参加者を削除">
-                  🗑
-                </button>
+                {/* Expanded detail panel */}
+                <AnimatePresence>
+                  {expandedParticipant === p.id && hasDetails && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-4 pb-3 pt-1 border-t border-gray-100 dark:border-gray-700">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                          {p.phone && (
+                            <div className="flex gap-2">
+                              <span className="text-gray-400 flex-shrink-0">📞 電話番号:</span>
+                              <span className="text-gray-700 dark:text-gray-300">{p.phone}</span>
+                            </div>
+                          )}
+                          {p.source && (
+                            <div className="flex gap-2">
+                              <span className="text-gray-400 flex-shrink-0">📋 登録元:</span>
+                              <span className="text-gray-700 dark:text-gray-300">{p.source === "form" ? "申し込みフォーム" : "CSVインポート"}</span>
+                            </div>
+                          )}
+                          {p.customFields && Object.entries(p.customFields).map(([fieldId, value]) => {
+                            const fieldDef = regFields.find((f) => f.id === fieldId);
+                            const label = fieldDef?.label || fieldId;
+                            return (
+                              <div key={fieldId} className="flex gap-2">
+                                <span className="text-gray-400 flex-shrink-0">{label}:</span>
+                                <span className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{value === "true" ? "✅ 同意" : value}</span>
+                              </div>
+                            );
+                          })}
+                          {p.registeredAt && (
+                            <div className="flex gap-2">
+                              <span className="text-gray-400 flex-shrink-0">📅 登録日時:</span>
+                              <span className="text-gray-700 dark:text-gray-300">{new Date(p.registeredAt).toLocaleString("ja-JP")}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         ))}
 
